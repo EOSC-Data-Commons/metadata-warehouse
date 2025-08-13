@@ -1,18 +1,24 @@
 from celery import Celery
+import time
 
 print('celery')
 broker_url = 'redis://broker:6379/0'
 
-app = Celery('tasks')
+celery_app = Celery('tasks')
+celery_app.task_serializer = 'json'
+celery_app.ignore_result = False
 
-@app.task
+@celery_app.task
 def add(x, y):
+    print('sleeping')
+    time.sleep(10)
+    print('slept')
     return x + y
 
-add(1,2)
+#add(1,2)
 
-print(app.task)
+print(celery_app.task)
 
-result = add.delay(4, 4)
+result = add.delay(4, 6)
 print(result)
 print('added task')

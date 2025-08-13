@@ -1,6 +1,6 @@
 opensearch-py
 #psycopg2
 pgsql
-celery
-redis
-flower
+celery==5.4.0
+redis==5.2.1
+flower==2.0.1

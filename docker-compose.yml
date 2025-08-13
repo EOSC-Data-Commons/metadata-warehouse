@@ -12,10 +12,10 @@ services:
       - warehouse-backend
 
   flower:
-    image: mher/flower
-    #build:
-    #  dockerfile: ./docker/transform/Dockerfile
-    #  context: .
+    #image: mher/flower
+    build:
+      dockerfile: ./docker/transform/Dockerfile
+      context: .
     networks:
       - warehouse-backend
     ports:
@@ -26,13 +26,23 @@ services:
     volumes:
       - ./data/results:/var/celery/results
     environment:
-      CELERY_BROKER_URL: redis://broker:6379/0
-      CELERY_RESULT_BACKEND: 'file:///var/celery/results'
+      #CELERY_BROKER_URL: redis://broker:6379/0
+      #CELERY_RESULT_BACKEND: 'file:///var/celery/results'
+      #FLOWER_PERSISTENT: True
+      CELERY_RESULT_BACKEND: redis://broker:6379/0
+      #CELERY_TASK_TRACK_STARTED: True
     command:
       [
         'celery',
-        #"--broker=redis://broker:6379/0",
+        #'--app',
+        #'tasks',
+        "--broker=redis://broker:6379/0",
         'flower',
+        '--address=0.0.0.0',
+        '--loglevel=debug',
+        "--persistent=True",
+        "--db=flower"
+        #'--without-heartbeat'
         #"--address=0.0.0.0",
         #"--port=5555"
       ]
@@ -56,7 +66,8 @@ services:
       - ./data/results:/var/celery/results
     environment:
       CELERY_BROKER_URL: redis://broker:6379/0
-      CELERY_RESULT_BACKEND: 'file:///var/celery/results'
+      #CELERY_RESULT_BACKEND: 'file:///var/celery/results'
+      CELERY_RESULT_BACKEND: redis://broker:6379/0
 
   transform:
     build:
