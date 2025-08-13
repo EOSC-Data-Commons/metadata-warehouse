@@ -1,0 +1,16 @@
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  pgadmin:
+    ports:
+      - "127.0.0.1:8888:80"
+
+  opensearch:
+    ports:
+      - "127.0.0.1:9200:9200"
+
+  opensearch-dashboards:
+    ports:
+      - "127.0.0.1:5601:5601"
