@@ -1,4 +1,75 @@
 services:
+  broker:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - redis-broker:/data
+      - ./etc/redis.conf:/usr/local/etc/redis/redis.conf
+    #sysctls:
+    #  - net.core.somaxconn=511
+    networks:
+      - warehouse-backend
+
+  flower:
+    image: mher/flower
+    #build:
+    #  dockerfile: ./docker/transform/Dockerfile
+    #  context: .
+    networks:
+      - warehouse-backend
+    ports:
+      - "127.0.0.1:5555:5555"
+    depends_on:
+      - broker
+      - celery
+    volumes:
+      - ./data/results:/var/celery/results
+    environment:
+      CELERY_BROKER_URL: redis://broker:6379/0
+      CELERY_RESULT_BACKEND: 'file:///var/celery/results'
+    command:
+      [
+        'celery',
+        #"--broker=redis://broker:6379/0",
+        'flower',
+        #"--address=0.0.0.0",
+        #"--port=5555"
+      ]
+
+  celery:
+    build:
+      dockerfile: ./docker/transform/Dockerfile
+      context: .
+    networks:
+      - warehouse-backend
+    depends_on:
+      - broker
+    command:
+      ["celery",
+       "-A",
+       "tasks",
+       "worker",
+       "--loglevel=INFO"
+      ]
+    volumes:
+      - ./data/results:/var/celery/results
+    environment:
+      CELERY_BROKER_URL: redis://broker:6379/0
+      CELERY_RESULT_BACKEND: 'file:///var/celery/results'
+
+  transform:
+    build:
+      dockerfile: ./docker/transform/Dockerfile
+      context: .
+    command: python3 app/transform.py
+    networks:
+      - warehouse-backend
+    depends_on:
+      - postgres
+      - opensearch
+      - broker
+
   postgres:
     image: postgres:17-alpine
     environment:
@@ -63,6 +134,7 @@ volumes:
   pgadmin-data:
   opensearch-data:
   opensearch-dashboards-data:
+  redis-broker:
 
 networks:
   warehouse-backend:

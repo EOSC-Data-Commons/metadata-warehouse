@@ -1,0 +1,6 @@
+opensearch-py
+#psycopg2
+pgsql
+celery
+redis
+flower
