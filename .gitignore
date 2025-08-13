@@ -209,3 +209,4 @@ __marimo__/
 
 .idea/*
 docker-compose.override.yml
+opensearch_data/data/*
