@@ -13,6 +13,7 @@ def add(x, y):
     print('sleeping')
     time.sleep(10)
     print('slept')
+    #raise Exception('bad')
     return x + y
 
 #add(1,2)

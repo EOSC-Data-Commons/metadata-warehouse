@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     command: redis-server /usr/local/etc/redis/redis.conf
     volumes:
-      - redis-broker:/data
+      - broker-data:/data
       - ./etc/redis.conf:/usr/local/etc/redis/redis.conf
     #sysctls:
     #  - net.core.somaxconn=511
@@ -12,38 +12,31 @@ services:
       - warehouse-backend
 
   flower:
-    #image: mher/flower
-    build:
-      dockerfile: ./docker/transform/Dockerfile
-      context: .
+    image: mher/flower
+    #build:
+      #dockerfile: ./docker/transform/Dockerfile
+      #context: .
     networks:
       - warehouse-backend
-    ports:
-      - "127.0.0.1:5555:5555"
     depends_on:
       - broker
       - celery
     volumes:
-      - ./data/results:/var/celery/results
+      #- ./data/results:/var/celery/results
+      - flower-data:/data # persist flower db
     environment:
-      #CELERY_BROKER_URL: redis://broker:6379/0
+      CELERY_BROKER_URL: redis://broker:6379/0
       #CELERY_RESULT_BACKEND: 'file:///var/celery/results'
-      #FLOWER_PERSISTENT: True
       CELERY_RESULT_BACKEND: redis://broker:6379/0
-      #CELERY_TASK_TRACK_STARTED: True
     command:
       [
         'celery',
-        #'--app',
-        #'tasks',
-        "--broker=redis://broker:6379/0",
         'flower',
         '--address=0.0.0.0',
-        '--loglevel=debug',
+        '--loglevel=info',
         "--persistent=True",
-        "--db=flower"
+        "--db=flower_db" # /data/flower_db
         #'--without-heartbeat'
-        #"--address=0.0.0.0",
         #"--port=5555"
       ]
 
@@ -62,8 +55,8 @@ services:
        "worker",
        "--loglevel=INFO"
       ]
-    volumes:
-      - ./data/results:/var/celery/results
+    #volumes:
+      #- ./data/results:/var/celery/results
     environment:
       CELERY_BROKER_URL: redis://broker:6379/0
       #CELERY_RESULT_BACKEND: 'file:///var/celery/results'
@@ -149,7 +142,8 @@ volumes:
   pgadmin-data:
   opensearch-data:
   opensearch-dashboards-data:
-  redis-broker:
+  broker-data:
+  flower-data:
 
 networks:
   warehouse-backend:

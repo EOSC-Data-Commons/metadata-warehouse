@@ -1,4 +1,8 @@
 services:
+  flower:
+    ports:
+      - "127.0.0.1:5555:5555"
+
   postgres:
     ports:
       - "127.0.0.1:5432:5432"
