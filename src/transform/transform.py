@@ -1,13 +1,15 @@
 import pgsql
 #import psycopg2
 from opensearchpy import OpenSearch
-#from tasks import celery_app, add
+from tasks import celery_app, add, transform_batch
 import os
 
 #print(os.environ)
 
 user = os.environ['POSTGRES_USER']
 pw = os.environ['POSTGRES_PASSWORD']
+
+batch = []
 
 with pgsql.Connection(('postgres', 5432), user, pw, tls = False) as db:
     print(db)
@@ -21,7 +23,12 @@ FROM raw;
         #print(len(all_rows))
 
         for doc in all_rows():
-            print(doc)
+            batch.append(doc.root)
+
+
+res = transform_batch.delay(batch)
+print(res)
+
 
 
 

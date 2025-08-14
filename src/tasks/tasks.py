@@ -16,6 +16,11 @@ def add(x, y):
     #raise Exception('bad')
     return x + y
 
+@celery_app.task
+def transform_batch(batch: list[str]):
+    print('batch registered')
+    return len(batch)
+
 #add(1,2)
 
 print(celery_app.task)
