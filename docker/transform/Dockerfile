@@ -10,9 +10,9 @@ RUN pip install --upgrade pip \
 
 #FROM python:3.12-alpine as final
 
-WORKDIR /code
+WORKDIR /code/app
 
 # copy files
 COPY ./src/transform /code/app/
-COPY ./src/tasks /code
+COPY ./src/tasks /code/app
 

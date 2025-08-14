@@ -73,9 +73,13 @@ services:
     build:
       dockerfile: ./docker/transform/Dockerfile
       context: .
-    command: python3 app/transform.py
+    command: python3 transform.py
     networks:
       - warehouse-backend
+    environment:
+      CELERY_BROKER_URL: redis://broker:6379/0
+      #CELERY_RESULT_BACKEND: 'file:///var/celery/results'
+      CELERY_RESULT_BACKEND: redis://broker:6379/0
     depends_on:
       - postgres
       - opensearch
