@@ -10,6 +10,11 @@ services:
     #  - net.core.somaxconn=511
     networks:
       - warehouse-backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   flower:
     image: mher/flower
@@ -19,8 +24,10 @@ services:
     networks:
       - warehouse-backend
     depends_on:
-      - broker
-      - celery
+      broker:
+        condition: service_healthy
+      celery:
+        condition: service_healthy
     volumes:
       #- ./data/results:/var/celery/results
       - flower-data:/data # persist flower db
@@ -47,7 +54,8 @@ services:
     networks:
       - warehouse-backend
     depends_on:
-      - broker
+      broker:
+        condition: service_healthy
     command:
       ["celery",
        "-A",
@@ -61,6 +69,11 @@ services:
       CELERY_BROKER_URL: redis://broker:6379/0
       #CELERY_RESULT_BACKEND: 'file:///var/celery/results'
       CELERY_RESULT_BACKEND: redis://broker:6379/0
+    healthcheck:
+      test: celery -A tasks status
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   transform:
     build:
@@ -76,9 +89,12 @@ services:
       POSTGRES_USER: "${POSTGRES_ADMIN}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
     depends_on:
-      - postgres
-      - opensearch
-      - broker
+      postgres:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
 
   postgres:
     image: postgres:17-alpine
@@ -90,13 +106,20 @@ services:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - warehouse-backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
 
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin4_container
     restart: unless-stopped
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       PGADMIN_DEFAULT_EMAIL: "${PGADMIN_ADMIN}"
       PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD}"
@@ -126,6 +149,8 @@ services:
         hard: 65536
     volumes:
       - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail http://localhost:9200/_cluster/health || exit 1"]
 
   opensearch-dashboards:
     restart: unless-stopped
@@ -136,7 +161,8 @@ services:
     volumes:
       - opensearch-dashboards-data:/usr/share/opensearch-dashboards/data
     depends_on:
-      - opensearch
+      opensearch:
+        condition: service_healthy
     networks:
       - warehouse-backend
 volumes:
