@@ -73,6 +73,8 @@ services:
       CELERY_BROKER_URL: redis://broker:6379/0
       #CELERY_RESULT_BACKEND: 'file:///var/celery/results'
       CELERY_RESULT_BACKEND: redis://broker:6379/0
+      POSTGRES_USER: "${POSTGRES_ADMIN}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
     depends_on:
       - postgres
       - opensearch
