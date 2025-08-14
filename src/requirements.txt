@@ -1,6 +1,5 @@
 opensearch-py
 #psycopg2
 pgsql
-celery==5.4.0
-redis==5.2.1
-flower==2.0.1
+celery[redis]
+#flower # only needed when not using mher/flower

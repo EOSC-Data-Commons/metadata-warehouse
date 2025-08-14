@@ -1,0 +1,3 @@
+opensearch-py
+pgsql
+load_dotenv
