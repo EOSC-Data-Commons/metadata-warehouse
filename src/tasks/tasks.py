@@ -1,12 +1,25 @@
 from celery import Celery
 import time
+from opensearchpy import OpenSearch
+from opensearchpy.helpers import bulk
 import os
+
+def flush_bulk(client, batch):
+    success, failed = bulk(client, batch)
+    print(success, failed)
 
 print('celery')
 
 celery_app = Celery('tasks')
 celery_app.task_serializer = 'json'
 celery_app.ignore_result = False
+
+host = 'opensearch'
+client = OpenSearch(
+    hosts=[{'host': host, 'port': 9200}],
+    http_auth=None,
+    use_ssl=False
+)
 
 @celery_app.task
 def add(x, y):
@@ -19,6 +32,10 @@ def add(x, y):
 @celery_app.task
 def transform_batch(batch: list[str]):
     print('batch registered')
+
+    data = [{"_op_type": "index", "_index": "test_datacite", "_source": {'titles': [{'title': 'my cool title'}]}}]
+    flush_bulk(client, data)
+
     return len(batch)
 
 #add(1,2)
