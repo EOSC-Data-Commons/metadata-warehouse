@@ -4,4 +4,5 @@ pgsql
 celery[redis]
 xmltodict
 watchdog
+fastapi[standard]
 #flower # only needed when not using mher/flower

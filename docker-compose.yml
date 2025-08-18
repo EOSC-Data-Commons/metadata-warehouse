@@ -88,7 +88,9 @@ services:
       context: .
     volumes:
       - ./src:/code/app
-    command: python3 transform.py
+    command: ["fastapi", "dev", "--host", "0.0.0.0", "transform.py", "--port", "80"]
+    ports:
+      - "127.0.0.1:8080:80"
     networks:
       - warehouse-backend
     environment:

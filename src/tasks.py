@@ -36,6 +36,8 @@ def transform_batch(batch: list[str]):
 
     #print(xmltodict.parse(batch[0], process_namespaces=True))
 
+    print('processing batch')
+
     #transform to JSON and normalize
 
     converted = list(map(lambda el: normalize_datacite_json.normalize_datacite_json(xmltodict.parse(el, process_namespaces=True)['http://www.openarchives.org/OAI/2.0/:metadata']['http://datacite.org/schema/kernel-4:resource']), batch))
