@@ -3,4 +3,5 @@ opensearch-py
 pgsql
 celery[redis]
 xmltodict
+watchdog
 #flower # only needed when not using mher/flower

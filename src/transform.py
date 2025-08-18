@@ -12,10 +12,10 @@ pw = os.environ['POSTGRES_PASSWORD']
 batch = []
 
 with pgsql.Connection(('postgres', 5432), user, pw, tls = False) as db:
-    print(db)
+    #print(db)
 
     with db.prepare("""
-    SELECT (xpath('/oai:record/oai:metadata/datacite:resource', info, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}'))[1] AS root
+    SELECT (xpath('/oai:record/oai:metadata', info, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}'))[1] AS root
 FROM raw;
     """) as docs:
 
@@ -27,7 +27,7 @@ FROM raw;
 
 
 res = transform_batch.delay(batch)
-print(res)
+#print(res)
 
 
 

@@ -13,6 +13,5 @@ RUN pip install --upgrade pip \
 WORKDIR /code/app
 
 # copy files
-COPY ./src/transform /code/app/
-COPY ./src/tasks /code/app
+#COPY ./src /code/app/
 

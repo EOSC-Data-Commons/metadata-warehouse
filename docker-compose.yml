@@ -9,16 +9,16 @@ services:
     networks:
       - warehouse-backend
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 3
 
   flower:
     image: mher/flower
-    #build:
+      #build:
       #dockerfile: ./docker/transform/Dockerfile
-      #context: .
+    #context: .
     networks:
       - warehouse-backend
     depends_on:
@@ -49,20 +49,29 @@ services:
     build:
       dockerfile: ./docker/transform/Dockerfile
       context: .
+    volumes:
+      - ./src:/code/app
     networks:
       - warehouse-backend
     depends_on:
       broker:
         condition: service_healthy
     command:
-      ["celery",
-       "-A",
-       "tasks",
-       "worker",
-       "--loglevel=INFO"
+      [ "watchmedo",
+        "auto-restart",
+        '--debug-force-polling',
+        '--directory=/code/app',
+        '--pattern=*.py',
+        '--recursive',
+        '--',
+        "celery",
+        "-A",
+        "tasks",
+        "worker",
+        "--loglevel=INFO"
       ]
-    #volumes:
-      #- ./data/results:/var/celery/results
+      #volumes:
+    #- ./data/results:/var/celery/results
     environment:
       CELERY_BROKER_URL: redis://broker:6379/0
       #CELERY_RESULT_BACKEND: 'file:///var/celery/results'
@@ -77,6 +86,8 @@ services:
     build:
       dockerfile: ./docker/transform/Dockerfile
       context: .
+    volumes:
+      - ./src:/code/app
     command: python3 transform.py
     networks:
       - warehouse-backend
@@ -105,14 +116,14 @@ services:
     networks:
       - warehouse-backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready"]
+      test: [ "CMD-SHELL", "pg_isready" ]
       interval: 10s
       timeout: 5s
       retries: 3
 
 
   pgadmin:
-    image: dpage/pgadmin4
+    image: dpage/pgadmin4:9.6
     container_name: pgadmin4_container
     restart: unless-stopped
     depends_on:
@@ -148,7 +159,7 @@ services:
     volumes:
       - opensearch-data:/usr/share/opensearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl --silent --fail http://localhost:9200/_cluster/health || exit 1"]
+      test: [ "CMD-SHELL", "curl --silent --fail http://localhost:9200/_cluster/health || exit 1" ]
 
   opensearch-dashboards:
     restart: unless-stopped
