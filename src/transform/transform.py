@@ -15,7 +15,7 @@ with pgsql.Connection(('postgres', 5432), user, pw, tls = False) as db:
     print(db)
 
     with db.prepare("""
-    SELECT xpath('/oai:record', info, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}') AS root
+    SELECT (xpath('/oai:record/oai:metadata/datacite:resource', info, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}'))[1] AS root
 FROM raw;
     """) as docs:
 

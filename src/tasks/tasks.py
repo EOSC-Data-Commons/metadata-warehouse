@@ -3,6 +3,7 @@ import time
 from opensearchpy import OpenSearch
 from opensearchpy.helpers import bulk
 import os
+import xmltodict
 
 def flush_bulk(client, batch):
     success, failed = bulk(client, batch)
@@ -32,6 +33,9 @@ def add(x, y):
 @celery_app.task
 def transform_batch(batch: list[str]):
     print('batch registered')
+
+    #print(xmltodict.parse(batch[0], process_namespaces=True))
+    # transform to JSON and normalize
 
     data = [{"_op_type": "index", "_index": "test_datacite", "_source": {'titles': [{'title': 'my cool title'}]}}]
     flush_bulk(client, data)

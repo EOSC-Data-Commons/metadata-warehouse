@@ -2,4 +2,5 @@ opensearch-py
 #psycopg2
 pgsql
 celery[redis]
+xmltodict
 #flower # only needed when not using mher/flower
