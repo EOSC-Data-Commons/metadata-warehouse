@@ -2,4 +2,3 @@ opensearch-py
 pgsql
 load_dotenv
 xmltodict
-fastapi[standard]

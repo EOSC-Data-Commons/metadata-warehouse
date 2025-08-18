@@ -3,7 +3,7 @@ from typing import Any
 DATACITE = 'http://datacite.org/schema/kernel-4'
 XML = 'http://www.w3.org/XML/1998/namespace'
 
-def get_identifier(entry: dict, identifier_type: str):
+def get_identifier(entry: dict[str, Any], identifier_type: str) -> Any | None:
     if identifier := entry.get(f'{DATACITE}:identifier'):
         if id_type := identifier.get(f'@identifierType'):
             if id_type == identifier_type and '#text' in identifier:
@@ -12,7 +12,7 @@ def get_identifier(entry: dict, identifier_type: str):
     #print(f'No DOI given for {entry}')
     return None
 
-def harmonize_creator(entry: dict):
+def harmonize_creator(entry: dict[str, Any]) -> dict[str, Any]:
     '''
     Given an entry of 'datacite_creators', harmonizes its structure.
 
@@ -30,7 +30,7 @@ def harmonize_creator(entry: dict):
     }
 
 
-def harmonize_props(entry: dict, field_name: str, attr_map: dict):
+def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, str]) -> dict[str, Any]:
     '''
     Give a dict and a field_name, returns a dict with that field's value in a harmonized format.
 
@@ -67,7 +67,7 @@ def harmonize_props(entry: dict, field_name: str, attr_map: dict):
         raise Exception('Neither string nor dict')
 
 
-def make_object(subfield: list | dict, subfield_name: str):
+def make_object(subfield: list[dict[str, Any]] | dict[str, Any], subfield_name: str) -> list[dict[str, Any]]:
     '''
     Given a subfield, turn it into a dict.
 
@@ -82,7 +82,7 @@ def make_object(subfield: list | dict, subfield_name: str):
         return [{subfield_name: subfield}]
 
 
-def make_array(field: dict | list | None, subfield_name: str):
+def make_array(field: dict[str, Any] | list[dict[str, Any]] | None, subfield_name: str) -> list[dict[str, Any]]:
     '''
     Given a field value like 'datacite:titles' or 'datacite:subjects',
     returns an array of objects with the subfield name as an index.
@@ -106,14 +106,14 @@ def make_array(field: dict | list | None, subfield_name: str):
         raise Exception('Neither dict nor list')
 
 
-def remove_empty_item(item: tuple[str, Any]):
+def remove_empty_item(item: tuple[str, Any]) -> bool:
     # only ignore None values and empty lists (do not rely on conversions to falsy/truthy)
     if isinstance(item[1], list):
         return len(item[1]) > 0
     else:
         return item[1] is not None
 
-def normalize_datacite_json(input: dict):
+def normalize_datacite_json(input: dict[str, Any]) -> dict[str, Any]:
     # print(json.dumps(input))
 
     try:

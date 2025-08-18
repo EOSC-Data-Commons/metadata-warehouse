@@ -1,4 +1,4 @@
-import pgsql
+import pgsql # type: ignore
 #import psycopg2
 from tasks import transform_batch
 import os
@@ -10,7 +10,7 @@ pw = os.environ['POSTGRES_PASSWORD']
 app = FastAPI()
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, str]:
     batch = []
 
     with pgsql.Connection(('postgres', 5432), user, pw, tls=False) as db:

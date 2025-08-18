@@ -1,19 +1,17 @@
 from celery import Celery
-import time
 from opensearchpy import OpenSearch
 from opensearchpy.helpers import bulk
 import xmltodict
-import normalize_datacite_json
+from utils import normalize_datacite_json
+from typing import Any
 
-
-def flush_bulk(client, batch):
+def flush_bulk(client: OpenSearch, batch: list[dict[str, Any]]) -> None:
     success, failed = bulk(client, batch)
     print(success, failed)
 
-
 celery_app = Celery('tasks')
-celery_app.task_serializer = 'json'
-celery_app.ignore_result = False
+#celery_app.task_serializer = 'json'
+#celery_app.ignore_result = False
 
 host = 'opensearch'
 client = OpenSearch(
@@ -23,7 +21,7 @@ client = OpenSearch(
 )
 
 @celery_app.task
-def transform_batch(batch: list[str]):
+def transform_batch(batch: list[str]) -> int:
     # transform to JSON and normalize
     converted = list(map(lambda el: normalize_datacite_json.normalize_datacite_json(
         xmltodict.parse(el, process_namespaces=True)['http://www.openarchives.org/OAI/2.0/:metadata'][

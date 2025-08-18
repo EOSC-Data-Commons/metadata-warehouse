@@ -1,0 +1,143 @@
+{
+  "http://www.openarchives.org/OAI/2.0/:record": {
+    "http://www.openarchives.org/OAI/2.0/:header": {
+      "http://www.openarchives.org/OAI/2.0/:identifier": "doi:10.17026/DANS-2AB-DPMM",
+      "http://www.openarchives.org/OAI/2.0/:datestamp": "2025-07-05T00:12:32Z",
+      "http://www.openarchives.org/OAI/2.0/:setSpec": [
+        "clarin",
+        "humanities",
+        "oral_history"
+      ]
+    },
+    "http://www.openarchives.org/OAI/2.0/:metadata": {
+      "http://datacite.org/schema/kernel-4:resource": {
+        "@http://www.w3.org/2001/XMLSchema-instance:schemaLocation": "http://datacite.org/schema/kernel-4 http://schema.datacite.org/meta/kernel-4.1/metadata.xsd",
+        "@xmlns": {
+          "": "http://datacite.org/schema/kernel-4",
+          "xsi": "http://www.w3.org/2001/XMLSchema-instance"
+        },
+        "http://datacite.org/schema/kernel-4:identifier": {
+          "@identifierType": "DOI",
+          "#text": "10.17026/DANS-2AB-DPMM"
+        },
+        "http://datacite.org/schema/kernel-4:creators": {
+          "http://datacite.org/schema/kernel-4:creator": {
+            "http://datacite.org/schema/kernel-4:creatorName": {
+              "@nameType": "Personal",
+              "#text": "Veteranen Instituut"
+            }
+          }
+        },
+        "http://datacite.org/schema/kernel-4:titles": {
+          "http://datacite.org/schema/kernel-4:title": "Veteranen Instituut, IPNV, interview 819"
+        },
+        "http://datacite.org/schema/kernel-4:publisher": "DANS Data Station Social Sciences and Humanities",
+        "http://datacite.org/schema/kernel-4:publicationYear": "2011",
+        "http://datacite.org/schema/kernel-4:subjects": {
+          "http://datacite.org/schema/kernel-4:subject": [
+            "Arts and Humanities",
+            "Militaire dienstplicht",
+            "Vrijwillige aanmelding",
+            "Landmeter",
+            "Libanon",
+            "Isra\u00ebli\u00ebrs",
+            "Palestijnen",
+            "Sfeer onderling",
+            "Gesneuvelden",
+            "Mijn",
+            "Gewonden",
+            "Sleur",
+            "Angst",
+            "Thuissituatie",
+            "Overlijden vriendin thuis",
+            "Repatri\u00ebring",
+            "Terugkeerreis",
+            "Contact met lokale bevolking",
+            "UNIFIL",
+            "Trots",
+            "Vredesmissie",
+            "oral history"
+          ]
+        },
+        "http://datacite.org/schema/kernel-4:contributors": {
+          "http://datacite.org/schema/kernel-4:contributor": {
+            "@contributorType": "ContactPerson",
+            "http://datacite.org/schema/kernel-4:contributorName": {
+              "@nameType": "Organizational",
+              "#text": "ICNV  Nederlands Veteraneninstituut"
+            },
+            "http://datacite.org/schema/kernel-4:affiliation": "Nederlands Veteraneninstituut"
+          }
+        },
+        "http://datacite.org/schema/kernel-4:dates": {
+          "http://datacite.org/schema/kernel-4:date": [
+            {
+              "@dateType": "Issued",
+              "#text": "2011-03-16"
+            },
+            {
+              "@dateType": "Created",
+              "#text": "2009-07-10"
+            },
+            {
+              "@dateType": "Submitted",
+              "#text": "2011-09-19"
+            },
+            {
+              "@dateType": "Updated",
+              "#text": "2009-07-09"
+            }
+          ]
+        },
+        "http://datacite.org/schema/kernel-4:resourceType": {
+          "@resourceTypeGeneral": "Dataset"
+        },
+        "http://datacite.org/schema/kernel-4:alternateIdentifiers": {
+          "http://datacite.org/schema/kernel-4:alternateIdentifier": {
+            "@alternateIdentifierType": "DANS-KNAW",
+            "#text": "easy-dataset:46899"
+          }
+        },
+        "http://datacite.org/schema/kernel-4:sizes": {
+          "http://datacite.org/schema/kernel-4:size": [
+            "41793",
+            "20815",
+            "19244"
+          ]
+        },
+        "http://datacite.org/schema/kernel-4:formats": {
+          "http://datacite.org/schema/kernel-4:format": [
+            "text/xml",
+            "application/zip",
+            "application/octet-stream"
+          ]
+        },
+        "http://datacite.org/schema/kernel-4:version": "2.1",
+        "http://datacite.org/schema/kernel-4:rightsList": {
+          "http://datacite.org/schema/kernel-4:rights": [
+            {
+              "@rightsURI": "info:eu-repo/semantics/restrictedAccess"
+            },
+            {
+              "@rightsURI": "https://doi.org/10.17026/fp39-0x58",
+              "#text": "DANS Licence"
+            }
+          ]
+        },
+        "http://datacite.org/schema/kernel-4:descriptions": {
+          "http://datacite.org/schema/kernel-4:description": [
+            {
+              "@descriptionType": "Abstract",
+              "#text": "<p>Deze veteraan uit Limburg begon in 1978 met de dienstplicht. Hij werd landmeter. Hij meldde zich aan voor uitzending naar Libanon en vertrok in 1979. Daar kreeg hij afkeer van hoe de Isra\u00ebli\u00ebrs de Palestijnen behandelden. De sfeer in de groep was goed en redelijk informeel. Een collega overleed doordat een drietonner op een mijn reed, daar moet hij nog altijd veel aan denken. Er was wel sleur in het kampement: elke dag was hetzelfde. Heimwee had hij niet, en het beetje angst dat hij voelde hield hem alert. Tijdens de missie overleed zijn vriendin en hij werd eerder gerepatrieerd dan de anderen, wat hij slordig vond gaan. Samen met zijn vrouw en kinderen maakte hij in 2005 een terugkeerreis. Hij vond het goed te ervaren dat de lokale bevolking de UNIFIL-militairen dankbaar was voor hun aanwezigheid. Hij is er trots op dat hij UNIFIL-veteraan is, dat er iets bereikt is in Libanon.</p>"
+            },
+            {
+              "@descriptionType": "SeriesInformation",
+              "#text": "<p>De collectie van het Interview-project Nederlandse Veteranen (IPNV) bestaat uit meer dan duizend  biografische interviews, die gehouden zijn met veteranen van nagenoeg alle conflicten en militaire missies waar Nederland bij betrokken is geweest.</p><p>Van soldaat tot generaal, van hospik tot para, van gevechten op Nederlandse bodem in de Mei-dagen van 1940 tot de slag bij Chora in Afghanistan, alles komt aan bod in deze gevarieerde collectie. De ge\u00efnterviewden hebben bijgedragen aan een schat aan informatie voor onder andere beleidsmakers, onderzoekers, media en het ge\u00efnteresseerde publiek.</p><p>Onderstaand treft u de links naar de metadata van alle interviews. De  interviews zijn om privacyredenen alleen na toestemming van het Veternanen Instituut toegankelijk. Deze toestemming kunt u aanvragen per dataset via tabblad 'Permission\".</p><p>In het kader van het project Living Oral History Workbench, zijn een aantal interviews via automatische spraakherkenning ge\u00efndexeerd zodat ze doorzoekbaar zijn. Zie de onderstaande link naar Interviews Project Living Oral History Workbench.</p>"
+            }
+          ]
+        },
+        "http://datacite.org/schema/kernel-4:geoLocations": null
+      }
+    }
+  }
+}
