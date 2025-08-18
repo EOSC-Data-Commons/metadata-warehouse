@@ -1,188 +1,180 @@
 services:
-  broker:
-    image: redis:8-alpine
-    restart: unless-stopped
-    command: redis-server /usr/local/etc/redis/redis.conf
-    volumes:
-      - broker-data:/data
-      - ./etc/redis.conf:/usr/local/etc/redis/redis.conf
-    networks:
-      - warehouse-backend
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+    broker:
+        image: redis:8-alpine
+        restart: unless-stopped
+        command: redis-server /usr/local/etc/redis/redis.conf
+        volumes:
+            - broker-data:/data
+            - ./etc/redis.conf:/usr/local/etc/redis/redis.conf
+        networks:
+            - warehouse-backend
+        healthcheck:
+            test: [ "CMD", "redis-cli", "ping" ]
+            interval: 10s
+            timeout: 5s
+            retries: 3
 
-  flower:
-    image: mher/flower
-      #build:
-      #dockerfile: ./docker/transform/Dockerfile
-    #context: .
-    networks:
-      - warehouse-backend
-    depends_on:
-      broker:
-        condition: service_healthy
-      celery:
-        condition: service_healthy
-    volumes:
-      #- ./data/results:/var/celery/results
-      - flower-data:/data # persist flower db
-    environment:
-      CELERY_BROKER_URL: redis://broker:6379/0
-      #CELERY_RESULT_BACKEND: 'file:///var/celery/results'
-      CELERY_RESULT_BACKEND: redis://broker:6379/0
-    command:
-      [
-        'celery',
-        'flower',
-        '--address=0.0.0.0',
-        '--loglevel=info',
-        "--persistent=True",
-        "--db=flower_db" # /data/flower_db
-        #'--without-heartbeat'
-        #"--port=5555"
-      ]
+    flower:
+        image: mher/flower
+          #build:
+        #dockerfile: ./docker/transform/Dockerfile
+        #context: .
+        networks:
+            - warehouse-backend
+        depends_on:
+            broker:
+                condition: service_healthy
+            celery:
+                condition: service_healthy
+        volumes:
+            #- ./data/results:/var/celery/results
+            - flower-data:/data # persist flower db
+        environment:
+            CELERY_BROKER_URL: redis://broker:6379/0
+            #CELERY_RESULT_BACKEND: "file:///var/celery/results"
+            CELERY_RESULT_BACKEND: redis://broker:6379/0
+        command:
+          [
+              "celery",
+              "flower",
+              "--address=0.0.0.0",
+              "--loglevel=info",
+              "--persistent=True",
+              "--db=flower_db"
+            #"--without-heartbeat"
+            #"--port=5555"
+          ]
 
-  celery:
-    build:
-      dockerfile: ./docker/transform/Dockerfile
-      context: .
-    volumes:
-      - ./src:/code/app
-    networks:
-      - warehouse-backend
-    depends_on:
-      broker:
-        condition: service_healthy
-    command:
-      [ "watchmedo",
-        "auto-restart",
-        '--debug-force-polling',
-        '--directory=/code/app',
-        '--pattern=*.py',
-        '--recursive',
-        '--',
-        "celery",
-        "-A",
-        "tasks",
-        "worker",
-        "--loglevel=INFO"
-      ]
-      #volumes:
-    #- ./data/results:/var/celery/results
-    environment:
-      CELERY_BROKER_URL: redis://broker:6379/0
-      #CELERY_RESULT_BACKEND: 'file:///var/celery/results'
-      CELERY_RESULT_BACKEND: redis://broker:6379/0
-    healthcheck:
-      test: celery -A tasks status
-      interval: 10s
-      timeout: 5s
-      retries: 3
+    celery:
+        build:
+            dockerfile: ./docker/transform/Dockerfile
+            context: .
+        volumes:
+            - ./src:/code/app
+        networks:
+            - warehouse-backend
+        depends_on:
+            broker:
+                condition: service_healthy
+        command:
+          [
+              "celery",
+              "-A",
+              "tasks",
+              "worker",
+              "--loglevel=INFO"
+          ]
+        #volumes:
+        #- ./data/results:/var/celery/results
+        environment:
+            CELERY_BROKER_URL: redis://broker:6379/0
+            #CELERY_RESULT_BACKEND: "file:///var/celery/results"
+            CELERY_RESULT_BACKEND: redis://broker:6379/0
+        healthcheck:
+            test: celery -A tasks status
+            interval: 10s
+            timeout: 5s
+            retries: 3
 
-  transform:
-    build:
-      dockerfile: ./docker/transform/Dockerfile
-      context: .
-    volumes:
-      - ./src:/code/app
-    command: ["fastapi", "dev", "--host", "0.0.0.0", "transform.py", "--port", "80"]
-    ports:
-      - "127.0.0.1:8080:80"
-    networks:
-      - warehouse-backend
-    environment:
-      CELERY_BROKER_URL: redis://broker:6379/0
-      #CELERY_RESULT_BACKEND: 'file:///var/celery/results'
-      CELERY_RESULT_BACKEND: redis://broker:6379/0
-      POSTGRES_USER: "${POSTGRES_ADMIN}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      opensearch:
-        condition: service_healthy
-      broker:
-        condition: service_healthy
+    transform:
+        build:
+            dockerfile: ./docker/transform/Dockerfile
+            context: .
+        volumes:
+            - ./src:/code/app
+        command: [ "fastapi", "run", "--host", "0.0.0.0", "transform.py", "--port", "80" ]
+        networks:
+            - warehouse-backend
+        environment:
+            CELERY_BROKER_URL: redis://broker:6379/0
+            #CELERY_RESULT_BACKEND: "file:///var/celery/results"
+            CELERY_RESULT_BACKEND: redis://broker:6379/0
+            POSTGRES_USER: "${POSTGRES_ADMIN}"
+            POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+        depends_on:
+            postgres:
+                condition: service_healthy
+            opensearch:
+                condition: service_healthy
+            broker:
+                condition: service_healthy
 
-  postgres:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_USER: "${POSTGRES_ADMIN}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-    restart: unless-stopped
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - warehouse-backend
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+    postgres:
+        image: postgres:17-alpine
+        environment:
+            POSTGRES_USER: "${POSTGRES_ADMIN}"
+            POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+        restart: unless-stopped
+        volumes:
+            - postgres-data:/var/lib/postgresql/data
+        networks:
+            - warehouse-backend
+        healthcheck:
+            test: [ "CMD-SHELL", "pg_isready" ]
+            interval: 10s
+            timeout: 5s
+            retries: 3
 
 
-  pgadmin:
-    image: dpage/pgadmin4:9.6
-    container_name: pgadmin4_container
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_ADMIN}"
-      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD}"
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    networks:
-      - warehouse-backend
+    pgadmin:
+        image: dpage/pgadmin4:9.6
+        container_name: pgadmin4_container
+        restart: unless-stopped
+        depends_on:
+            postgres:
+                condition: service_healthy
+        environment:
+            PGADMIN_DEFAULT_EMAIL: "${PGADMIN_ADMIN}"
+            PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD}"
+        volumes:
+            - pgadmin-data:/var/lib/pgadmin
+        networks:
+            - warehouse-backend
 
-  opensearch:
-    restart: unless-stopped
-    image: opensearchproject/opensearch:3.1.0
-    networks:
-      - warehouse-backend
-    environment:
-      discovery.type: single-node
-      bootstrap.memory_lock: 'true'
-      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
-      cluster.name: opensearch-cluster
-      plugins.security.disabled: 'true'
-      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-      nofile:
-        soft: 65536
-        hard: 65536
-    volumes:
-      - opensearch-data:/usr/share/opensearch/data
-    healthcheck:
-      test: [ "CMD-SHELL", "curl --silent --fail http://localhost:9200/_cluster/health || exit 1" ]
+    opensearch:
+        restart: unless-stopped
+        image: opensearchproject/opensearch:3.1.0
+        networks:
+            - warehouse-backend
+        environment:
+            discovery.type: single-node
+            bootstrap.memory_lock: "true"
+            OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+            cluster.name: opensearch-cluster
+            plugins.security.disabled: "true"
+            OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+            nofile:
+                soft: 65536
+                hard: 65536
+        volumes:
+            - opensearch-data:/usr/share/opensearch/data
+        healthcheck:
+            test: [ "CMD-SHELL", "curl --silent --fail http://localhost:9200/_cluster/health || exit 1" ]
 
-  opensearch-dashboards:
-    restart: unless-stopped
-    image: opensearchproject/opensearch-dashboards:3.1.0
-    environment:
-      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
-      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
-    volumes:
-      - opensearch-dashboards-data:/usr/share/opensearch-dashboards/data
-    depends_on:
-      opensearch:
-        condition: service_healthy
-    networks:
-      - warehouse-backend
+    opensearch-dashboards:
+        restart: unless-stopped
+        image: opensearchproject/opensearch-dashboards:3.1.0
+        environment:
+            - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+            - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+        volumes:
+            - opensearch-dashboards-data:/usr/share/opensearch-dashboards/data
+        depends_on:
+            opensearch:
+                condition: service_healthy
+        networks:
+            - warehouse-backend
 volumes:
-  postgres-data:
-  pgadmin-data:
-  opensearch-data:
-  opensearch-dashboards-data:
-  broker-data:
-  flower-data:
+    postgres-data:
+    pgadmin-data:
+    opensearch-data:
+    opensearch-dashboards-data:
+    broker-data:
+    flower-data:
 
 networks:
-  warehouse-backend:
+    warehouse-backend:
