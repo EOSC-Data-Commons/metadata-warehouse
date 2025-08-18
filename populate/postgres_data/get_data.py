@@ -4,7 +4,6 @@ import os
 import xmltodict
 import json
 import sys
-from pathlib import Path
 
 # setting path
 sys.path.append("..")
@@ -31,4 +30,4 @@ FROM raw;
         for doc in all_rows():
             print(json.dumps(normalize_datacite_json(xmltodict.parse(doc.root, process_namespaces=True)['http://www.openarchives.org/OAI/2.0/:metadata'][
             'http://datacite.org/schema/kernel-4:resource'])))
-            
+

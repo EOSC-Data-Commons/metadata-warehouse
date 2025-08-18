@@ -5,4 +5,5 @@ celery[redis]
 xmltodict
 watchdog
 fastapi[standard]
+jsonschema
 #flower # only needed when not using mher/flower
