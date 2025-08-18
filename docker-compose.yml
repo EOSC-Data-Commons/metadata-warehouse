@@ -6,8 +6,6 @@ services:
     volumes:
       - broker-data:/data
       - ./etc/redis.conf:/usr/local/etc/redis/redis.conf
-    #sysctls:
-    #  - net.core.somaxconn=511
     networks:
       - warehouse-backend
     healthcheck:
