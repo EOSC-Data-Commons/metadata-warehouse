@@ -8,6 +8,11 @@ To run the containers:
 - `cp docker-compose.override.yml.template docker-compose.override.yml` (adjust as needed)
 - `docker compose up -d`
 
+## pgAdmin 
+
+- when using pgAdmin, register a new server with `Host name` "postgres" (container name in docker network) with port "5432".  
+- provider credentials as defined in `.env`
+
 # Load Data
 
 - `cd scripts`
@@ -19,9 +24,8 @@ To run the containers:
  - create DB `admin` with table `raw`: `python create_db`
  - load XML data from `scripts/postgres_data/data`: `python import_data.py`
  - query XML data: `python get_data`
- - transform data from `scripts/postgres_data/data` to a local dir: `python transform.py -i harvests_{repo_suffix} -o {repo_suffix}_json -s JSON_schema_file [-n]` 
-
-If the -n flag is provided, the JSON data will also be normalized and validated against the JSON schema file `utils/schema.json`.
+ - transform data from `scripts/postgres_data/data` to a local dir: `python transform.py -i harvests_{repo_suffix} -o {repo_suffix}_json -s JSON_schema_file [-n]`
+   If the -n flag is provided, the JSON data will also be normalized and validated against the JSON schema file `utils/schema.json`.
 
 ## Create OpenSearch Index and Import some Sample Data
 
