@@ -1,0 +1,9 @@
+opensearch-py
+#psycopg2
+pgsql
+celery[redis]
+xmltodict
+watchdog
+fastapi[standard]
+jsonschema
+#flower # only needed when not using mher/flower
