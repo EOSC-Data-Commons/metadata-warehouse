@@ -48,6 +48,9 @@
                     },
                     "valueUri": {
                         "type": "string"
+                    },
+                    "classificationCode": {
+                        "type": "string"
                     }
                 },
                 "required": [

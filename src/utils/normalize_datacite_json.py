@@ -121,7 +121,7 @@ def normalize_datacite_json(input: dict[str, Any]) -> dict[str, Any]:
             'doi': get_identifier(input, 'DOI'),
             'url': get_identifier(input, 'URL'),
             'titles': list(map(lambda el: harmonize_props(el, f'{DATACITE}:title', {f'@{XML}:lang': 'lang', '@titleType': 'titleType' }), make_array(input.get(f'{DATACITE}:titles'), f'{DATACITE}:title'))),
-            'subjects': list(map(lambda el: harmonize_props(el, f'{DATACITE}:subject', {f'@{XML}:lang': 'lang', '@subjectScheme': 'subjectScheme', '@schemeURI': 'schemaUri', '@valueURI': 'valueUri'}), make_array(input.get(f'{DATACITE}:subjects'), f'{DATACITE}:subject'))),
+            'subjects': list(map(lambda el: harmonize_props(el, f'{DATACITE}:subject', {f'@{XML}:lang': 'lang', '@subjectScheme': 'subjectScheme', '@schemeURI': 'schemaUri', '@valueURI': 'valueUri', '@classificationCode': 'classificationCode'}), make_array(input.get(f'{DATACITE}:subjects'), f'{DATACITE}:subject'))),
             'creators': list(map(lambda cr: harmonize_creator(cr), make_array(input.get(f'{DATACITE}:creators'), f'{DATACITE}:creator'))),
             'publicationYear': input.get('http://datacite.org/schema/kernel-4:publicationYear'),
             'descriptions': list(map(lambda el: harmonize_props(el, f'{DATACITE}:description', {'@descriptionType': 'descriptionType', f'@{XML}:lang': 'lang'}), make_array(input.get(f'{DATACITE}:descriptions'), f'{DATACITE}:description')))
