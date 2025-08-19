@@ -1,96 +1,117 @@
 {
-  "$schema": "http://json-schema.org/schema#",
-  "type": "object",
-  "properties": {
-    "doi": {
-      "type": "string"
-    },
-    "titles": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "title": {
+    "$schema": "http://json-schema.org/schema#",
+    "type": "object",
+    "properties": {
+        "doi": {
             "type": "string"
-          },
-          "lang": {
-            "type": "string"
-          }
         },
-        "required": [
-          "title"
-        ]
-      }
-    },
-    "subjects": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "subject": {
-            "type": "string"
-          },
-          "lang": {
-            "type": "string"
-          }
+        "titles": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "lang": {
+                        "type": "string"
+                    },
+                    "titleType": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "title"
+                ],
+                "additionalProperties": false
+            }
         },
-        "required": [
-          "subject"
-        ]
-      }
-    },
-    "creators": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "creatorName": {
-            "type": "string"
-          },
-          "nameType": {
-            "type": "string"
-          }
+        "subjects": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "subject": {
+                        "type": "string"
+                    },
+                    "lang": {
+                        "type": "string"
+                    },
+                    "subjectScheme": {
+                        "type": "string"
+                    },
+                    "schemaUri": {
+                        "type": "string"
+                    },
+                    "valueUri": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "subject"
+                ],
+                "additionalProperties": false
+            }
         },
-        "required": [
-          "creatorName"
-        ]
-      }
-    },
-    "publicationYear": {
-      "type": "string"
-    },
-    "descriptions": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "descriptionType": {
-            "type": "string"
-          },
-          "lang": {
-            "type": "string"
-          }
+        "creators": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "creatorName": {
+                        "type": "string"
+                    },
+                    "nameType": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "creatorName"
+                ]
+            }
         },
-        "required": [
-          "description",
-          "descriptionType"
-        ]
-      }
+        "publicationYear": {
+            "type": "string"
+        },
+        "descriptions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "descriptionType": {
+                        "type": "string"
+                    },
+                    "lang": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "description",
+                    "descriptionType"
+                ]
+            }
+        },
+        "url": {
+            "type": "string"
+        }
     },
-    "url": {
-      "type": "string"
-    }
-  },
-  "required": [
-    "creators",
-    "titles"
-  ],
-  "oneOf": [{
-    "required": ["doi"]
-  },{
-    "required": ["url"]
-  }]
+    "required": [
+        "creators",
+        "titles"
+    ],
+    "oneOf": [
+        {
+            "required": [
+                "doi"
+            ]
+        },
+        {
+            "required": [
+                "url"
+            ]
+        }
+    ]
 }
