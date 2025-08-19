@@ -44,3 +44,7 @@ curl '127.0.0.1:9200/test_datacite/_search' -H 'Content-Type: application/json' 
   }
 }' | jq
 ```
+
+## Dependencies
+
+Dependencies are mentioned in `DEPENDENCIES.md`.
