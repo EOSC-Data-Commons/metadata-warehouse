@@ -306,7 +306,7 @@ THE SOFTWARE.
    See the License for the specific language governing permissions and
    limitations under the License.
 
-[mypy](https://github.com/python/mypy)
+## [mypy](https://github.com/python/mypy)
 
 Mypy (and mypyc) are licensed under the terms of the MIT license, reproduced below.
 
