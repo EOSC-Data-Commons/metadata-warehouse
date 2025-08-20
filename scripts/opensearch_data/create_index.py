@@ -34,11 +34,45 @@ index_body = {
                     'title':
                         {
                             'type': 'text',
-                            'copy_to': '_all_fields'
-                        }
+                            'copy_to': ['_all_fields', '_title']
+                        },
+                    'lang': {
+                        'type': 'keyword'
+                    }
+                }
+            },
+            'subjects': {
+                'type': 'nested',
+                'properties': {
+                    'subject':
+                        {
+                            'type': 'text',
+                            'copy_to': ['_all_fields', '_subject']
+                        },
+                    'lang': {
+                        'type': 'keyword'
+                    },
+                    'subjectScheme': {
+                        'type': 'keyword'
+                    },
+                    'schemaUri': {
+                        'type': 'keyword'
+                    },
+                    'valueUri': {
+                        'type': 'keyword'
+                    },
+                    'classificationCode': {
+                        'type': 'keyword'
+                    }
                 }
             },
             '_all_fields': {
+                'type': 'text'
+            },
+            '_title': {
+                'type': 'text'
+            },
+            '_subject': {
                 'type': 'text'
             }
         }
