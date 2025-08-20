@@ -90,7 +90,8 @@
             }
         },
         "publicationYear": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[0-9]{4}$"
         },
         "descriptions": {
             "type": "array",
