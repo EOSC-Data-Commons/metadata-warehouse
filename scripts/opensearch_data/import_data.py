@@ -2,7 +2,14 @@ import json
 from pathlib import Path
 from opensearchpy import OpenSearch
 from opensearchpy.helpers import bulk
+from fastembed import TextEmbedding
+import sys
 
+# setting path
+sys.path.append("..")
+sys.path.append("../..")
+
+from src.utils.embedding_utils import get_embedding_text_from_fields, preprocess_batch
 
 def flush_bulk(client, batch):
     success, failed = bulk(client, batch)
@@ -18,24 +25,27 @@ client = OpenSearch(
 
 print(client.info())
 
-batch_size = 5000
+batch_size = 500
 index_name = 'test_datacite'
 
 batch = []
 
 files: list[Path] = (list(Path('data').rglob("*.json")))
 
+embedding_model = TextEmbedding()
+
 for file in files:
 
-    print('adding', len(batch), batch_size)
-    batch.append({"_op_type": "index", "_index": index_name, "_source": json.load(open(file))})
+    # print('adding', len(batch), batch_size)
+
+    source = json.load(open(file))
+
+    batch.append((source, get_embedding_text_from_fields(source)))
 
     if len(batch) == batch_size:
-        print('bulk')
-        flush_bulk(client, batch)
+        # calculate embeddings for batch
+        flush_bulk(client, preprocess_batch(batch, embedding_model, index_name))
         batch = []
 
-
 if len(batch) > 0:
-    flush_bulk(client, batch)
-
+    flush_bulk(client, preprocess_batch(batch, embedding_model, index_name))

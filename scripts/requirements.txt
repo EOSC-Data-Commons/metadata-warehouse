@@ -3,3 +3,4 @@ pgsql
 load_dotenv
 xmltodict
 jsonschema
+fastembed
