@@ -16,7 +16,7 @@ def extract_fields_from_source(source: dict[str, Any], field_name: str, subfield
     else:
         return []
 
-def preprocess_batch(batch: tuple[list[dict[str, Any]], list[str]], embedding_model: TextEmbedding, index_name: str):
+def preprocess_batch(batch: list[tuple[dict[str, Any], str]], embedding_model: TextEmbedding, index_name: str) -> list[dict[str, Any]]:
     embeddings = list(embedding_model.embed(list(map(lambda ele: ele[1], batch))))
     src_emb =  zip(list(map(lambda ele: ele[0], batch)), embeddings)
     return list(map(lambda ele: {"_op_type": "index", "_index": index_name, "_source": {**ele[0], 'emb': ele[1]}}, src_emb))
