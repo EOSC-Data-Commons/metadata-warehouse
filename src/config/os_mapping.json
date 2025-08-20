@@ -7,6 +7,12 @@
     "mappings": {
         "dynamic": false,
         "properties": {
+            "doi": {
+                "type": "keyword"
+            },
+            "url": {
+                "type": "keyword"
+            },
             "titles": {
                 "type": "nested",
                 "properties": {
@@ -67,8 +73,23 @@
                     }
                 }
             },
+            "dates": {
+                "type": "nested",
+                "properties": {
+                    "date": {
+                        "type": "date",
+                        "format": "yyyy-MM-dd",
+                        "copy_to": [
+                            "_date"
+                        ]
+                    },
+                    "dateType": {
+                        "type": "keyword"
+                    }
+                }
+            },
             "publicationYear": {
-                 "type" : "date",
+                "type": "date",
                 "format": "year"
             },
             "_all_fields": {
@@ -82,6 +103,10 @@
             },
             "_subject": {
                 "type": "text"
+            },
+            "_date": {
+                "type": "date",
+                "format": "yyyy-mm-dd"
             }
         }
     }
