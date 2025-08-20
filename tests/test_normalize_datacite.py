@@ -31,7 +31,7 @@ class TestNormalizeDatacite(unittest.TestCase):
             'http://datacite.org/schema/kernel-4:title': 'A title'
         }
 
-        res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:title', {})
+        res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:title', {}, {})
 
         #print(res)
 
@@ -47,7 +47,7 @@ class TestNormalizeDatacite(unittest.TestCase):
             }
         }
 
-        res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:title', {'@titleType': 'titleType'})
+        res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:title', {'@titleType': 'titleType'}, {})
 
         #print(res)
 
