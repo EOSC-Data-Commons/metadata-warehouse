@@ -156,10 +156,9 @@ def normalize_date_precision(date_str: str) -> str:
         try:
             normalized_date = datetime.datetime(year, month, day).strftime(DATE_FORMAT)
             #print(f'{date_str}, {parts}, {normalized_date}')
-            return normalized_date
         except Exception as e:
             print(f'Could not normalize date: {date_str}, {parts} {e}', file=sys.stderr)
-
+        return normalized_date
 
 def normalize_date_string(date_str: str) -> str:
     if ' ' in date_str:
