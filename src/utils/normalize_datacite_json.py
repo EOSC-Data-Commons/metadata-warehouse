@@ -158,6 +158,7 @@ def normalize_date_precision(date_str: str) -> str:
             #print(f'{date_str}, {parts}, {normalized_date}')
         except Exception as e:
             print(f'Could not normalize date: {date_str}, {parts} {e}', file=sys.stderr)
+            raise e
         return normalized_date
 
 def normalize_date_string(date_str: str) -> str:
