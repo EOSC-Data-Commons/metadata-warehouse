@@ -4,6 +4,13 @@ from opensearchpy import OpenSearch
 from opensearchpy.helpers import bulk
 from fastembed import TextEmbedding
 import sys
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+embedding_model = os.environ['EMBEDDING_MODEL']
+print(embedding_model)
 
 # setting path
 sys.path.append("..")
@@ -32,7 +39,7 @@ batch = []
 
 files: list[Path] = (list(Path('data').rglob("*.json")))
 
-embedding_model = TextEmbedding()
+embedding_model = TextEmbedding(model_name=embedding_model)
 
 for file in files:
 
