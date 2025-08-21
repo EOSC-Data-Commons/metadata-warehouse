@@ -1,7 +1,13 @@
-from typing import Any
-
+import json
+from pathlib import Path
+from typing import Any, NamedTuple
+import os
 from fastembed import TextEmbedding
 
+class SourceWithEmbeddingText(NamedTuple):
+    src: dict[str, Any] # 0
+    textToEmbed: str # 1
+    file: Path # 2
 
 def get_embedding_text_from_fields(source: dict[str, Any]) -> str:
     return ' '.join(extract_fields_from_source(source, 'titles', 'title') + extract_fields_from_source(source, 'subjects',
@@ -16,7 +22,11 @@ def extract_fields_from_source(source: dict[str, Any], field_name: str, subfield
     else:
         return []
 
-def preprocess_batch(batch: list[tuple[dict[str, Any], str]], embedding_model: TextEmbedding, index_name: str) -> list[dict[str, Any]]:
+def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_model: TextEmbedding) -> list[tuple[dict[str, Any], Path]]:
     embeddings = list(embedding_model.embed(list(map(lambda ele: ele[1], batch))))
-    src_emb =  zip(list(map(lambda ele: ele[0], batch)), embeddings)
-    return list(map(lambda ele: {"_op_type": "index", "_index": index_name, "_source": {**ele[0], 'emb': ele[1]}}, src_emb))
+    src_emb = zip(list(map(lambda ele: ele[0], batch)), embeddings, list(map(lambda ele: ele[2], batch)))
+    return list(map(lambda ele: ({**ele[0], 'emb': ele[1].tolist()}, ele[2]), src_emb))
+
+
+def preprocess_batch(batch: list[dict[str, Any]], index_name: str) -> list[dict[str, Any]]:
+    return list(map(lambda ele: {"_op_type": "index", "_index": index_name, "_source": ele}, batch))
