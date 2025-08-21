@@ -126,6 +126,9 @@ def normalize_date_precision(date_str: str) -> str:
     if len(date_str) == 10:
         # day precision
         return date_str
+    elif len(date_str) == 7:
+        # month precision
+        return f'{date_str}-01'
     else:
         # year precision
         return f'{date_str}-01-01'
