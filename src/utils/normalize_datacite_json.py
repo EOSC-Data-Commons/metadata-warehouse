@@ -1,3 +1,5 @@
+import sys
+from datetime import datetime
 from typing import Any, Callable
 
 DATACITE = 'http://datacite.org/schema/kernel-4'
@@ -125,6 +127,12 @@ def remove_empty_item(item: tuple[str, Any]) -> bool:
 def normalize_date_precision(date_str: str) -> str:
     if len(date_str) == 10:
         # day precision
+        try:
+            # will raise an exception if the date str does not conform to the expected format
+            datetime.strptime(date_str, '%Y-%m-%d')
+        except ValueError as e:
+            print(f'Date {date_str} invalid: {e}', file=sys.stderr)
+            raise e
         return date_str
     elif len(date_str) == 7:
         # month precision
@@ -157,7 +165,7 @@ def normalize_datacite_json(input: dict[str, Any]) -> dict[str, Any]:
             'titles': list(map(lambda el: harmonize_props(el, f'{DATACITE}:title', {f'@{XML}:lang': 'lang', '@titleType': 'titleType' }, {}), make_array(input.get(f'{DATACITE}:titles'), f'{DATACITE}:title'))),
             'subjects': list(map(lambda el: harmonize_props(el, f'{DATACITE}:subject', {f'@{XML}:lang': 'lang', '@subjectScheme': 'subjectScheme', '@schemeURI': 'schemaUri', '@valueURI': 'valueUri', '@classificationCode': 'classificationCode'}, {}), make_array(input.get(f'{DATACITE}:subjects'), f'{DATACITE}:subject'))),
             'creators': list(map(lambda cr: harmonize_creator(cr), make_array(input.get(f'{DATACITE}:creators'), f'{DATACITE}:creator'))),
-            'publicationYear': input.get('http://datacite.org/schema/kernel-4:publicationYear'),
+            'publicationYear': input.get(f'{DATACITE}:publicationYear'),
             'descriptions': list(map(lambda el: harmonize_props(el, f'{DATACITE}:description', {'@descriptionType': 'descriptionType', f'@{XML}:lang': 'lang'}, {}), make_array(input.get(f'{DATACITE}:descriptions'), f'{DATACITE}:description'))),
             'dates': list(map(lambda el: harmonize_props(el, f'{DATACITE}:date', {'@dateType': 'dateType'}, {'date': normalize_date_string}), make_array(input.get(f'{DATACITE}:dates'), f'{DATACITE}:date')))
         }
