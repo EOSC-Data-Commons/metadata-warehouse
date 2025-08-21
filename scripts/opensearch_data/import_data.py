@@ -39,7 +39,7 @@ batch = []
 
 files: list[Path] = (list(Path('data').rglob("*.json")))
 
-embedding_model = TextEmbedding(model_name=embedding_model)
+embedding_transformer = TextEmbedding(model_name=embedding_model)
 
 for file in files:
 
@@ -51,8 +51,8 @@ for file in files:
 
     if len(batch) == batch_size:
         # calculate embeddings for batch
-        flush_bulk(client, preprocess_batch(batch, embedding_model, index_name))
+        flush_bulk(client, preprocess_batch(batch, embedding_transformer, index_name))
         batch = []
 
 if len(batch) > 0:
-    flush_bulk(client, preprocess_batch(batch, embedding_model, index_name))
+    flush_bulk(client, preprocess_batch(batch, embedding_transformer, index_name))
