@@ -1,4 +1,11 @@
 from opensearchpy import OpenSearch
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+embedding_dims = os.environ['EMBEDDING_DIMS']
+print(embedding_dims)
 
 host = 'localhost'
 client = OpenSearch(
@@ -24,6 +31,7 @@ index_body = {
         'index': {
             'number_of_shards': 1
         },
+        'index.knn': True
     },
     'mappings': {
         'dynamic': False,
@@ -36,6 +44,22 @@ index_body = {
                             'type': 'text',
                             'copy_to': '_all_fields'
                         }
+                }
+            },
+            'emb': {
+                "type": "knn_vector",
+                "dimension": embedding_dims,
+                "space_type": "cosinesimil",
+                "method": {
+                    "name": "hnsw",
+                    "engine": "lucene",
+                    "parameters": {
+                        "encoder": {
+                            "name": "sq"
+                        },
+                        "ef_construction": 256,
+                        "m": 8
+                    }
                 }
             },
             '_all_fields': {
