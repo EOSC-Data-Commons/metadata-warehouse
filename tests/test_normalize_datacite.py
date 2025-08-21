@@ -76,4 +76,26 @@ class TestNormalizeDatacite(unittest.TestCase):
 
         self.assertEqual(res, {'creatorName': 'Pe\u0161un, Luka', 'nameType': 'personal'})
 
+    def test_normalize_date_precision_with_day_precision(self):
+        res = normalize_datacite_json.normalize_date_precision('2025-04-03')
+        self.assertEqual(res, '2025-04-03')
 
+    def test_normalize_date_precision_with_month_precision(self):
+        res = normalize_datacite_json.normalize_date_precision('2025-04')
+        self.assertEqual(res, '2025-04-01')
+
+    def test_normalize_date_precision_with_year_precision(self):
+        res = normalize_datacite_json.normalize_date_precision('2025')
+        self.assertEqual(res, '2025-01-01')
+
+    def test_normalize_date_string_with_single_date(self):
+        res = normalize_datacite_json.normalize_date_string('2025-06-07')
+        self.assertEqual(res, '2025-06-07')
+
+    def test_normalize_date_string_with_period(self):
+        res = normalize_datacite_json.normalize_date_string('2025/2026')
+        self.assertEqual(res, '2025-01-01')
+
+    def test_normalize_date_string_with_datetime(self):
+        res = normalize_datacite_json.normalize_date_string('2025-08-05 09:35:06')
+        self.assertEqual(res, '2025-08-05')
