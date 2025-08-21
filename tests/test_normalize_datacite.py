@@ -88,6 +88,22 @@ class TestNormalizeDatacite(unittest.TestCase):
         res = normalize_datacite_json.normalize_date_precision('2025')
         self.assertEqual(res, '2025-01-01')
 
+    def test_normalize_date_precision_with_month_without_leading_zero(self):
+        res = normalize_datacite_json.normalize_date_precision('2019-6-01')
+        self.assertEqual(res, '2019-06-01')
+
+    def test_normalize_date_precision_with_day_without_leading_zero(self):
+        res = normalize_datacite_json.normalize_date_precision('2019-07-5')
+        self.assertEqual(res, '2019-07-05')
+
+    def test_normalize_date_precision_with_day_without_leading_zer2(self):
+        res = normalize_datacite_json.normalize_date_precision('2019-11-5')
+        self.assertEqual(res, '2019-11-05')
+
+    def test_normalize_date_precision_with_month_and_day_without_leading_zero(self):
+        res = normalize_datacite_json.normalize_date_precision('2019-7-9')
+        self.assertEqual(res, '2019-07-09')
+
     def test_normalize_date_string_with_single_date(self):
         res = normalize_datacite_json.normalize_date_string('2025-06-07')
         self.assertEqual(res, '2025-06-07')
