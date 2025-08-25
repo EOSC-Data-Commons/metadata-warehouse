@@ -45,5 +45,6 @@ curl '127.0.0.1:9200/test_datacite/_search' -H 'Content-Type: application/json' 
         }
   }
 }' | jq
-- run `query_index.py` to run a knn query
 ```
+- run `query_index.py` to run a knn query
+
