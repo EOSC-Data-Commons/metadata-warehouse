@@ -31,7 +31,10 @@ except Exception as e:
 
 try:
     with open('../../src/config/os_mapping.json') as f:
-        client.indices.create(index=index_name, body=json.load(f))
+        os_mapping = json.load(f)
+        # dynamically set embeddings dims
+        os_mapping['mappings']['properties']['emb']['dimension'] = embedding_dims
+        client.indices.create(index=index_name, body=os_mapping)
         print(f'{index_name} created')
 except Exception as e:
     print(e)

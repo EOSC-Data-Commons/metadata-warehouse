@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import json
 from pathlib import Path
 from fastembed import TextEmbedding
@@ -23,7 +25,7 @@ sys.path.append("../..")
 
 from src.utils.embedding_utils import get_embedding_text_from_fields, add_embeddings_to_source
 
-batch_size = 500
+batch_size = 1000
 batch = []
 files: list[Path] = (list(Path('data/json').rglob("*.json")))
 

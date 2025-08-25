@@ -10,7 +10,7 @@
         "properties": {
             "emb": {
                 "type": "knn_vector",
-                "dimension": 384,
+                "dimension": 0,
                 "space_type": "cosinesimil",
                 "method": {
                     "name": "hnsw",
