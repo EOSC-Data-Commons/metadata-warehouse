@@ -1,0 +1,155 @@
+{
+    "$schema": "http://json-schema.org/schema#",
+    "type": "object",
+    "properties": {
+        "doi": {
+            "type": "string"
+        },
+        "url": {
+            "type": "string"
+        },
+        "titles": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "lang": {
+                        "type": "string"
+                    },
+                    "titleType": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "title"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "subjects": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "subject": {
+                        "type": "string"
+                    },
+                    "lang": {
+                        "type": "string"
+                    },
+                    "subjectScheme": {
+                        "type": "string"
+                    },
+                    "schemaUri": {
+                        "type": "string"
+                    },
+                    "valueUri": {
+                        "type": "string"
+                    },
+                    "classificationCode": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "subject"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "creators": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "creatorName": {
+                        "type": "string"
+                    },
+                    "nameType": {
+                        "type": "string"
+                    },
+                    "nameIdentifierScheme": {
+                        "type": "string"
+                    },
+                    "nameIdentifier": {
+                        "type": "string"
+                    },
+                    "givenName": {
+                        "type": "string"
+                    },
+                    "familyName": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "creatorName"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "publicationYear": {
+            "type": "string",
+            "pattern": "^[0-9]{4}$"
+        },
+        "descriptions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "description": {
+                        "type": "string"
+                    },
+                    "descriptionType": {
+                        "type": "string"
+                    },
+                    "lang": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "description",
+                    "descriptionType"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "dates": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                    },
+                    "dateType": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "date",
+                    "dateType"
+                ],
+                "additionalProperties": false
+            }
+        }
+    },
+    "required": [
+        "creators",
+        "titles"
+    ],
+    "oneOf": [
+        {
+            "required": [
+                "doi"
+            ]
+        },
+        {
+            "required": [
+                "url"
+            ]
+        }
+    ]
+}

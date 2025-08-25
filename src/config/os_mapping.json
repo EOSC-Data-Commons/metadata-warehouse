@@ -1,0 +1,113 @@
+{
+    "settings": {
+        "index": {
+            "number_of_shards": 1
+        }
+    },
+    "mappings": {
+        "dynamic": false,
+        "properties": {
+            "doi": {
+                "type": "keyword"
+            },
+            "url": {
+                "type": "keyword"
+            },
+            "titles": {
+                "type": "nested",
+                "properties": {
+                    "title": {
+                        "type": "text",
+                        "copy_to": [
+                            "_all_fields",
+                            "_title"
+                        ]
+                    },
+                    "lang": {
+                        "type": "keyword"
+                    }
+                }
+            },
+            "descriptions": {
+                "type": "nested",
+                "properties": {
+                    "description": {
+                        "type": "text",
+                        "copy_to": [
+                            "_all_fields",
+                            "_description"
+                        ]
+                    },
+                    "descriptionType": {
+                        "type": "keyword"
+                    },
+                    "lang": {
+                        "type": "keyword"
+                    }
+                }
+            },
+            "subjects": {
+                "type": "nested",
+                "properties": {
+                    "subject": {
+                        "type": "text",
+                        "copy_to": [
+                            "_all_fields",
+                            "_subject"
+                        ]
+                    },
+                    "lang": {
+                        "type": "keyword"
+                    },
+                    "subjectScheme": {
+                        "type": "keyword"
+                    },
+                    "schemaUri": {
+                        "type": "keyword"
+                    },
+                    "valueUri": {
+                        "type": "keyword"
+                    },
+                    "classificationCode": {
+                        "type": "keyword"
+                    }
+                }
+            },
+            "dates": {
+                "type": "nested",
+                "properties": {
+                    "date": {
+                        "type": "date",
+                        "format": "yyyy-MM-dd",
+                        "copy_to": [
+                            "_date"
+                        ]
+                    },
+                    "dateType": {
+                        "type": "keyword"
+                    }
+                }
+            },
+            "publicationYear": {
+                "type": "date",
+                "format": "year"
+            },
+            "_all_fields": {
+                "type": "text"
+            },
+            "_title": {
+                "type": "text"
+            },
+            "_description": {
+                "type": "text"
+            },
+            "_subject": {
+                "type": "text"
+            },
+            "_date": {
+                "type": "date",
+                "format": "yyyy-mm-dd"
+            }
+        }
+    }
+}
