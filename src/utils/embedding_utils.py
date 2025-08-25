@@ -1,7 +1,5 @@
-import json
 from pathlib import Path
 from typing import Any, NamedTuple
-import os
 from fastembed import TextEmbedding
 
 class SourceWithEmbeddingText(NamedTuple):

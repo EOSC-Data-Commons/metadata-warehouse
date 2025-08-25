@@ -31,8 +31,10 @@ To run the containers:
 
 - `cd scripts/opensearch_data`
 - create index `test_datacite`: `python create_index.py`
-- load JSON data in Datacite format from `scripts/opensearch_data/data`: `python import_data.py`
-- perform a query like (requires host port mapping 9200 for opensearch):
+- pre-calculate embeddings from JSON data in Datacite format `scripts/opensearch_data/data/json`: `python prepare-data.py`.
+  JSON files with embeddings will be written to `scripts/opensearch_data/data/json_with_embedding` 
+- load JSON data in Datacite format with pre-calculated embeddings from `scripts/opensearch_data/data/json_with_embedding`: `python import_data.py`
+- perform a lexical query like (requires host port mapping 9200 for opensearch):
 ```sh
 curl '127.0.0.1:9200/test_datacite/_search' -H 'Content-Type: application/json' -d '{
   "query": {
@@ -43,4 +45,5 @@ curl '127.0.0.1:9200/test_datacite/_search' -H 'Content-Type: application/json' 
         }
   }
 }' | jq
+- run `query_index.py` to run a knn query
 ```
