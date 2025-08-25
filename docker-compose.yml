@@ -133,7 +133,7 @@ services:
 
     opensearch:
         restart: unless-stopped
-        image: opensearchproject/opensearch:3.1.0
+        image: opensearchproject/opensearch:3.2.0
         networks:
             - warehouse-backend
         environment:
@@ -157,7 +157,7 @@ services:
 
     opensearch-dashboards:
         restart: unless-stopped
-        image: opensearchproject/opensearch-dashboards:3.1.0
+        image: opensearchproject/opensearch-dashboards:3.2.0
         environment:
             - OPENSEARCH_HOSTS=["http://opensearch:9200"]
             - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true

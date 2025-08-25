@@ -1,8 +1,10 @@
+#!/usr/bin/env python3
+
 import json
 from pathlib import Path
 from opensearchpy import OpenSearch
-from opensearchpy.helpers import bulk
 import sys
+from opensearchpy.helpers import bulk, BulkIndexError
 
 # setting path
 sys.path.append("..")
@@ -11,9 +13,11 @@ sys.path.append("../..")
 from src.utils.embedding_utils import preprocess_batch
 
 def flush_bulk(client, batch):
-    success, failed = bulk(client, batch)
-    print(success, failed)
-
+    try:
+        success, failed = bulk(client, batch, max_retries=3)
+        print(success, failed)
+    except BulkIndexError as e:
+        print(f'An error occurred: {e.errors}')
 
 host = 'localhost'
 client = OpenSearch(

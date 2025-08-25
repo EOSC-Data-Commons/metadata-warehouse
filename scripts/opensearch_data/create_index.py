@@ -1,4 +1,7 @@
+#!/usr/bin/env python3
+
 from opensearchpy import OpenSearch
+import json
 from dotenv import load_dotenv
 import os
 
@@ -26,51 +29,9 @@ try:
 except Exception as e:
     print(e)
 
-index_body = {
-    'settings': {
-        'index': {
-            'number_of_shards': 1
-        },
-        'index.knn': True
-    },
-    'mappings': {
-        'dynamic': False,
-        'properties': {
-            'titles': {
-                'type': 'nested',
-                'properties': {
-                    'title':
-                        {
-                            'type': 'text',
-                            'copy_to': '_all_fields'
-                        }
-                }
-            },
-            'emb': {
-                "type": "knn_vector",
-                "dimension": embedding_dims,
-                "space_type": "cosinesimil",
-                "method": {
-                    "name": "hnsw",
-                    "engine": "lucene",
-                    "parameters": {
-                        "encoder": {
-                            "name": "sq"
-                        },
-                        "ef_construction": 256,
-                        "m": 8
-                    }
-                }
-            },
-            '_all_fields': {
-                'type': 'text'
-            }
-        }
-    }
-}
-
 try:
-    client.indices.create(index=index_name, body=index_body)
-    print(f'{index_name} created')
+    with open('../../src/config/os_mapping.json') as f:
+        client.indices.create(index=index_name, body=json.load(f))
+        print(f'{index_name} created')
 except Exception as e:
     print(e)
