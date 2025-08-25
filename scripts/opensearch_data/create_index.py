@@ -1,4 +1,7 @@
+#!/usr/bin/env python3
+
 from opensearchpy import OpenSearch
+import json
 
 host = 'localhost'
 client = OpenSearch(
@@ -19,34 +22,11 @@ try:
 except Exception as e:
     print(e)
 
-index_body = {
-    'settings': {
-        'index': {
-            'number_of_shards': 1
-        },
-    },
-    'mappings': {
-        'dynamic': False,
-        'properties': {
-            'titles': {
-                'type': 'nested',
-                'properties': {
-                    'title':
-                        {
-                            'type': 'text',
-                            'copy_to': '_all_fields'
-                        }
-                }
-            },
-            '_all_fields': {
-                'type': 'text'
-            }
-        }
-    }
-}
+
 
 try:
-    client.indices.create(index=index_name, body=index_body)
-    print(f'{index_name} created')
+    with open('../../src/config/os_mapping.json') as f:
+        client.indices.create(index=index_name, body=json.load(f))
+        print(f'{index_name} created')
 except Exception as e:
     print(e)
