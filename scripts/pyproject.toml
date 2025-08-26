@@ -1,0 +1,14 @@
+[project]
+name = "metadata-warehouse-scripts"
+version = "0.0.1"
+description = "Prepare and import DataCite OAI-PMH XML metadata into PostgreSQL and OpenSearch"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "opensearch-py",
+    "pgsql",
+    "python-dotenv",
+    "xmltodict",
+    "jsonschema",
+    "fastembed",
+]
