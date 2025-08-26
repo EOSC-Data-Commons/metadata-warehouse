@@ -31,7 +31,7 @@ To run the containers:
 
 - `cd scripts/opensearch_data`
 - create index `test_datacite`: `python create_index.py`
-- pre-calculate embeddings from JSON data in Datacite format `scripts/opensearch_data/data/json`: `python prepare-data.py`.
+- pre-calculate embeddings from JSON data in Datacite format `scripts/opensearch_data/data/json`: `python prepare_data.py`.
   JSON files with embeddings will be written to `scripts/opensearch_data/data/json_with_embedding` 
 - load JSON data in Datacite format with pre-calculated embeddings from `scripts/opensearch_data/data/json_with_embedding`: `python import_data.py`
 - perform a lexical query like (requires host port mapping 9200 for opensearch):
