@@ -1,0 +1,85 @@
+<record xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <header>
+    <identifier>doi:10.17026/SS/78HHDK</identifier>
+    <datestamp>2025-07-08T00:01:06Z</datestamp>
+  </header>
+  <metadata>
+    <resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://datacite.org/schema/kernel-4" xsi:schemaLocation="http://datacite.org/schema/kernel-4 http://schema.datacite.org/meta/kernel-4.1/metadata.xsd">
+      <identifier identifierType="DOI">10.17026/SS/78HHDK</identifier>
+      <creators>
+        <creator>
+          <creatorName nameType="Personal">Centraal Bureau voor de Statistiek, C.B.S.</creatorName>
+          <givenName>C.B.S.</givenName>
+          <familyName>Centraal Bureau voor de Statistiek</familyName>
+          <affiliation>Centraal Bureau voor de Statistiek</affiliation>
+        </creator>
+      </creators>
+      <titles>
+        <title>Consumentenconjunctuuronderzoek - CCO 2022</title>
+        <title titleType="Subtitle">CCO 2022</title>
+      </titles>
+      <publisher>DANS Data Station Social Sciences and Humanities</publisher>
+      <publicationYear>2024</publicationYear>
+      <subjects>
+        <subject>Social Sciences</subject>
+        <subject>Particuliere consumptie; Duurzame consumptiegoederen; Conjunctuur onderzoek</subject>
+      </subjects>
+      <contributors>
+        <contributor contributorType="ContactPerson">
+          <contributorName nameType="Organizational">Centraal Bureau voor de Statistiek, C.B.S.</contributorName>
+          <affiliation>Centraal Bureau voor de Statistiek</affiliation>
+        </contributor>
+      </contributors>
+      <dates>
+        <date dateType="Issued">2024-01-24</date>
+        <date dateType="Created">2023-12-20</date>
+        <date dateType="Submitted">2024-01-24</date>
+        <date dateType="Updated">2024-01-30</date>
+      </dates>
+      <resourceType resourceTypeGeneral="Dataset"/>
+      <sizes>
+        <size>1188555</size>
+        <size>8155</size>
+        <size>1669907</size>
+      </sizes>
+      <formats>
+        <format>text/x-fixed-field</format>
+        <format>application/vnd.oasis.opendocument.spreadsheet</format>
+        <format>application/pdf</format>
+      </formats>
+      <version>1.0</version>
+      <rightsList>
+        <rights rightsURI="info:eu-repo/semantics/restrictedAccess"/>
+        <rights rightsURI="https://doi.org/10.17026/fp39-0x58">DANS Licence</rights>
+      </rightsList>
+      <descriptions>
+        <description descriptionType="Abstract">Doel:
+Het verschaffen van actuele informatie over consumentenopvattingen met betrekking tot de algemene economische ontwikkeling en de financiële situatie van het eigen huishouden. Met behulp van het onderzoek wordt inzicht verkregen in de opvattingen van consumenten, onder meer ten aanzien van de aankoop van duurzame consumptiegoederen. Tevens worden veranderingen in optimisme of pessimisme op korte termijn gesignaleerd, waarmee vroegtijdig een indicatie van een mogelijke trendwijziging van de particuliere consumptie beschikbaar is.
+
+Soort onderzoek:
+De steekproefeenheid van het CCO is het particuliere huishouden en de steekproefeenheden worden getrokken op basis van een een aselecte tweetrapssteekproef. In de eerste trap wordt een steekproef van gemeenten getrokken en in de tweede trap een steekproef van adressen.
+
+Doelpopulatie:
+Nederlandse consumenten.
+
+Waarnemingsmethode:
+De verzameling van de gegevens vond in de periode 1972–1983 plaats aan de hand van een gestructureerde vragenlijst, waarmee door enquêtrices mondelinge interviews werden afgenomen bij Nederlandse particuliere huishoudens. Van het huishouden werd het hoofd of zijn/haar echtgeno(o)t(e)/vaste partner ondervraagd. Behalve in het eerste jaar, waarin alleen in de maanden mei en oktober werd geënquêteerd, werd het onderzoek steeds driemaal per jaar uitgevoerd, in de maanden januari, mei en oktober. Met ingang van januari 1984 heeft de dataverzameling van het CCO telefonisch plaatsgevonden. Naast de methode van waarneming veranderde in die maand ook de onderzoeksfrequentie. Deze werd verhoogd van drie- tot viermaal per jaar, met als enquêteperiodes de maanden januari, april, juli en oktober. In april 1986 werd de frequentie opnieuw verhoogd. Het onderzoek wordt sinds die datum maandelijks gehouden.
+
+Berichtgevers:
+Van het huishouden wordt het hoofd van het huishouden of zijn/haar echtgeno(o)t(e)/vaste partner ondervraagd.
+
+Steekproefomvang:
+De steekproefomvang bedraagt ruim 1600 huishoudens.
+
+Controle- en correctiemethoden:
+Er wordt gecontroleerd op interne consistentie waarbij gekeken wordt naar de achtergrondkenmerken van de respondenten en de plausibiliteit van de uitkomsten met voorgaande perioden.
+
+De conjunctuuronderzoeken bij Nederlandse consumenten, waarmee het CBS in 1972 is gestart, worden mede op verzoek van de Europese Commissie uitgevoerd.
+
+---------
+Dit betreft een beveiligd microbestand van het Centraal Bureau voor de Statistiek-CBS. Beveiligde micro-bestanden zijn bestanden die zodanig bewerkt zijn dat herkenning van individuen en huishoudens uitgesloten is.</description>
+      </descriptions>
+      <geoLocations/>
+    </resource>
+  </metadata>
+</record>

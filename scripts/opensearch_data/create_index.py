@@ -2,6 +2,16 @@
 
 from opensearchpy import OpenSearch
 import json
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+INDEX_NAME = os.environ.get('INDEX_NAME')
+embedding_dims = os.environ.get('EMBEDDING_DIMS')
+
+if not INDEX_NAME or not embedding_dims:
+    raise ValueError("Missing INDEX_NAME or EMBEDDING_DIMS environment variable")
 
 host = 'localhost'
 client = OpenSearch(
@@ -10,23 +20,20 @@ client = OpenSearch(
     use_ssl=False
 )
 
-print(f'opensearch client info: {client.info()}')
-
-index_name = 'test_datacite'
-
 try:
     client.indices.delete(
-        index=index_name
+        index=INDEX_NAME
     )
-    print(f'{index_name} deleted')
+    print(f'index {INDEX_NAME} deleted')
 except Exception as e:
     print(e)
 
-
-
 try:
-    with open('../../src/config/os_mapping.json') as f:
-        client.indices.create(index=index_name, body=json.load(f))
-        print(f'{index_name} created')
+    with open('../../src/config/opensearch_mapping.json') as f:
+        os_mapping = json.load(f)
+        # dynamically set embeddings dims
+        os_mapping['mappings']['properties']['emb']['dimension'] = embedding_dims
+        client.indices.create(index=INDEX_NAME, body=os_mapping)
+        print(f'index {INDEX_NAME} created')
 except Exception as e:
     print(e)
