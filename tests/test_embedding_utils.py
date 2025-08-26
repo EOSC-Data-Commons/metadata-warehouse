@@ -1,6 +1,6 @@
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock
 import json
 from src.utils import embedding_utils
 from fastembed import TextEmbedding

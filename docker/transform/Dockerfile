@@ -3,7 +3,7 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 #RUN apk add build-base libpq libpq-dev
 
-COPY ./src/pyproject.toml /code/pyproject.toml
+COPY ./pyproject.toml /code/pyproject.toml
 
 WORKDIR /code/app
 

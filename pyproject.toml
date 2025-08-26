@@ -20,5 +20,7 @@ dev = [
     "pytest",
     "types-xmltodict",
     "celery-stubs",
-    "mypy"
+    "mypy",
 ]
+[tool.pytest.ini_options]
+pythonpath = ["."]
