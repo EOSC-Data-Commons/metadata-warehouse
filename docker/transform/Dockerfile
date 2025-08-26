@@ -7,12 +7,11 @@ COPY ./src/pyproject.toml /code/pyproject.toml
 
 WORKDIR /code/app
 
-RUN uv sync
+RUN uv sync --no-dev
 
 ENV PATH="/code/.venv/bin:$PATH"
 
 #FROM python:3.12-alpine as final
 
-# copy files
-#COPY ./src /code/app/
+
 

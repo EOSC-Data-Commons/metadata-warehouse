@@ -15,3 +15,10 @@ dependencies = [
     "fastapi[standard]",
     #flower # only needed when not using mher/flower
 ]
+[dependency-groups]
+dev = [
+    "pytest",
+    "types-xmltodict",
+    "celery-stubs",
+    "mypy"
+]
