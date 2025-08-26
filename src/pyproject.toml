@@ -1,0 +1,17 @@
+[project]
+name = "metadata-warehouse-transformer"
+version = "0.0.1"
+description = "Prepare and import DataCite OAI-PMH XML metadata into PostgreSQL and OpenSearch"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "opensearch-py",
+    "pgsql",
+    "celery[redis]",
+    "xmltodict",
+    "jsonschema",
+    "fastembed",
+    "watchdog",
+    "fastapi[standard]",
+    #flower # only needed when not using mher/flower
+]
