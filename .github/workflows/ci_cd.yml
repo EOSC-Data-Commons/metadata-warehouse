@@ -1,22 +1,28 @@
 name: Python package
 
-on: [push]
+on: [ push ]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [ "3.12", "3.13" ]
-    env:
-        UV_PYTHON: ${{ matrix.python-version }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-      - name: Install the project
-        run: uv sync --all-extras --dev # https://docs.astral.sh/uv/guides/integration/github/#syncing-and-running
-      - name: Test with pytest
-        run: uv run pytest
-      - name: Check with mypy
-        run: uv run mypy --strict src
+    test-src:
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                python-version: [ "3.12", "3.13" ]
+        env:
+            UV_PYTHON: ${{ matrix.python-version }}
+        steps:
+            -   uses: actions/checkout@v4
+            -   name: Install uv
+                uses: astral-sh/setup-uv@v6
+            -   name: Install the project
+                run: uv sync --all-extras --dev # https://docs.astral.sh/uv/guides/integration/github/#syncing-and-running
+            -   name: Test with pytest
+                run: uv run pytest
+            -   name: Check with mypy
+                run: uv run mypy --strict src
+    test-docker-build:
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v4
+            -   name: Docker Build
+                run: docker compose build
