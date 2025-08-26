@@ -8,6 +8,11 @@ import json
 
 load_dotenv()
 
+INDEX_NAME = os.environ.get('INDEX_NAME')
+EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
+if not INDEX_NAME or not EMBEDDING_MODEL:
+    raise ValueError("Missing INDEX_NAME environment variable")
+
 host = 'localhost'
 client = OpenSearch(
     hosts=[{'host': host, 'port': 9200}],
@@ -23,7 +28,7 @@ query_strings = ['What is a mathematical formula?']
 
 embeddings = list(embedding_transformer.embed(query_strings))
 
-os_query = {
+opensearch_query = {
     "_source": ["titles.title", "subjects.subject", "descriptions.description"],
     "query": {
         "knn": {
@@ -35,6 +40,6 @@ os_query = {
     }
 }
 
-res = client.search(index='test_datacite', body=os_query)
+res = client.search(index=INDEX_NAME, body=opensearch_query)
 
-print(json.dumps(res))
+print(json.dumps(res, indent=2, ensure_ascii=False))

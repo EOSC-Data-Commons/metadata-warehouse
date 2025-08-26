@@ -10,32 +10,38 @@ from typing import Any
 
 load_dotenv()
 
-def write_source_with_embedding(src_with_emb:  list[tuple[dict[str, Any], Path]]):
-    print(f'writing batch of {len(batch)}')
-    for ele in src_with_emb:
-        with open(f'data/json_with_embedding/{os.path.basename(ele[1])}', 'w') as f:
-            f.write(json.dumps(ele[0]))
-
-embedding_model = os.environ['EMBEDDING_MODEL']
-print(embedding_model)
-
 # setting path
 sys.path.append("..")
 sys.path.append("../..")
 
 from src.utils.embedding_utils import get_embedding_text_from_fields, add_embeddings_to_source
 
-batch_size = 1000
-batch = []
-files: list[Path] = (list(Path('data/json').rglob("*.json")))
+INDEX_NAME = os.environ.get('INDEX_NAME')
+EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
+if not INDEX_NAME or not EMBEDDING_MODEL:
+    raise ValueError("Missing INDEX_NAME environment variable")
 
-embedding_transformer = TextEmbedding(model_name=embedding_model)
+BATCH_SIZE = 1000
+INPUT_DIR = Path('data/json')
+OUTPUT_DIR = Path('data/json_with_embedding')
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+def write_source_with_embedding(src_with_emb:  list[tuple[dict[str, Any], Path]]):
+    print(f'writing batch of {len(src_with_emb)}')
+    for ele in src_with_emb:
+        with open(f'{OUTPUT_DIR}/{os.path.basename(ele[1])}', 'w') as f:
+            f.write(json.dumps(ele[0]))
+
+batch = []
+files: list[Path] = list(INPUT_DIR.rglob('*.json'))
+embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL)
 
 for file in files:
-    source = json.load(open(file))
+    with open(file) as f:
+        source = json.load(f)
 
     batch.append((source, get_embedding_text_from_fields(source), file))
-    if len(batch) == batch_size:
+    if len(batch) >= BATCH_SIZE:
         # calculate embeddings for batch
         source_with_embeddings = add_embeddings_to_source(batch, embedding_transformer)
         write_source_with_embedding(source_with_embeddings)

@@ -46,13 +46,13 @@ for file in files:
     with open(file) as f:
         source = json.load(f)
 
-        batch.append(source)
+    batch.append(source)
 
-        if len(batch) >= BATCH_SIZE:
-            # calculate embeddings for batch
-            preprocessed = preprocess_batch(batch, INDEX_NAME)
-            flush_bulk(client, preprocessed)
-            batch = []
+    if len(batch) >= BATCH_SIZE:
+        # calculate embeddings for batch
+        preprocessed = preprocess_batch(batch, INDEX_NAME)
+        flush_bulk(client, preprocessed)
+        batch = []
 
 if len(batch) > 0:
     preprocessed = preprocess_batch(batch, INDEX_NAME)
