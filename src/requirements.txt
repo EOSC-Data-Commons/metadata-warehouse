@@ -6,4 +6,5 @@ xmltodict
 watchdog
 fastapi[standard]
 jsonschema
+fastembed
 #flower # only needed when not using mher/flower
