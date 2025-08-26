@@ -5,12 +5,23 @@ from pathlib import Path
 from opensearchpy import OpenSearch
 import sys
 from opensearchpy.helpers import bulk, BulkIndexError
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # setting path
 sys.path.append("..")
 sys.path.append("../..")
 
 from src.utils.embedding_utils import preprocess_batch
+
+INDEX_NAME = os.environ.get('INDEX_NAME')
+if not INDEX_NAME:
+    raise ValueError("Missing INDEX_NAME environment variable")
+
+BATCH_SIZE = 5000
+DATA_DIR = Path('data/json_with_embedding')
 
 def flush_bulk(client, batch):
     try:
@@ -19,6 +30,8 @@ def flush_bulk(client, batch):
     except BulkIndexError as e:
         print(f'An error occurred: {e.errors}')
 
+files: list[Path] = list(DATA_DIR.rglob('*.json'))
+
 host = 'localhost'
 client = OpenSearch(
     hosts=[{'host': host, 'port': 9200}],
@@ -26,27 +39,21 @@ client = OpenSearch(
     use_ssl=False
 )
 
-print(client.info())
-
-batch_size = 5000
-index_name = 'test_datacite'
-
 batch = []
-
-files: list[Path] = (list(Path('data/json_with_embedding').rglob("*.json")))
 
 for file in files:
 
-    source = json.load(open(file))
+    with open(file) as f:
+        source = json.load(f)
 
-    batch.append(source)
+        batch.append(source)
 
-    if len(batch) == batch_size:
-        # calculate embeddings for batch
-        preprocessed = preprocess_batch(batch, index_name)
-        flush_bulk(client, preprocessed)
-        batch = []
+        if len(batch) >= BATCH_SIZE:
+            # calculate embeddings for batch
+            preprocessed = preprocess_batch(batch, INDEX_NAME)
+            flush_bulk(client, preprocessed)
+            batch = []
 
 if len(batch) > 0:
-    preprocessed = preprocess_batch(batch, index_name)
+    preprocessed = preprocess_batch(batch, INDEX_NAME)
     flush_bulk(client, preprocessed)
