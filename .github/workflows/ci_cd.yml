@@ -17,6 +17,6 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev --directory src
       - name: Test with pytest
-        run: |
-          uvx mypy --strict src
-          uv run pytest
+        run: uv run pytest
+      - name: Check with mypy
+        run: uvx mypy --strict src
