@@ -34,7 +34,7 @@ def extract_fields_from_source(source: dict[str, Any], field_name: str, subfield
     else:
         return []
 
-def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_model: TextEmbedding, embedding_field_name = 'emb') -> list[tuple[dict[str, Any], Path]]:
+def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_model: TextEmbedding, embedding_field_name: str = 'emb') -> list[tuple[dict[str, Any], Path]]:
     """
     Given a batch of `SourceWithEmbeddingText`, calculates the embeddings and returns the documents with the embeddings (integrated).
 
