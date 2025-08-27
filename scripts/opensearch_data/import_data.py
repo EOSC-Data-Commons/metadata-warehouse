@@ -1,7 +1,9 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
 
 import json
 from pathlib import Path
+from typing import Any
+
 from opensearchpy import OpenSearch
 import sys
 from opensearchpy.helpers import bulk, BulkIndexError
@@ -23,7 +25,7 @@ if not INDEX_NAME:
 BATCH_SIZE = 5000
 DATA_DIR = Path('data/json_with_embedding')
 
-def flush_bulk(client, batch):
+def flush_bulk(client: OpenSearch, batch: list[dict[Any, Any]]) -> None:
     try:
         success, failed = bulk(client, batch, max_retries=3)
         print(success, failed)

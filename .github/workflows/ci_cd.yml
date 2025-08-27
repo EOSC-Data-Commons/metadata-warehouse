@@ -19,7 +19,9 @@ jobs:
             -   name: Test with pytest
                 run: uv run pytest
             -   name: Check with mypy
-                run: uv run mypy --strict src
+                run: |
+                    uv run mypy --strict src
+                    uv run mypy --strict --ignore-missing-imports scripts
     test-docker-build:
         runs-on: ubuntu-latest
         steps:
