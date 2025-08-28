@@ -7,7 +7,7 @@ from celery import Celery, Task
 from jsonschema.exceptions import ValidationError
 from jsonschema.validators import validate
 from opensearchpy import OpenSearch
-from opensearchpy.helpers import bulk
+from opensearchpy.helpers import bulk, BulkIndexError
 import xmltodict
 from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
     get_embedding_text_from_fields
@@ -84,9 +84,17 @@ def transform_batch(self: Any, batch: list[str], index_name: str) -> int:
         finally:
             continue
 
-    src_with_emb: list[tuple[dict[str, Any], Path]] = add_embeddings_to_source(normalized, self.embedding_transformer)
-    preprocessed = preprocess_batch(list(map(lambda el: el[0], src_with_emb)), index_name)
+    try:
+        src_with_emb: list[tuple[dict[str, Any], Path]] = add_embeddings_to_source(normalized, self.embedding_transformer)
+        preprocessed = preprocess_batch(list(map(lambda el: el[0], src_with_emb)), index_name)
+    except Exception as e:
+        print(f'Could not calculate embeddings: {e}')
+        raise e
 
-    bulk(self.client, preprocessed)
+    try:
+        success, failed = bulk(self.client, preprocessed)
+    except BulkIndexError as e:
+        print(f'Bulk failed: {e}')
+        raise e
 
-    return len(normalized)
+    return success
