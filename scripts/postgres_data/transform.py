@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
 
 import argparse
 import json
 import os
 import sys
-from typing import Optional
+from typing import Optional, Any
 import xmltodict
 from pathlib import Path
 from multiprocessing import Pool, cpu_count
@@ -17,7 +17,7 @@ sys.path.append("../..")
 
 from src.utils.normalize_datacite_json import normalize_datacite_json
 
-def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: Optional[dict]):
+def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: Optional[dict[Any, Any]]) -> None:
     try:
         with open(filepath) as f:
             converted = xmltodict.parse(f.read(), process_namespaces=True)

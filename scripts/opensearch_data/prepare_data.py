@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
 
 import json
 from pathlib import Path
@@ -14,7 +14,7 @@ load_dotenv()
 sys.path.append("..")
 sys.path.append("../..")
 
-from src.utils.embedding_utils import get_embedding_text_from_fields, add_embeddings_to_source
+from src.utils.embedding_utils import get_embedding_text_from_fields, add_embeddings_to_source, SourceWithEmbeddingText
 
 INDEX_NAME = os.environ.get('INDEX_NAME')
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
@@ -26,7 +26,7 @@ INPUT_DIR = Path('data/json')
 OUTPUT_DIR = Path('data/json_with_embedding')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-def write_source_with_embedding(src_with_emb:  list[tuple[dict[str, Any], Path]]):
+def write_source_with_embedding(src_with_emb:  list[tuple[dict[str, Any], Path]]) -> None:
     print(f'writing batch of {len(src_with_emb)}')
     for ele in src_with_emb:
         with open(f'{OUTPUT_DIR}/{os.path.basename(ele[1])}', 'w') as f:
@@ -40,7 +40,7 @@ for file in files:
     with open(file) as f:
         source = json.load(f)
 
-    batch.append((source, get_embedding_text_from_fields(source), file))
+    batch.append(SourceWithEmbeddingText(src=source, textToEmbed=get_embedding_text_from_fields(source), file=file))
     if len(batch) >= BATCH_SIZE:
         # calculate embeddings for batch
         source_with_embeddings = add_embeddings_to_source(batch, embedding_transformer)

@@ -1,3 +1,5 @@
+#!/usr/bin/env -S uv run --script
+
 import pgsql
 import os
 from dotenv import load_dotenv
