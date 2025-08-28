@@ -70,6 +70,7 @@ services:
             CELERY_BROKER_URL: redis://broker:6379/0
             #CELERY_RESULT_BACKEND: "file:///var/celery/results"
             CELERY_RESULT_BACKEND: redis://broker:6379/0
+            EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
         healthcheck:
             test: celery -A tasks status
             interval: 10s
@@ -91,6 +92,7 @@ services:
             CELERY_RESULT_BACKEND: redis://broker:6379/0
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+            EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
         depends_on:
             postgres:
                 condition: service_healthy

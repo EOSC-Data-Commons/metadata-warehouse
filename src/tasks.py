@@ -1,44 +1,53 @@
 import json
+import os
 from pathlib import Path
 
 from fastembed import TextEmbedding
-from celery import Celery
+from celery import Celery, Task
 from jsonschema.exceptions import ValidationError
 from jsonschema.validators import validate
 from opensearchpy import OpenSearch
 from opensearchpy.helpers import bulk
 import xmltodict
-from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, get_embedding_text_from_fields
+from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
+    get_embedding_text_from_fields
 from utils import normalize_datacite_json
-from typing import Any
+from typing import Any, cast
 
 OAI_METADATA = 'http://www.openarchives.org/OAI/2.0/:metadata'
 DATACITE_RESOURCE = 'http://datacite.org/schema/kernel-4:resource'
 HAL_RESOURCE = 'http://www.openarchives.org/OAI/2.0/:resource'
 
-def flush_bulk(client: OpenSearch, batch: list[dict[str, Any]]) -> None:
-    success, failed = bulk(client, batch)
-    print(success, failed)
+EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
+if not EMBEDDING_MODEL:
+    raise ValueError("Missing EMBEDDING_MODEL environment variable")
 
 celery_app = Celery('tasks')
-#celery_app.task_serializer = 'json'
-#celery_app.ignore_result = False
+# celery_app.task_serializer = 'json'
+# celery_app.ignore_result = False
 
-host = 'opensearch'
-client = OpenSearch(
-    hosts=[{'host': host, 'port': 9200}],
-    http_auth=None,
-    use_ssl=False
-)
+class TransformTask(Task): # type: ignore
 
-# TODO: make dedicated class for models, register with https://docs.celeryq.dev/en/stable/userguide/tasks.html#instantiation
-embedding_transformer = TextEmbedding(model_name='snowflake/snowflake-arctic-embed-xs')
+    embedding_transformer: TextEmbedding
+    client: OpenSearch
+    schema: dict[Any, Any]
 
-with open('config/schema.json') as f:
-    schema = json.load(f)
+    def __init__(self) -> None:
 
-@celery_app.task
-def transform_batch(batch: list[str], index_name: str) -> int:
+        self.embedding_transformer = TextEmbedding(model_name=cast(str, EMBEDDING_MODEL))
+
+        self.client = OpenSearch(
+            hosts=[{'host': 'opensearch', 'port': 9200}],
+            http_auth=None,
+            use_ssl=False
+        )
+
+        with open('config/schema.json') as f:
+            self.schema = json.load(f)
+
+
+@celery_app.task(base=TransformTask, bind=True)
+def transform_batch(self: Any, batch: list[str], index_name: str) -> int:
     # transform to JSON and normalize
 
     normalized = []
@@ -63,8 +72,10 @@ def transform_batch(batch: list[str], index_name: str) -> int:
         # Catch and log errors
         try:
             normalized_record = normalize_datacite_json.normalize_datacite_json(resource)
-            validate(instance=normalized_record, schema=schema)
-            normalized.append(SourceWithEmbeddingText(src=normalized_record, textToEmbed=get_embedding_text_from_fields(normalized_record), file=Path('')))
+            validate(instance=normalized_record, schema=self.schema)
+            normalized.append(SourceWithEmbeddingText(src=normalized_record,
+                                                      textToEmbed=get_embedding_text_from_fields(normalized_record),
+                                                      file=Path('')))
         except Exception as e:
             print(f'An error occurred during transformation: {e}')
             # TODO: use logger
@@ -73,9 +84,9 @@ def transform_batch(batch: list[str], index_name: str) -> int:
         finally:
             continue
 
-    src_with_emb: list[tuple[dict[str, Any], Path]] = add_embeddings_to_source(normalized, embedding_transformer)
+    src_with_emb: list[tuple[dict[str, Any], Path]] = add_embeddings_to_source(normalized, self.embedding_transformer)
     preprocessed = preprocess_batch(list(map(lambda el: el[0], src_with_emb)), index_name)
 
-    flush_bulk(client, preprocessed)
+    bulk(self.client, preprocessed)
 
     return len(normalized)
