@@ -9,7 +9,3 @@ ENV UV_LINK_MODE=copy
 RUN uv sync --no-dev
 
 ENV PATH="/code/.venv/bin:$PATH"
-
-
-
-
