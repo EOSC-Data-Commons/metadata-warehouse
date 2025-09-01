@@ -1,11 +1,11 @@
 import sys
 import datetime
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 DATACITE = 'http://datacite.org/schema/kernel-4'
 XML = 'http://www.w3.org/XML/1998/namespace'
 DATE_FORMAT = '%Y-%m-%d'
-
+DOI_BASE = 'https://doi.org/'
 
 def get_identifier(entry: dict[str, Any], identifier_type: str) -> Any | None:
     if identifier := entry.get(f'{DATACITE}:identifier'):
@@ -173,35 +173,46 @@ def normalize_date_string(date_str: str) -> str:
         return normalize_date_precision(date_str)
 
 
-def normalize_datacite_json(input: dict[str, Any]) -> dict[str, Any]:
+def make_id(res: dict[Any, Any]) -> Optional[str]:
+    """
+    Returns DOI incl. base path if present, otherwise URL.
+
+    :param res: Dict with either doi or url prop.
+    :return: id.
+    """
+    return DOI_BASE + res['doi'] if 'doi' in res else res['url'] if 'url' in res else None
+
+def normalize_datacite_json(res: dict[str, Any]) -> dict[str, Any]:
     # print(json.dumps(input))
 
     try:
         res = {
-            'doi': get_identifier(input, 'DOI'),
-            'url': get_identifier(input, 'URL'),
+            'doi': get_identifier(res, 'DOI'),
+            'url': get_identifier(res, 'URL'),
             'titles': list(map(lambda el: harmonize_props(el, f'{DATACITE}:title',
                                                           {f'@{XML}:lang': 'lang', '@titleType': 'titleType'}, {}),
-                               make_array(input.get(f'{DATACITE}:titles'), f'{DATACITE}:title'))),
+                               make_array(res.get(f'{DATACITE}:titles'), f'{DATACITE}:title'))),
             'subjects': list(map(lambda el: harmonize_props(el, f'{DATACITE}:subject',
                                                             {f'@{XML}:lang': 'lang', '@subjectScheme': 'subjectScheme',
                                                              '@schemeURI': 'schemaUri', '@valueURI': 'valueUri',
                                                              '@classificationCode': 'classificationCode'}, {}),
-                                 make_array(input.get(f'{DATACITE}:subjects'), f'{DATACITE}:subject'))),
+                                 make_array(res.get(f'{DATACITE}:subjects'), f'{DATACITE}:subject'))),
             'creators': list(map(lambda cr: harmonize_creator(cr),
-                                 make_array(input.get(f'{DATACITE}:creators'), f'{DATACITE}:creator'))),
-            'publicationYear': input.get(f'{DATACITE}:publicationYear'),
+                                 make_array(res.get(f'{DATACITE}:creators'), f'{DATACITE}:creator'))),
+            'publicationYear': res.get(f'{DATACITE}:publicationYear'),
             'descriptions': list(map(lambda el: harmonize_props(el, f'{DATACITE}:description',
                                                                 {'@descriptionType': 'descriptionType',
                                                                  f'@{XML}:lang': 'lang'}, {}),
-                                     make_array(input.get(f'{DATACITE}:descriptions'), f'{DATACITE}:description'))),
+                                     make_array(res.get(f'{DATACITE}:descriptions'), f'{DATACITE}:description'))),
             'dates': list(map(lambda el: harmonize_props(el, f'{DATACITE}:date', {'@dateType': 'dateType'},
                                                          {'date': normalize_date_string}),
-                              make_array(input.get(f'{DATACITE}:dates'), f'{DATACITE}:date')))
+                              make_array(res.get(f'{DATACITE}:dates'), f'{DATACITE}:date')))
         }
 
         # remove None values and empty lists
-        return dict(filter(remove_empty_item, res.items()))
+        cleaned =  dict(filter(remove_empty_item, res.items()))
+
+        return {'id': make_id(cleaned), **cleaned}
 
     except Exception as e:
         # print(f'Error {str(e)} when processing {input}', file=sys.stderr)
