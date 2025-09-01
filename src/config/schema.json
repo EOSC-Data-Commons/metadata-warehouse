@@ -2,6 +2,9 @@
     "$schema": "http://json-schema.org/schema#",
     "type": "object",
     "properties": {
+        "id": {
+            "type": "string"
+        },
         "doi": {
             "type": "string"
         },
@@ -137,6 +140,7 @@
         }
     },
     "required": [
+        "id",
         "creators",
         "titles"
     ],

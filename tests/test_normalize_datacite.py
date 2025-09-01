@@ -115,3 +115,11 @@ class TestNormalizeDatacite(unittest.TestCase):
     def test_normalize_date_string_with_datetime(self):
         res = normalize_datacite_json.normalize_date_string('2025-08-05 09:35:06')
         self.assertEqual(res, '2025-08-05')
+
+    def test_make_id_with_url(self):
+        res = normalize_datacite_json.make_id({'url': 'https://example.com'})
+        self.assertEqual(res, 'https://example.com')
+
+    def test_make_id_with_doi(self):
+        res = normalize_datacite_json.make_id({'doi': '10.123/123'})
+        self.assertEqual(res, 'https://doi.org/10.123/123')

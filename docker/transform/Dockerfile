@@ -1,17 +1,11 @@
-FROM python:3.12-alpine
-#FROM python:3.12-alpine as build
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
-#RUN apk add build-base libpq libpq-dev
-
-COPY ./src/requirements.txt /code/requirements.txt
-
-RUN pip install --upgrade pip \
-  && pip install -r /code/requirements.txt
-
-#FROM python:3.12-alpine as final
+COPY ./pyproject.toml /code/pyproject.toml
 
 WORKDIR /code/app
 
-# copy files
-#COPY ./src /code/app/
+ENV UV_LINK_MODE=copy
 
+RUN uv sync --no-dev
+
+ENV PATH="/code/.venv/bin:$PATH"
