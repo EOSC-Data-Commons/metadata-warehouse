@@ -12,7 +12,10 @@ import xmltodict
 from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
     get_embedding_text_from_fields
 from utils import normalize_datacite_json
-from typing import Any, cast
+from typing import Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 OAI_METADATA = 'http://www.openarchives.org/OAI/2.0/:metadata'
 DATACITE_RESOURCE = 'http://datacite.org/schema/kernel-4:resource'
@@ -34,7 +37,9 @@ class TransformTask(Task): # type: ignore
 
     def __init__(self) -> None:
 
-        self.embedding_transformer = TextEmbedding(model_name=cast(str, EMBEDDING_MODEL))
+        if EMBEDDING_MODEL:
+            self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL)
+            logger.info(f'Setting up embedding transformer with model {EMBEDDING_MODEL}')
 
         self.client = OpenSearch(
             hosts=[{'host': 'opensearch', 'port': 9200}],
@@ -50,6 +55,8 @@ class TransformTask(Task): # type: ignore
 def transform_batch(self: Any, batch: list[str], index_name: str) -> Any:
     # transform to JSON and normalize
 
+    logger.info(f'Starting processing batch of {len(batch)}')
+
     normalized = []
     for ele in batch:
         converted = xmltodict.parse(ele, process_namespaces=True)
@@ -57,7 +64,8 @@ def transform_batch(self: Any, batch: list[str], index_name: str) -> Any:
         if OAI_METADATA in converted:
             metadata = converted[OAI_METADATA]
         else:
-            # TODO: XML cannot be processed, log this
+            # Converted JSON cannot be processed, log this
+            logger.debug(f'Cannot access {OAI_METADATA} in : {converted}')
             continue
 
         if DATACITE_RESOURCE in metadata:
@@ -66,7 +74,8 @@ def transform_batch(self: Any, batch: list[str], index_name: str) -> Any:
             # HAL
             resource = metadata[HAL_RESOURCE]
         else:
-            # TODO: XML cannot be processed, log this
+            # JSON cannot be processed, log this
+            logger.debug(f'Cannot access {DATACITE_RESOURCE} or {HAL_RESOURCE} in : {metadata}')
             continue
 
         # Catch and log errors
@@ -77,10 +86,9 @@ def transform_batch(self: Any, batch: list[str], index_name: str) -> Any:
                                                       textToEmbed=get_embedding_text_from_fields(normalized_record),
                                                       file=Path('')))
         except Exception as e:
-            print(f'An error occurred during transformation: {e}')
-            # TODO: use logger
+            logger.debug(f'An error occurred during transformation: {e}')
         except ValidationError as e:
-            print(f'Validation failed: {e.message}')
+            logger.debug(f'Validation failed: {e.message}')
         finally:
             continue
 
@@ -88,13 +96,14 @@ def transform_batch(self: Any, batch: list[str], index_name: str) -> Any:
         src_with_emb: list[tuple[dict[str, Any], Path]] = add_embeddings_to_source(normalized, self.embedding_transformer)
         preprocessed = preprocess_batch(list(map(lambda el: el[0], src_with_emb)), index_name)
     except Exception as e:
-        print(f'Could not calculate embeddings: {e}')
+        logger.error(f'Could not calculate embeddings: {e}')
         raise e
 
     try:
         success, failed = bulk(self.client, preprocessed)
+        logger.info(f'Bulk results: success {success} failed: {failed}')
     except BulkIndexError as e:
-        print(f'Bulk failed: {e}')
+        logger.error(f'Bulk failed: {e}')
         raise e
 
     return success
