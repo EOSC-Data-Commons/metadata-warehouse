@@ -1,3 +1,4 @@
+from datetime import datetime
 import pgsql # type: ignore
 from celery.result import AsyncResult
 from fastapi.concurrency import run_in_threadpool
@@ -10,7 +11,7 @@ import logging
 import sys
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # https://konfuzio.com/de/konfiguration-des-fastapi-loggings-lokal-und-in-der-produktion/
 stream_handler = logging.StreamHandler(sys.stdout)
@@ -25,28 +26,45 @@ app = FastAPI()
 
 def create_jobs(index_name: str):
     batch = []
+    tasks = []
+    offset = 0
+    limit = 250
+    fetch = True
 
     logger.info(f'Preparing jobs')
     with pgsql.Connection(('postgres', 5432), user, pw, tls=False) as db:
         # print(db)
 
-        with db.prepare("""
-        SELECT (xpath('/oai:record/oai:metadata', info, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}'))[1] AS root
-    FROM raw
-        LIMIT 500
-        """) as docs:
-            all_rows = docs()
-            # print(len(all_rows))
+        while fetch:
 
-            for doc in all_rows():
-                batch.append(doc.root)
+            with db.prepare(f"""
+            SELECT (xpath('/oai:record/oai:metadata', info, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}'))[1] AS root
+        FROM raw
+            ORDER BY ID
+            LIMIT {limit}
+            OFFSET {offset}
+            """) as docs:
 
-    # TODO: Backends use resources to store and transmit results. To ensure that resources are released, you must eventually call get() or forget() on EVERY AsyncResult instance returned after calling a task.
-    # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
-    logger.info(f'Putting batch of {len(batch)} in queue')
-    task: AsyncResult[int] = transform_batch.delay(batch, index_name)
+                for doc in docs():
+                    batch.append(doc.root)
 
-    return {'batch of': len(batch), 'task_id': task.task_id}
+            # TODO: Backends use resources to store and transmit results. To ensure that resources are released, you must eventually call get() or forget() on EVERY AsyncResult instance returned after calling a task.
+            # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
+            logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')
+            task: AsyncResult[int] = transform_batch.delay(batch, index_name)
+            tasks.append(task)
+
+            # TODO: improve this
+            offset = offset + limit
+            fetch = len(batch) == limit
+            batch = []
+
+            # TODO: for testing only, remove this
+            #if offset > 1000:
+            #    fetch = False
+
+
+    return len(tasks)
 
 
 @app.get("/index")
@@ -62,5 +80,8 @@ async def index(index_name: str) -> dict[str, Any]:
         raise e
 
     logger.info(f'Got results: {results}')
-    return results
+    return {'number of batches': results}
 
+@app.get("/health")
+async def health() -> dict[str, Any]:
+    return {'status': 'ok', 'time': datetime.now()}

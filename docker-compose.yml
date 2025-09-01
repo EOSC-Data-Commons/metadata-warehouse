@@ -62,7 +62,10 @@ services:
               "-A",
               "tasks",
               "worker",
-              #"--pool=solo", # https://stackoverflow.com/questions/56767461/celery-workerlosterror-worker-exited-prematurely-signal-6-sigabrt
+              #"-Q",
+              #"batches",
+              "-E",
+              "--pool=solo", # https://stackoverflow.com/questions/56767461/celery-workerlosterror-worker-exited-prematurely-signal-6-sigabrt
               "--loglevel=INFO"
           ]
         #volumes:

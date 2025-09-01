@@ -93,7 +93,9 @@ def transform_batch(self: Any, batch: list[str], index_name: str) -> Any:
             continue
 
     try:
+        logger.info(f'About to Calculate embeddings for {len(normalized)}')
         src_with_emb: list[tuple[dict[str, Any], Path]] = add_embeddings_to_source(normalized, self.embedding_transformer)
+        logger.info(f'Calculated embeddings for {len(src_with_emb)}')
         preprocessed = preprocess_batch(list(map(lambda el: el[0], src_with_emb)), index_name)
     except Exception as e:
         logger.error(f'Could not calculate embeddings: {e}')
