@@ -24,7 +24,7 @@ pw = os.environ.get('POSTGRES_PASSWORD')
 
 app = FastAPI()
 
-def create_jobs(index_name: str):
+def create_jobs(index_name: str) -> int:
     batch = []
     tasks = []
     offset = 0
