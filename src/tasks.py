@@ -23,7 +23,7 @@ HAL_RESOURCE = 'http://www.openarchives.org/OAI/2.0/:resource'
 
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
 if not EMBEDDING_MODEL:
-    raise ValueError("Missing EMBEDDING_MODEL environment variable")
+    raise ValueError('Missing EMBEDDING_MODEL environment variable')
 
 celery_app = Celery('tasks')
 # celery_app.task_serializer = 'json'

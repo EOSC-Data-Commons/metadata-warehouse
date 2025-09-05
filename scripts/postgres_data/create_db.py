@@ -9,10 +9,10 @@ load_dotenv()
 
 #print(os.environ)
 
-user = os.environ.get('POSTGRES_ADMIN')
-pw = os.environ.get('POSTGRES_PASSWORD')
+USER = os.environ.get('POSTGRES_ADMIN')
+PW = os.environ.get('POSTGRES_PASSWORD')
 
-with pgsql.Connection(('127.0.0.1', 5432), user, pw, tls = False) as db:
+with pgsql.Connection(('127.0.0.1', 5432), USER, PW, tls = False) as db:
 
     try:
         db.execute("""

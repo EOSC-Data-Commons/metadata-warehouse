@@ -19,8 +19,11 @@ log_formatter = logging.Formatter("%(asctime)s [%(processName)s: %(process)d] [%
 stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
 
-user = os.environ.get('POSTGRES_USER')
-pw = os.environ.get('POSTGRES_PASSWORD')
+USER = os.environ.get('POSTGRES_USER')
+PW = os.environ.get('POSTGRES_PASSWORD')
+BATCH_SIZE = os.environ.get('CELERY_BATCH_SIZE')
+if not BATCH_SIZE or not BATCH_SIZE.isnumeric():
+    raise ValueError('Missing CELERY_BATCH_SIZE environment variable')
 
 app = FastAPI()
 
@@ -28,11 +31,11 @@ def create_jobs(index_name: str) -> int:
     batch = []
     tasks = []
     offset = 0
-    limit = 250
+    limit = int(BATCH_SIZE)
     fetch = True
 
     logger.info(f'Preparing jobs')
-    with pgsql.Connection(('postgres', 5432), user, pw, tls=False) as db:
+    with pgsql.Connection(('postgres', 5432), USER, PW, tls=False) as db:
         # print(db)
 
         while fetch:
@@ -54,14 +57,11 @@ def create_jobs(index_name: str) -> int:
             task: AsyncResult[int] = transform_batch.delay(batch, index_name)
             tasks.append(task)
 
-            # TODO: improve this
+            # increment offset by limit
             offset = offset + limit
+            # will be false if query returned fewer results than limit
             fetch = len(batch) == limit
             batch = []
-
-            # TODO: for testing only, remove this
-            #if offset > 1000:
-            #    fetch = False
 
 
     return len(tasks)

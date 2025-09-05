@@ -97,6 +97,7 @@ services:
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
+            CELERY_BATCH_SIZE: "${CELERY_BATCH_SIZE}"
         depends_on:
             postgres:
                 condition: service_healthy
