@@ -24,6 +24,8 @@ The sample queries are based on the OpenSearch [mapping](../src/config/opensearc
 
 ### Simple Field Queries
 
+See [docs](https://docs.opensearch.org/latest/query-dsl/full-text/index/) for an overview of full text query types.
+
 #### Searching for a Title
 
 The field `_title` is a virtual field created at indexing containing the title string without any of its attributes.
@@ -59,10 +61,11 @@ The field `_all_fields` is a virtual field created at indexing combining several
 
 ### Query for a Nested Field
 
-As `title` is a nested field, this requires a nested query:
+See [docs](https://docs.opensearch.org/latest/query-dsl/joining/nested/) for further explanation of nested queries.
 
 #### Query for Titles in a Given Language
 
+As `titles.title` is a nested field, this requires a nested query.
 This searches for documents that have at least one title tagged as English:
 
 ```json
@@ -80,7 +83,7 @@ This searches for documents that have at least one title tagged as English:
 }
 ```
 
-This can also be combined with a query string using a boolean query:
+This can also be combined with a query string using a [Boolean query](https://docs.opensearch.org/latest/query-dsl/compound/bool/):
 
 ```json
 {
@@ -113,7 +116,7 @@ This can also be combined with a query string using a boolean query:
 
 #### Query for a Date Range on a Specific Datetype
 
-This searches for a date range on a specific type of date:
+This searches for a [date range](https://docs.opensearch.org/latest/query-dsl/term/range/) on a specific type of date:  
 
 ```json
 {
@@ -139,6 +142,117 @@ This searches for a date range on a specific type of date:
           ]
         }
       }
+    }
+  }
+}
+```
+
+### KNN Queries
+
+These queries require a vector embedding calculated with the same model used for the indexed documents.
+
+#### Search for Similar Documents
+
+Given a vector embedding, this query searches for the [5 most similar](https://docs.opensearch.org/latest/query-dsl/specialized/k-nn/index/) documents.
+
+```json
+{
+    "size": 5,
+    "query": {
+        "knn": {
+            "emb": {
+                "vector": [...], # vector embedding for query string
+                "k": 5
+            }
+        }
+    }
+}
+```
+In addition, a [filter](https://docs.opensearch.org/latest/vector-search/filter-search-knn/efficient-knn-filtering/#step-3-search-your-data-with-a-filter) can be applied:
+
+```json
+{
+  "size": 5,
+  "query": {
+    "knn": {
+      "emb": {
+        "vector": [...], # vector embedding for query string
+        "k": 5,
+        "filter": {
+          "bool": {
+            "must": [
+              {
+                "range": {
+                  "publicationYear": {
+                    "gte": "2022",
+                    "format": "year"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+
+```
+
+### Hybrid Queries
+
+A [hybrid query](https://docs.opensearch.org/latest/query-dsl/compound/hybrid/) combines different query types, e.g., a knn vector query and a lexical query. 
+
+#### Searching for Similar Documents and a Lexical Hit
+
+This hybrid query combines a knn query (first query) with a query string query (second query). 
+Since the two queries return different scores, a [normalization processor](https://docs.opensearch.org/latest/vector-search/ai-search/hybrid-search/index/#step-3-configure-a-search-pipeline) is needed. 
+For each of the two queries, a weight can be defined (order of the query parts is deterministic) influencing the resulting score of each document.
+See this [article](https://opster.com/guides/opensearch/opensearch-machine-learning/opensearch-hybrid-search/) for further explanation.
+
+
+```json
+{
+  "search_pipeline": {
+    "phase_results_processors": [
+      {
+        "normalization-processor": {
+          "normalization": {
+            "technique": "min_max"
+          },
+          "combination": {
+            "technique": "arithmetic_mean",
+            "parameters": {
+              "weights": [
+                0.7, # knn query part
+                0.3 # lexical query part
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "size": 5,
+  "query": {
+    "hybrid": {
+      "queries": [
+        {
+          "knn": {
+            "emb": {
+              "vector": [...], # vector embedding for query string
+              "k": 5
+            }
+          }
+        },
+        {
+          "query_string": {
+            "default_operator": "AND",
+            "query": "...", # plain query string 
+            "default_field": "_all_fields"
+          }
+        }
+      ]
     }
   }
 }
