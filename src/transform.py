@@ -23,7 +23,7 @@ USER = os.environ.get('POSTGRES_USER')
 PW = os.environ.get('POSTGRES_PASSWORD')
 BATCH_SIZE = os.environ.get('CELERY_BATCH_SIZE')
 if not BATCH_SIZE or not BATCH_SIZE.isnumeric():
-    raise ValueError('Missing CELERY_BATCH_SIZE environment variable')
+    raise ValueError('Missing or invalid CELERY_BATCH_SIZE environment variable')
 
 app = FastAPI()
 
@@ -31,7 +31,7 @@ def create_jobs(index_name: str) -> int:
     batch = []
     tasks = []
     offset = 0
-    limit = int(BATCH_SIZE)
+    limit = int(BATCH_SIZE) if BATCH_SIZE else 250
     fetch = True
 
     logger.info(f'Preparing jobs')
