@@ -20,6 +20,19 @@ GET /test_datacite/_search
 
 The sample queries are based on the OpenSearch [mapping](../src/config/opensearch_mapping.json).
 
+## Specify the Source
+
+In the query, `_source` can be used to specify which fields of the [source](https://docs.opensearch.org/latest/field-types/metadata-fields/source/) should be returned:
+
+```json
+{
+     "_source": ["titles.title", "subjects.subject", "descriptions.description"],
+    "query": {
+        ...
+    }
+}
+```
+
 ## Lexical Queries
 
 ### Simple Field Queries
