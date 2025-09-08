@@ -29,7 +29,7 @@ app = FastAPI()
 
 def create_jobs(index_name: str) -> int:
     batch = []
-    tasks = []
+    tasks = 0
     offset = 0
     limit = int(BATCH_SIZE) if BATCH_SIZE else 250
     fetch = True
@@ -51,11 +51,10 @@ def create_jobs(index_name: str) -> int:
                 for doc in docs():
                     batch.append(doc.root)
 
-            # TODO: Backends use resources to store and transmit results. To ensure that resources are released, you must eventually call get() or forget() on EVERY AsyncResult instance returned after calling a task.
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')
-            task: AsyncResult[int] = transform_batch.delay(batch, index_name)
-            tasks.append(task)
+            transform_batch.delay(batch, index_name)
+            tasks = tasks + 1
 
             # increment offset by limit
             offset = offset + limit
@@ -64,7 +63,7 @@ def create_jobs(index_name: str) -> int:
             batch = []
 
 
-    return len(tasks)
+    return tasks
 
 
 @app.get("/index")

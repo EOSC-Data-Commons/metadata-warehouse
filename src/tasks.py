@@ -51,7 +51,7 @@ class TransformTask(Task): # type: ignore
             self.schema = json.load(f)
 
 
-@celery_app.task(base=TransformTask, bind=True)
+@celery_app.task(base=TransformTask, bind=True, ignore_result=True)
 def transform_batch(self: Any, batch: list[str], index_name: str) -> Any:
     # transform to JSON and normalize
 
