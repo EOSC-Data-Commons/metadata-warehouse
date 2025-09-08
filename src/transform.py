@@ -41,7 +41,7 @@ def create_jobs(index_name: str) -> int:
         while fetch:
 
             with db.prepare(f"""
-            SELECT (xpath('/oai:record/oai:metadata', info, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}'))[1] AS root
+            SELECT (xpath('/oai:record', info, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}'))[1] AS root
         FROM raw
             ORDER BY ID
             LIMIT {limit}
@@ -61,7 +61,6 @@ def create_jobs(index_name: str) -> int:
             # will be false if query returned fewer results than limit
             fetch = len(batch) == limit
             batch = []
-
 
     return tasks
 

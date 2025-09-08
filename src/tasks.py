@@ -17,9 +17,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-OAI_METADATA = 'http://www.openarchives.org/OAI/2.0/:metadata'
+OAI = 'http://www.openarchives.org/OAI/2.0/'
+OAI_RECORD = f'{OAI}:record'
+OAI_METADATA = f'{OAI}:metadata'
 DATACITE_RESOURCE = 'http://datacite.org/schema/kernel-4:resource'
-HAL_RESOURCE = 'http://www.openarchives.org/OAI/2.0/:resource'
+HAL_RESOURCE = f'{OAI}:resource'
 
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
 if not EMBEDDING_MODEL:
@@ -61,8 +63,13 @@ def transform_batch(self: Any, batch: list[str], index_name: str) -> Any:
     for ele in batch:
         converted = xmltodict.parse(ele, process_namespaces=True)
 
-        if OAI_METADATA in converted:
-            metadata = converted[OAI_METADATA]
+        if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
+            rec_id = converted[OAI_RECORD][f'{OAI}:header'][
+                    f'{OAI}:identifier']
+
+            logger.info(f'{rec_id}')
+
+            metadata = converted[OAI_RECORD][OAI_METADATA]
         else:
             # Converted JSON cannot be processed, log this
             logger.debug(f'Cannot access {OAI_METADATA} in : {converted}')
@@ -90,6 +97,7 @@ def transform_batch(self: Any, batch: list[str], index_name: str) -> Any:
         except ValidationError as e:
             logger.debug(f'Validation failed: {e.message}')
         finally:
+            # TODO: flag source record as failed using rec_id
             continue
 
     try:
