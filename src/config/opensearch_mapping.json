@@ -109,6 +109,17 @@
                 "type": "date",
                 "format": "year"
             },
+            "types": {
+                "type": "nested",
+                "properties": {
+                    "resourceTypeGeneral": {
+                        "type": "keyword",
+                        "copy_to": [
+                            "_resourceTypeGeneral"
+                        ]
+                    }
+                }
+            },
             "_all_fields": {
                 "type": "text"
             },
@@ -124,6 +135,9 @@
             "_date": {
                 "type": "date",
                 "format": "yyyy-mm-dd"
+            },
+            "_resourceTypeGeneral": {
+                "type": "keyword"
             }
         }
     }
