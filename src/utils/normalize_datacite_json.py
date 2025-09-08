@@ -16,6 +16,19 @@ def get_identifier(entry: dict[str, Any], identifier_type: str) -> Any | None:
     # print(f'No DOI given for {entry}')
     return None
 
+def get_resource_type(entry: dict[str, Any]) -> Optional[dict[str, Any]]:
+
+    res = {}
+
+    if res_type := entry.get(f'{DATACITE}:resourceType'):
+        if res_type_general := res_type.get('@resourceTypeGeneral'):
+            res['resourceTypeGeneral'] = res_type_general
+        if text_node := res_type.get('#text'):
+            res['resourceType'] = text_node
+
+        return res
+
+    return None
 
 def harmonize_creator(entry: dict[str, Any]) -> dict[str, Any]:
     '''
@@ -206,7 +219,8 @@ def normalize_datacite_json(res: dict[str, Any]) -> dict[str, Any]:
                                      make_array(res.get(f'{DATACITE}:descriptions'), f'{DATACITE}:description'))),
             'dates': list(map(lambda el: harmonize_props(el, f'{DATACITE}:date', {'@dateType': 'dateType'},
                                                          {'date': normalize_date_string}),
-                              make_array(res.get(f'{DATACITE}:dates'), f'{DATACITE}:date')))
+                              make_array(res.get(f'{DATACITE}:dates'), f'{DATACITE}:date'))),
+            'types': get_resource_type(res)
         }
 
         # remove None values and empty lists
