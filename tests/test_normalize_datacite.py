@@ -9,19 +9,20 @@ class TestNormalizeDatacite(unittest.TestCase):
         with open('tests/testdata/doi_10.17026_dans-2ab-dpmm.oai_datacite.xml.json') as f:
             data = json.load(f)['http://www.openarchives.org/OAI/2.0/:record'][
                 'http://www.openarchives.org/OAI/2.0/:metadata']['http://datacite.org/schema/kernel-4:resource']
-        res = normalize_datacite_json.make_array(data.get('http://datacite.org/schema/kernel-4:titles'), 'http://datacite.org/schema/kernel-4:title')
+        res = normalize_datacite_json.make_array(data.get('http://datacite.org/schema/kernel-4:titles'),
+                                                 'http://datacite.org/schema/kernel-4:title')
 
-        self.assertEqual(len(res),1)
+        self.assertEqual(len(res), 1)
         self.assertTrue(res[0].get('http://datacite.org/schema/kernel-4:title'))
-
 
     def test_make_array_from_field_list(self):
         with open('tests/testdata/doi_10.17026_SS_78HHDK.oai_datacite.xml.json') as f:
             data = json.load(f)['http://www.openarchives.org/OAI/2.0/:record'][
                 'http://www.openarchives.org/OAI/2.0/:metadata']['http://datacite.org/schema/kernel-4:resource']
-        res = normalize_datacite_json.make_array(data.get('http://datacite.org/schema/kernel-4:titles'), 'http://datacite.org/schema/kernel-4:title')
+        res = normalize_datacite_json.make_array(data.get('http://datacite.org/schema/kernel-4:titles'),
+                                                 'http://datacite.org/schema/kernel-4:title')
 
-        #print(res)
+        # print(res)
         self.assertEqual(len(res), 2)
         self.assertTrue(res[0].get('http://datacite.org/schema/kernel-4:title'))
         self.assertTrue(res[1].get('http://datacite.org/schema/kernel-4:title'))
@@ -33,7 +34,7 @@ class TestNormalizeDatacite(unittest.TestCase):
 
         res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:title', {}, {})
 
-        #print(res)
+        # print(res)
 
         self.assertEqual(res, {
             'title': 'A title'
@@ -47,9 +48,10 @@ class TestNormalizeDatacite(unittest.TestCase):
             }
         }
 
-        res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:title', {'@titleType': 'titleType'}, {})
+        res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:title',
+                                                      {'@titleType': 'titleType'}, {})
 
-        #print(res)
+        # print(res)
 
         self.assertEqual(res, {
             'title': 'Another title',
@@ -69,7 +71,8 @@ class TestNormalizeDatacite(unittest.TestCase):
     def test_harmonize_creator_object(self):
         data = {
             'http://datacite.org/schema/kernel-4:creator':
-                {'http://datacite.org/schema/kernel-4:creatorName': {'#text': 'Pe\u0161un, Luka', '@nameType': 'personal'}}
+                {'http://datacite.org/schema/kernel-4:creatorName': {'#text': 'Pe\u0161un, Luka',
+                                                                     '@nameType': 'personal'}}
         }
 
         res = normalize_datacite_json.harmonize_creator(data)
@@ -123,3 +126,30 @@ class TestNormalizeDatacite(unittest.TestCase):
     def test_make_id_with_doi(self):
         res = normalize_datacite_json.make_id({'doi': '10.123/123'})
         self.assertEqual(res, 'https://doi.org/10.123/123')
+
+    def test_get_resource_type_with_text_node(self):
+        test_res = {
+            'http://datacite.org/schema/kernel-4:resourceType': {
+                '@resourceTypeGeneral': 'Dataset',
+                '#text': 'test'
+            }
+        }
+
+        res = normalize_datacite_json.get_resource_type(test_res)
+
+        self.assertEqual(res,
+                         {'resourceType': 'test', 'resourceTypeGeneral': 'Dataset'}
+                         )
+
+    def test_get_resource_type_without_text_node(self):
+        test_res = {
+            'http://datacite.org/schema/kernel-4:resourceType': {
+                '@resourceTypeGeneral': 'Dataset'
+            }
+        }
+
+        res = normalize_datacite_json.get_resource_type(test_res)
+
+        self.assertEqual(res,
+                         {'resourceTypeGeneral': 'Dataset'}
+                         )
