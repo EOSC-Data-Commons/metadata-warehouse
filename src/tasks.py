@@ -1,7 +1,8 @@
 import json
 import os
 from pathlib import Path
-
+from config.logging_config import LOGGING_CONFIG
+from logging.config import dictConfig
 from fastembed import TextEmbedding
 from celery import Celery, Task
 from jsonschema.exceptions import ValidationError
@@ -13,9 +14,10 @@ from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, So
     get_embedding_text_from_fields
 from utils import normalize_datacite_json
 from typing import Any
-import logging
+from celery.utils.log import get_task_logger
 
-logger = logging.getLogger(__name__)
+dictConfig(LOGGING_CONFIG)
+logger = get_task_logger(__name__)
 
 # OAI-PMH XML namespaces
 OAI = 'http://www.openarchives.org/OAI/2.0/'

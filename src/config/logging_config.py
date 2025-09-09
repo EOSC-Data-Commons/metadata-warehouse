@@ -23,7 +23,7 @@ LOGGING_CONFIG = {
     },
     "loggers": {
         "": {"handlers": ["default"], "level": "INFO"},
-        "celery.tasks": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "celery.task": {"handlers": ["default"], "level": "DEBUG", "propagate": False},
         "watchfiles.main": {
             "handlers": ["default"],
             "level": "WARN",
