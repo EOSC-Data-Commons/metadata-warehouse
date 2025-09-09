@@ -17,6 +17,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# OAI-PMH XML namespaces
 OAI = 'http://www.openarchives.org/OAI/2.0/'
 OAI_RECORD = f'{OAI}:record'
 OAI_METADATA = f'{OAI}:metadata'
