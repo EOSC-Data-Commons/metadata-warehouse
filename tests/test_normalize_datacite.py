@@ -153,3 +153,13 @@ class TestNormalizeDatacite(unittest.TestCase):
         self.assertEqual(res,
                          {'resourceTypeGeneral': 'Dataset'}
                          )
+
+    def test_normalize_lang_string_with_three_char_string(self):
+        res = normalize_datacite_json.normalize_lang_string('eng')
+
+        self.assertEqual(res, 'en')
+
+    def test_normalize_lang_string_with_two_char_string(self):
+        res = normalize_datacite_json.normalize_lang_string('en')
+
+        self.assertEqual(res, 'en')
