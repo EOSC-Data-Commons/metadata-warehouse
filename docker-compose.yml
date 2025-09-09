@@ -175,6 +175,18 @@ services:
                 condition: service_healthy
         networks:
             - warehouse-backend
+
+    # https://github.com/EOSC-Data-Commons/data-commons-mcp/pkgs/container/data-commons-mcp
+    mcp:
+        restart: unless-stopped
+        image: ghcr.io/eosc-data-commons/data-commons-mcp:main
+        environment:
+            - RUST_LOG=info
+            - OPENSEARCH_URL=http://opensearch:9200
+            - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+        networks:
+            - warehouse-backend
+
 volumes:
     postgres-data:
     pgadmin-data:
