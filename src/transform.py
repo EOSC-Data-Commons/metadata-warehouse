@@ -1,6 +1,8 @@
 from datetime import datetime
+from logging.config import dictConfig
+from pathlib import Path
+
 import pgsql # type: ignore
-from celery.result import AsyncResult
 from fastapi.concurrency import run_in_threadpool
 #import psycopg2
 from tasks import transform_batch
@@ -8,16 +10,10 @@ import os
 from fastapi import FastAPI
 from typing import Any
 import logging
-import sys
+from config.logger import LOGGING_CONFIG
 
+dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-# https://konfuzio.com/de/konfiguration-des-fastapi-loggings-lokal-und-in-der-produktion/
-stream_handler = logging.StreamHandler(sys.stdout)
-log_formatter = logging.Formatter("%(asctime)s [%(processName)s: %(process)d] [%(threadName)s: %(thread)d] [%(levelname)s] %(name)s: %(message)s")
-stream_handler.setFormatter(log_formatter)
-logger.addHandler(stream_handler)
 
 USER = os.environ.get('POSTGRES_USER')
 PW = os.environ.get('POSTGRES_PASSWORD')
@@ -82,4 +78,5 @@ async def index(index_name: str) -> dict[str, Any]:
 
 @app.get("/health")
 async def health() -> dict[str, Any]:
+    logger.info('health route called')
     return {'status': 'ok', 'time': datetime.now()}
