@@ -12,7 +12,7 @@ LOG_DIR.mkdir(exist_ok=True)
 class InfoFilter(logging.Filter):
     """Filter events above INFO level"""
 
-    def filter(self, record):
+    def filter(self, record: logging.LogRecord) -> bool:
         return record.levelname == "INFO"
 
 

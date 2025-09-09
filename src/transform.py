@@ -1,16 +1,15 @@
 from datetime import datetime
 from logging.config import dictConfig
-from pathlib import Path
-
 import pgsql # type: ignore
 from fastapi.concurrency import run_in_threadpool
+from config.logging_config import LOGGING_CONFIG
 #import psycopg2
 from tasks import transform_batch
 import os
 from fastapi import FastAPI
 from typing import Any
 import logging
-from config.logger import LOGGING_CONFIG
+
 
 dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
