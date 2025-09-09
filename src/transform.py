@@ -3,6 +3,7 @@ from logging.config import dictConfig
 import pgsql # type: ignore
 from fastapi.concurrency import run_in_threadpool
 from config.logging_config import LOGGING_CONFIG
+from config.postgres_config import PostgresConfig
 #import psycopg2
 from tasks import transform_batch
 import os
@@ -14,13 +15,12 @@ import logging
 dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
-USER = os.environ.get('POSTGRES_USER')
-PW = os.environ.get('POSTGRES_PASSWORD')
 BATCH_SIZE = os.environ.get('CELERY_BATCH_SIZE')
 if not BATCH_SIZE or not BATCH_SIZE.isnumeric():
     raise ValueError('Missing or invalid CELERY_BATCH_SIZE environment variable')
 
 app = FastAPI()
+postgres_config = PostgresConfig()
 
 def create_jobs(index_name: str) -> int:
     batch = []
@@ -30,7 +30,7 @@ def create_jobs(index_name: str) -> int:
     fetch = True
 
     logger.info(f'Preparing jobs')
-    with pgsql.Connection(('postgres', 5432), USER, PW, tls=False) as db:
+    with pgsql.Connection(('postgres', postgres_config.port), postgres_config.user, postgres_config.password, tls=False) as db:
         # print(db)
 
         while fetch:
