@@ -6,7 +6,14 @@ class PostgresConfig:
     password: str
     port: int
 
-    def __init__(self):
-        self.user = os.environ.get('POSTGRES_USER')
-        self.password = os.environ.get('POSTGRES_PASSWORD')
-        self.port = 5432
+    def __init__(self) -> None:
+        user = os.environ.get('POSTGRES_USER')
+        password = os.environ.get('POSTGRES_PASSWORD')
+
+        if user and password:
+            self.user = user
+            self.password = password
+            self.port = 5432
+        else:
+            raise ValueError('Missing POSTGRES_USER or POSTGRES_PASSWORD')
+

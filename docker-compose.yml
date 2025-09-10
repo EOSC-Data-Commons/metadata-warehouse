@@ -66,7 +66,7 @@ services:
               #"batches",
               "-E",
               "--pool=solo", # https://stackoverflow.com/questions/56767461/celery-workerlosterror-worker-exited-prematurely-signal-6-sigabrt
-              "--loglevel=DEBUG"
+              "--loglevel=INFO"
           ]
         #volumes:
         #- ./data/results:/var/celery/results

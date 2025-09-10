@@ -20,7 +20,7 @@ if not BATCH_SIZE or not BATCH_SIZE.isnumeric():
     raise ValueError('Missing or invalid CELERY_BATCH_SIZE environment variable')
 
 app = FastAPI()
-postgres_config = PostgresConfig()
+postgres_config: PostgresConfig = PostgresConfig()
 
 def create_jobs(index_name: str) -> int:
     batch = []
