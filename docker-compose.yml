@@ -180,6 +180,9 @@ services:
     mcp:
         restart: unless-stopped
         image: ghcr.io/eosc-data-commons/data-commons-mcp:main
+        depends_on:
+            opensearch:
+                condition: service_healthy
         environment:
             - RUST_LOG=info
             - OPENSEARCH_URL=http://opensearch:9200
