@@ -183,10 +183,10 @@ services:
         depends_on:
             opensearch:
                 condition: service_healthy
+        env_file: [ keys.env]
         environment:
             - RUST_LOG=info
             - OPENSEARCH_URL=http://opensearch:9200
-            - MISTRAL_API_KEY=${MISTRAL_API_KEY}
         networks:
             - warehouse-backend
 
