@@ -17,8 +17,8 @@ from typing import Any
 from celery.utils.log import get_task_logger
 from celery.signals import after_setup_logger
 
-@after_setup_logger.connect()
-def configurate_celery_task_logger(**kwargs):
+@after_setup_logger.connect() # type: ignore
+def configurate_celery_task_logger(**kwargs: Any) -> None:
     # https://docs.celeryq.dev/en/latest/userguide/signals.html#after-setup-logger
     dictConfig(LOGGING_CONFIG)
 
