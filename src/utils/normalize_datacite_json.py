@@ -31,12 +31,12 @@ def get_resource_type(entry: dict[str, Any]) -> Optional[dict[str, Any]]:
     return None
 
 def harmonize_creator(entry: dict[str, Any]) -> dict[str, Any]:
-    '''
+    """
     Given an entry of 'datacite_creators', harmonizes its structure.
 
     :param entry: Given entry from 'creators':
     :return: A harmonized entry.
-    '''
+    """
 
     cr = entry[f'{DATACITE}:creator']
 
@@ -50,7 +50,7 @@ def harmonize_creator(entry: dict[str, Any]) -> dict[str, Any]:
 
 def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, str],
                     normalization: dict[str, Callable[[Any], Any]]) -> dict[str, Any]:
-    '''
+    """
     Give a dict and a field_name, returns a dict with that field's value in a harmonized format.
 
     :param entry: given dict.
@@ -58,7 +58,7 @@ def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, 
     :param attr_map: key-value map or attribute names.
     :param normalization dict of field names to functions that normalize the value of the given field.
     :return: the specified field of the given dict in a harmonized format.
-    '''
+    """
     # print(type(entry), field_name, entry)
 
     # ignore non-existing fields
@@ -98,13 +98,13 @@ def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, 
 
 
 def make_object(subfield: list[dict[str, Any]] | dict[str, Any], subfield_name: str) -> list[dict[str, Any]]:
-    '''
+    """
     Given a subfield, turn it into a dict.
 
     :param subfield: subfield's value, could be a list of values or a single item.
     :param subfield_name: subfield's name, e.g., 'datacite:title' or 'datacite:subject'.
     :return: A dict for each subfield.
-    '''
+    """
     if isinstance(subfield, list):
         res = list(map(lambda fi: {subfield_name: fi}, subfield))
         return res
@@ -113,14 +113,14 @@ def make_object(subfield: list[dict[str, Any]] | dict[str, Any], subfield_name: 
 
 
 def make_array(field: dict[str, Any] | list[dict[str, Any]] | None, subfield_name: str) -> list[dict[str, Any]]:
-    '''
+    """
     Given a field value like 'datacite:titles' or 'datacite:subjects',
     returns an array of objects with the subfield name as an index.
 
     :param field: name of the field, e.g., 'datacite:titles' or 'datacite:subjects'.
     :param subfield_name: name og the subfield, e.g., 'datacite:title' or 'datacite:subject'.
     :return: a list of objects with the subfield name as an index.
-    '''
+    """
 
     if field is None:
         return []
