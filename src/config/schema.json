@@ -20,7 +20,8 @@
                         "type": "string"
                     },
                     "lang": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^[a-z]{2}$"
                     },
                     "titleType": {
                         "type": "string"
@@ -41,7 +42,8 @@
                         "type": "string"
                     },
                     "lang": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^[a-z]{2}$"
                     },
                     "subjectScheme": {
                         "type": "string"
@@ -108,7 +110,8 @@
                         "type": "string"
                     },
                     "lang": {
-                        "type": "string"
+                        "type": "string",
+                        "pattern": "^[a-z]{2}$"
                     }
                 },
                 "required": [
