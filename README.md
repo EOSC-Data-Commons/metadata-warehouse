@@ -11,7 +11,7 @@ To run the containers:
 ## pgAdmin 
 
 - when using pgAdmin, register a new server with `Host name` "postgres" (container name in docker network) with port "5432".  
-- provider credentials as defined in `.env`
+- provider credentials as defined in `.env` and `keys.env`
 
 # Basic Setup and Loading Data
 
