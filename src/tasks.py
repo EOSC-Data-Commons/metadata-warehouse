@@ -70,7 +70,7 @@ def transform_batch(self: Any, batch: list[str], index_name: str) -> Any:
             rec_id = converted[OAI_RECORD][f'{OAI}:header'][
                     f'{OAI}:identifier']
 
-            logger.info(f'{rec_id}')
+            logger.debug(f'{rec_id}')
 
             metadata = converted[OAI_RECORD][OAI_METADATA]
         else:
@@ -95,10 +95,10 @@ def transform_batch(self: Any, batch: list[str], index_name: str) -> Any:
             normalized.append(SourceWithEmbeddingText(src=normalized_record,
                                                       textToEmbed=get_embedding_text_from_fields(normalized_record),
                                                       file=Path('')))
-        except Exception as e:
-            logger.debug(f'An error occurred during transformation: {e}')
         except ValidationError as e:
-            logger.debug(f'Validation failed: {e.message}')
+            logger.info(f'Validation failed for {rec_id}: {e.message}')
+        except Exception as e:
+            logger.info(f'An error occurred for {rec_id} during transformation: {e}')
         finally:
             # TODO: flag source record as failed using rec_id
             continue

@@ -49,8 +49,8 @@ def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', help='input directory', type=str)
-    parser.add_argument('-o', help='output directory', type=str)
+    parser.add_argument('-i', help='input directory', type=str, required=True)
+    parser.add_argument('-o', help='output directory', type=str, required=True)
     parser.add_argument('-s', help='path to schema file if normalized output should be validated (requires flag -n)', type=str)
     parser.add_argument('-n', help='If set, output JSON is normalized', action='store_true')
 
