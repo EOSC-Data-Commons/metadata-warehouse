@@ -54,7 +54,8 @@ class TransformTask(Task): # type: ignore
         self.client = OpenSearch(
             hosts=[{'host': 'opensearch', 'port': 9200}],
             http_auth=None,
-            use_ssl=False
+            use_ssl=False,
+            logger=logger
         )
 
         with open('config/schema.json') as f:
