@@ -15,8 +15,13 @@ from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, So
 from utils import normalize_datacite_json
 from typing import Any
 from celery.utils.log import get_task_logger
+from celery.signals import after_setup_logger
 
-dictConfig(LOGGING_CONFIG)
+@after_setup_logger.connect()
+def configurate_celery_task_logger(**kwargs):
+    # https://docs.celeryq.dev/en/latest/userguide/signals.html#after-setup-logger
+    dictConfig(LOGGING_CONFIG)
+
 logger = get_task_logger(__name__)
 
 # OAI-PMH XML namespaces
