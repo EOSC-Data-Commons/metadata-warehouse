@@ -11,7 +11,7 @@ To run the containers:
 ## pgAdmin 
 
 - when using pgAdmin, register a new server with `Host name` "postgres" (container name in docker network) with port "5432".  
-- provider credentials as defined in `.env`
+- provider credentials as defined in `.env` and `keys.env`
 
 # Basic Setup and Loading Data
 
@@ -21,7 +21,7 @@ To run the containers:
 ## Create Postgres DB and Load and Transform Data
 
  - `cd scripts/postgres_data`
- - create DB `admin` with table `raw`: `uv run create_db`
+ - create DB `admin` with table `raw`: `uv run create_db.py`
  - load XML data from `scripts/postgres_data/data`: `uv run import_data.py`
  - query XML data: `uv run get_data.py`
  - transform data from `scripts/postgres_data/data` to a local dir: `uv run transform.py -i harvests_{repo_suffix} -o {repo_suffix}_json -s JSON_schema_file [-n]`

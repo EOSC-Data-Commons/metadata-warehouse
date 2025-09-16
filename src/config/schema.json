@@ -137,12 +137,28 @@
                 ],
                 "additionalProperties": false
             }
+        },
+        "types": {
+            "type": "object",
+            "properties": {
+                "resourceType": {
+                    "type": "string"
+                },
+                "resourceTypeGeneral": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                    "resourceTypeGeneral"
+                ],
+            "additionalProperties": false
         }
     },
     "required": [
         "id",
         "creators",
-        "titles"
+        "titles",
+        "types"
     ],
     "oneOf": [
         {
@@ -155,5 +171,6 @@
                 "url"
             ]
         }
-    ]
+    ],
+    "additionalProperties": false
 }

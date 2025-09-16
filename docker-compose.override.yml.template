@@ -2,6 +2,8 @@ services:
     flower:
         ports:
             - "127.0.0.1:5555:5555"
+        environment:
+            FLOWER_UNAUTHENTICATED_API: true
 
     celery:
         command:
@@ -16,7 +18,11 @@ services:
             "-A",
             "tasks",
             "worker",
-            "--loglevel=INFO"
+            #"-Q",
+            #"batches",
+            "-E",
+            "--pool=solo", # https://stackoverflow.com/questions/56767461/celery-workerlosterror-worker-exited-prematurely-signal-6-sigabrt
+            "--loglevel=DEBUG"
           ]
 
     transform:
@@ -39,3 +45,7 @@ services:
     opensearch-dashboards:
         ports:
             - "127.0.0.1:5601:5601"
+
+    mcp:
+        ports:
+            - "127.0.0.1:8000:8000"

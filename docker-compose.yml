@@ -62,6 +62,10 @@ services:
               "-A",
               "tasks",
               "worker",
+              #"-Q",
+              #"batches",
+              "-E",
+              "--pool=solo", # https://stackoverflow.com/questions/56767461/celery-workerlosterror-worker-exited-prematurely-signal-6-sigabrt
               "--loglevel=INFO"
           ]
         #volumes:
@@ -70,6 +74,7 @@ services:
             CELERY_BROKER_URL: redis://broker:6379/0
             #CELERY_RESULT_BACKEND: "file:///var/celery/results"
             CELERY_RESULT_BACKEND: redis://broker:6379/0
+            EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
         healthcheck:
             test: celery -A tasks status
             interval: 10s
@@ -91,6 +96,8 @@ services:
             CELERY_RESULT_BACKEND: redis://broker:6379/0
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+            EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
+            CELERY_BATCH_SIZE: "${CELERY_BATCH_SIZE}"
         depends_on:
             postgres:
                 condition: service_healthy
@@ -168,6 +175,21 @@ services:
                 condition: service_healthy
         networks:
             - warehouse-backend
+
+    # https://github.com/EOSC-Data-Commons/data-commons-mcp/pkgs/container/data-commons-mcp
+    mcp:
+        restart: unless-stopped
+        image: ghcr.io/eosc-data-commons/data-commons-mcp:main
+        depends_on:
+            opensearch:
+                condition: service_healthy
+        env_file: [ keys.env]
+        environment:
+            - RUST_LOG=info
+            - OPENSEARCH_URL=http://opensearch:9200
+        networks:
+            - warehouse-backend
+
 volumes:
     postgres-data:
     pgadmin-data:
