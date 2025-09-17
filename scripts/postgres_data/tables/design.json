@@ -1,0 +1,587 @@
+{
+  "schema_name": "metadata_harvest_db",
+  "version": "1.0",
+  "description": "Metadata Harvesting ETL Pipeline PostgreSQL Schema",
+
+  "custom_types": {
+    "harvest_protocol": {
+      "type": "enum",
+      "values": ["OAI-PMH", "REST_API"]
+    },
+    "resource_type": {
+      "type": "enum",
+      "values": [
+        "Audiovisual", "Award", "Book", "BookChapter", "Collection",
+        "ComputationalNotebook", "ConferencePaper", "ConferenceProceeding",
+        "DataPaper", "Dataset", "Dissertation", "Event", "Image",
+        "InteractiveResource", "Instrument", "Journal", "JournalArticle",
+        "Model", "OutputManagementPlan", "PeerReview", "PhysicalObject",
+        "Preprint", "Project", "Report", "Service", "Software", "Sound",
+        "Standard", "StudyRegistration", "Text", "Workflow", "Other"
+      ]
+    },
+    "event_action": {
+      "type": "enum",
+      "values": ["create", "update", "delete"]
+    },
+    "event_status": {
+      "type": "enum",
+      "values": ["pending", "processing", "completed", "failed", "skipped"]
+    },
+    "content_format": {
+      "type": "enum",
+      "values": ["XML", "JSON"]
+    }
+  },
+
+  "tables": {
+    "repositories": {
+      "description": "Stores information about data repositories (DANS, DABAR, etc.)",
+      "category": "core",
+      "fields": {
+        "id": {
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "unique": true,
+          "description": "Repository full name"
+        },
+        "code": {
+          "type": "VARCHAR(50)",
+          "nullable": false,
+          "unique": true,
+          "description": "Short code: DANS, DABAR, SwissUbase, HAL"
+        },
+        "description": {
+          "type": "TEXT",
+          "nullable": true
+        },
+        "base_url": {
+          "type": "VARCHAR(2048)",
+          "nullable": true
+        },
+        "contact_info": {
+          "type": "JSONB",
+          "nullable": true,
+          "description": "Contact details in JSON format"
+        },
+        "metadata": {
+          "type": "JSONB",
+          "nullable": true,
+          "description": "Additional repository-specific metadata"
+        },
+        "created_at": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_at": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "is_active": {
+          "type": "BOOLEAN",
+          "nullable": false,
+          "default": true
+        }
+      }
+    },
+
+    "endpoints": {
+      "description": "Harvesting endpoints for repositories (multiple per repo)",
+      "category": "core",
+      "fields": {
+        "id": {
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "default": "gen_random_uuid()"
+        },
+        "repository_id": {
+          "type": "UUID",
+          "nullable": false,
+          "foreign_key": {
+            "table": "repositories",
+            "column": "id",
+            "on_delete": "CASCADE"
+          }
+        },
+        "name": {
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "description": "Endpoint name/identifier"
+        },
+        "description": {
+          "type": "TEXT",
+          "nullable": true
+        },
+        "harvest_url": {
+          "type": "VARCHAR(2048)",
+          "nullable": false,
+          "description": "URL for harvesting data"
+        },
+        "protocol": {
+          "type": "harvest_protocol",
+          "nullable": false,
+          "default": "'OAI-PMH'",
+          "description": "Primary harvest protocol"
+        },
+        "scientific_discipline": {
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "description": "e.g., Agriculture, Physics"
+        },
+        "oai_set": {
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "description": "OAI-PMH set specification"
+        },
+        "harvest_params": {
+          "type": "JSONB",
+          "nullable": true,
+          "description": "API keys, auth tokens, custom headers, etc."
+        },
+        "harvest_schedule": {
+          "type": "JSONB",
+          "nullable": true,
+          "description": "Cron expression and scheduling configuration"
+        },
+        "last_harvest_date": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true
+        },
+        "next_scheduled_harvest": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true
+        },
+        "metadata": {
+          "type": "JSONB",
+          "nullable": true
+        },
+        "created_at": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_at": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "is_active": {
+          "type": "BOOLEAN",
+          "nullable": false,
+          "default": true
+        }
+      },
+      "constraints": {
+        "unique": [["repository_id", "name"]]
+      }
+    },
+
+    "harvest_events": {
+      "description": "Queue of harvested metadata events awaiting transformation",
+      "category": "queue",
+      "fields": {
+        "id": {
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "default": "gen_random_uuid()"
+        },
+        "repository_id": {
+          "type": "UUID",
+          "nullable": false,
+          "foreign_key": {
+            "table": "repositories",
+            "column": "id",
+            "on_delete": "CASCADE"
+          }
+        },
+        "endpoint_id": {
+          "type": "UUID",
+          "nullable": false,
+          "foreign_key": {
+            "table": "endpoints",
+            "column": "id",
+            "on_delete": "CASCADE"
+          }
+        },
+        "record_identifier": {
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "description": "OAI-PMH identifier or unique record ID"
+        },
+        "action": {
+          "type": "event_action",
+          "nullable": false,
+          "description": "create/update/delete"
+        },
+        "status": {
+          "type": "event_status",
+          "nullable": false,
+          "default": "'pending'",
+          "description": "Processing status"
+        },
+        "raw_metadata": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "Original harvested metadata (XML, JSON, etc.)"
+        },
+        "metadata_format": {
+          "type": "content_format",
+          "nullable": false,
+          "default": "'XML'",
+          "description": "Format of the raw metadata"
+        },
+        "metadata_protocol": {
+          "type": "harvest_protocol",
+          "nullable": false,
+          "description": "Protocol used to harvest this event"
+        },
+        "additional_metadata": {
+          "type": "JSONB",
+          "nullable": true,
+          "description": "Additional metadata from REST APIs etc., includes source protocol"
+        },
+        "datestamp": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "description": "Record datestamp from OAI-PMH header"
+        },
+        "harvested_at": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "default": "CURRENT_TIMESTAMP",
+          "description": "When this event was harvested"
+        },
+        "processed_at": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "description": "When this event was processed by transformer"
+        },
+        "error_message": {
+          "type": "TEXT",
+          "nullable": true,
+          "description": "Error details if processing failed"
+        },
+        "retry_count": {
+          "type": "INTEGER",
+          "nullable": false,
+          "default": 0,
+          "description": "Number of processing attempts"
+        },
+        "batch_id": {
+          "type": "UUID",
+          "nullable": true,
+          "description": "Groups events for batch processing"
+        },
+        "celery_task_id": {
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "description": "Celery task ID when sent for processing"
+        }
+      }
+    },
+
+    "records": {
+      "description": "Core harvested records - contains transformed data",
+      "category": "main",
+      "fields": {
+        "id": {
+          "type": "VARCHAR(510)",
+          "nullable": false,
+          "primary_key": true,
+          "description": "Composite: endpoint_id::record_identifier"
+        },
+        "endpoint_id": {
+          "type": "UUID",
+          "nullable": false,
+          "foreign_key": {
+            "table": "endpoints",
+            "column": "id",
+            "on_delete": "CASCADE"
+          }
+        },
+        "repository_id": {
+          "type": "UUID",
+          "nullable": false,
+          "foreign_key": {
+            "table": "repositories",
+            "column": "id",
+            "on_delete": "CASCADE"
+          },
+          "description": "Denormalized for query performance"
+        },
+        "record_identifier": {
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "description": "OAI-PMH identifier or unique record ID"
+        },
+        "resource_type": {
+          "type": "resource_type",
+          "nullable": false,
+          "description": "Type of record: Dataset, JournalArticle, Software, etc."
+        },
+        "doi": {
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "description": "Digital Object Identifier"
+        },
+        "url": {
+          "type": "VARCHAR(2048)",
+          "nullable": true,
+          "description": "Primary URL if no DOI"
+        },
+        "title": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "Record title"
+        },
+        "raw_metadata": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "Original harvested metadata (XML, JSON, etc.)"
+        },
+        "metadata_format": {
+          "type": "content_format",
+          "nullable": false,
+          "default": "'XML'",
+          "description": "Format of the raw metadata"
+        },
+        "metadata_protocol": {
+          "type": "harvest_protocol",
+          "nullable": false,
+          "description": "Protocol used to harvest this record"
+        },
+        "datacite_json": {
+          "type": "JSONB",
+          "nullable": true,
+          "description": "Processed DataCite JSON"
+        },
+        "additional_metadata": {
+          "type": "JSONB",
+          "nullable": true,
+          "description": "Additional metadata from REST APIs, etc."
+        },
+        "embeddings": {
+          "type": "FLOAT8[]",
+          "nullable": true,
+          "description": "Vector embeddings array for storage (search happens in OpenSearch)"
+        },
+        "embedding_model": {
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "description": "Model used for embeddings"
+        },
+        "datestamp": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "description": "From OAI-PMH header"
+        },
+        "version": {
+          "type": "INTEGER",
+          "nullable": false,
+          "default": 1,
+          "description": "Version number"
+        },
+        "opensearch_synced": {
+          "type": "BOOLEAN",
+          "nullable": false,
+          "default": false,
+          "description": "Whether synced to OpenSearch"
+        },
+        "opensearch_synced_at": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "description": "When last synced to OpenSearch"
+        },
+        "created_at": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_at": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "deleted_at": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "description": "Soft delete timestamp"
+        }
+      },
+      "constraints": {
+        "unique": [["endpoint_id", "record_identifier"]],
+        "check": ["(doi IS NOT NULL OR url IS NOT NULL)"]
+      }
+    },
+
+    "harvest_runs": {
+      "description": "Track harvest execution history",
+      "category": "audit",
+      "fields": {
+        "id": {
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "default": "gen_random_uuid()"
+        },
+        "endpoint_id": {
+          "type": "UUID",
+          "nullable": false,
+          "foreign_key": {
+            "table": "endpoints",
+            "column": "id",
+            "on_delete": "CASCADE"
+          }
+        },
+        "started_at": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "completed_at": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true
+        },
+        "status": {
+          "type": "VARCHAR(50)",
+          "nullable": false,
+          "description": "running, completed, failed, partial"
+        },
+        "records_harvested": {
+          "type": "INTEGER",
+          "nullable": false,
+          "default": 0
+        },
+        "records_created": {
+          "type": "INTEGER",
+          "nullable": false,
+          "default": 0
+        },
+        "records_updated": {
+          "type": "INTEGER",
+          "nullable": false,
+          "default": 0
+        },
+        "records_deleted": {
+          "type": "INTEGER",
+          "nullable": false,
+          "default": 0
+        },
+        "errors_count": {
+          "type": "INTEGER",
+          "nullable": false,
+          "default": 0
+        },
+        "from_date": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "description": "Harvest from date parameter"
+        },
+        "until_date": {
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "description": "Harvest until date parameter"
+        },
+        "resumption_token": {
+          "type": "TEXT",
+          "nullable": true,
+          "description": "OAI-PMH resumption token if interrupted"
+        },
+        "error_log": {
+          "type": "JSONB",
+          "nullable": true,
+          "description": "Detailed error information"
+        }
+      }
+    }
+  },
+
+  "indexes": {
+    "repositories": [
+      {"fields": ["code"], "type": "btree"},
+      {"fields": ["is_active"], "type": "btree", "where": "is_active = true"}
+    ],
+    "endpoints": [
+      {"fields": ["repository_id"], "type": "btree"},
+      {"fields": ["protocol"], "type": "btree"},
+      {"fields": ["is_active"], "type": "btree", "where": "is_active = true"},
+      {"fields": ["next_scheduled_harvest"], "type": "btree", "where": "is_active = true"}
+    ],
+    "harvest_events": [
+      {"fields": ["repository_id"], "type": "btree"},
+      {"fields": ["endpoint_id"], "type": "btree"},
+      {"fields": ["record_identifier"], "type": "btree"},
+      {"fields": ["status"], "type": "btree"},
+      {"fields": ["harvested_at"], "type": "btree"},
+      {"fields": ["processed_at"], "type": "btree", "where": "processed_at IS NULL"},
+      {"fields": ["batch_id"], "type": "btree", "where": "batch_id IS NOT NULL"},
+      {"fields": ["status", "harvested_at"], "type": "btree", "where": "status = 'pending'"},
+      {"fields": ["endpoint_id", "record_identifier", "harvested_at"], "type": "btree"}
+    ],
+    "records": [
+      {"fields": ["endpoint_id"], "type": "btree"},
+      {"fields": ["repository_id"], "type": "btree"},
+      {"fields": ["record_identifier"], "type": "btree"},
+      {"fields": ["resource_type"], "type": "btree"},
+      {"fields": ["doi"], "type": "btree", "where": "doi IS NOT NULL"},
+      {"fields": ["deleted_at"], "type": "btree", "where": "deleted_at IS NULL"},
+      {"fields": ["opensearch_synced"], "type": "btree", "where": "opensearch_synced = false"},
+      {"fields": ["created_at"], "type": "brin"},
+      {"fields": ["updated_at"], "type": "brin"},
+      {"fields": ["datacite_json"], "type": "gin"},
+      {"fields": ["additional_metadata"], "type": "gin"},
+      {"fields": ["title"], "type": "gin", "function": "to_tsvector('english', title)"},
+
+    ],
+    "harvest_runs": [
+      {"fields": ["endpoint_id"], "type": "btree"},
+      {"fields": ["started_at"], "type": "btree"},
+      {"fields": ["status"], "type": "btree"}
+    ]
+  },
+
+  "relationships": [
+    {"from": "endpoints.repository_id", "to": "repositories.id", "type": "many_to_one"},
+    {"from": "harvest_events.repository_id", "to": "repositories.id", "type": "many_to_one"},
+    {"from": "harvest_events.endpoint_id", "to": "endpoints.id", "type": "many_to_one"},
+    {"from": "records.endpoint_id", "to": "endpoints.id", "type": "many_to_one"},
+    {"from": "records.repository_id", "to": "repositories.id", "type": "many_to_one"},
+    {"from": "harvest_runs.endpoint_id", "to": "endpoints.id", "type": "many_to_one"}
+  ],
+
+  "triggers": [
+    {
+      "name": "update_updated_at_timestamp",
+      "description": "Auto-update updated_at column",
+      "tables": ["repositories", "endpoints", "records"],
+      "timing": "BEFORE UPDATE",
+      "function": "NEW.updated_at = CURRENT_TIMESTAMP; RETURN NEW;"
+    },
+    {
+      "name": "generate_record_id",
+      "description": "Auto-generate composite ID for records",
+      "tables": ["records"],
+      "timing": "BEFORE INSERT",
+      "function": "NEW.id = NEW.endpoint_id || '::' || NEW.record_identifier; RETURN NEW;"
+    }
+  ],
+
+  "extensions_required": [
+    {
+      "name": "pgcrypto",
+      "required": true,
+      "purpose": "UUID generation with gen_random_uuid()",
+      "install": "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+    }
+  ]
+}

@@ -1,0 +1,302 @@
+<svg viewBox="0 0 1600 1100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Define styles and markers -->
+  <defs>
+    <style>
+      .table-box { fill: white; stroke: #2c3e50; stroke-width: 2; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.1)); }
+      .table-header { stroke: none; }
+      .table-title { fill: white; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; font-weight: bold; }
+      .field-text { fill: #2c3e50; font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; }
+      .field-pk { font-weight: bold; fill: #c0392b; }
+      .field-fk { font-style: italic; fill: #2980b9; }
+      .relationship { stroke: #7f8c8d; stroke-width: 2; fill: none; }
+      .relationship-one-to-one { stroke: #27ae60; stroke-width: 2.5; }
+
+      /* Category colors */
+      .cat-core { fill: #3498db; }
+      .cat-main { fill: #e74c3c; }
+      .cat-processing { fill: #f39c12; }
+      .cat-audit { fill: #9b59b6; }
+      .cat-operations { fill: #16a085; }
+
+      /* Improvement label */
+      .improvement-badge { fill: #27ae60; }
+      .improvement-text { fill: white; font-size: 11px; font-weight: bold; }
+      .new-badge { fill: #e67e22; }
+      .note { font-size: 9px; fill: #7f8c8d; font-style: italic; }
+    </style>
+
+    <!-- Arrow markers -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7f8c8d"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#27ae60"/>
+    </marker>
+  </defs>
+
+  <!-- Title and Version -->
+  <text style="font-family: 'Segoe UI', Arial; font-size: 20px; font-weight: bold; fill: #2c3e50;" x="800" y="30" text-anchor="middle">
+    Improved Metadata Harvesting Database Schema v1.0
+  </text>
+
+  <!-- CORE TABLES -->
+
+  <!-- repositories table -->
+  <g id="repositories" transform="translate(50, 100)">
+    <rect class="table-box" width="200" height="185" rx="5"/>
+    <rect class="table-header cat-core" width="200" height="28" rx="5 5 0 0"/>
+    <text class="table-title" x="100" y="19" text-anchor="middle">repositories</text>
+    <text class="field-text field-pk" x="10" y="48">id (PK)</text>
+    <text class="field-text" x="10" y="61">name</text>
+    <text class="field-text" x="10" y="74">code (unique)</text>
+    <text class="field-text" x="10" y="87">description</text>
+    <text class="field-text" x="10" y="100">base_url</text>
+    <text class="field-text" x="10" y="113">contact_info</text>
+    <text class="field-text" x="10" y="126">metadata</text>
+    <text class="field-text" x="10" y="139">is_active</text>
+    <text class="field-text" x="10" y="152">created_at</text>
+    <text class="field-text" x="10" y="165">updated_at</text>
+
+    <!-- Constraints / Notes -->
+    <text class="note" x="10" y="179">Note: `code` is UNIQUE.</text>
+  </g>
+
+  <!-- endpoints table -->
+  <g id="endpoints" transform="translate(320, 100)">
+    <rect class="table-box" width="240" height="270" rx="5"/>
+    <rect class="table-header cat-core" width="240" height="28" rx="5 5 0 0"/>
+    <text class="table-title" x="120" y="19" text-anchor="middle">endpoints</text>
+    <text class="field-text field-pk" x="10" y="48">id (PK)</text>
+    <text class="field-text field-fk" x="10" y="61">repository_id (FK)</text>
+    <text class="field-text" x="10" y="74">name</text>
+    <text class="field-text" x="10" y="87">description</text>
+    <text class="field-text" x="10" y="100">harvest_url</text>
+    <text class="field-text" x="10" y="113">protocols[]</text>
+    <text class="field-text" x="10" y="126">scientific_discipline</text>
+    <text class="field-text" x="10" y="139">oai_set</text>
+    <text class="field-text" x="10" y="152">harvest_params</text>
+    <text class="field-text" x="10" y="165">harvest_schedule</text>
+    <text class="field-text" x="10" y="178">last_harvest_date</text>
+    <text class="field-text" x="10" y="191">next_scheduled_harvest</text>
+    <text class="field-text" x="10" y="204">metadata</text>
+    <text class="field-text" x="10" y="217">is_active</text>
+    <text class="field-text" x="10" y="230">created_at</text>
+    <text class="field-text" x="10" y="243">updated_at</text>
+
+    <!-- Constraints / Notes -->
+    <text class="note" x="10" y="261">Note: UNIQUE(repository_id, name)</text>
+  </g>
+
+  <!-- MAIN TABLE -->
+
+  <!-- records table (full) -->
+  <g id="records" transform="translate(620, 100)">
+    <rect class="table-box" width="280" height="360" rx="5"/>
+    <rect class="table-header cat-main" width="280" height="28" rx="5 5 0 0"/>
+    <text class="table-title" x="140" y="19" text-anchor="middle">records</text>
+
+    <text class="field-text field-pk" x="10" y="48">id (PK) — composite: endpoint_id + (doi OR url)</text>
+    <text class="field-text field-fk" x="10" y="61">endpoint_id (FK)</text>
+    <text class="field-text" x="10" y="74">resource_type</text>
+    <text class="field-text" x="10" y="87">doi</text>
+    <text class="field-text" x="10" y="100">url</text>
+    <text class="field-text" x="10" y="113">title</text>
+    <text class="field-text" x="10" y="126">raw_xml</text>
+    <text class="field-text" x="10" y="139">datacite_json</text>
+    <text class="field-text" x="10" y="152">additional_metadata</text>
+    <text class="field-text" x="10" y="165">embeddings[]</text>
+    <text class="field-text" x="10" y="178">embedding_model</text>
+    <text class="field-text" x="10" y="191">datestamp</text>
+    <text class="field-text" x="10" y="204" style="fill: #27ae60; font-weight: bold;">version (optimistic lock)</text>
+    <text class="field-text" x="10" y="217">created_at</text>
+    <text class="field-text" x="10" y="230">updated_at</text>
+    <text class="field-text" x="10" y="243" style="fill: #e67e22; font-weight: bold;">deleted_at (soft delete)</text>
+
+    <!-- Constraint / Notes -->
+    <text class="note" x="10" y="262">CHECK: (doi IS NOT NULL OR url IS NOT NULL)</text>
+
+    <!-- Benefits -->
+    <text class="note" x="10" y="294">✓ Supports soft deletes</text>
+  </g>
+
+  <!-- PROCESSING STATE -->
+
+  <!-- record_processing_state table -->
+  <g id="record_processing_state" transform="translate(950, 100)">
+    <rect class="table-box" width="300" height="320" rx="5"/>
+    <rect class="table-header cat-processing" width="300" height="28" rx="5 5 0 0"/>
+    <text class="table-title" x="150" y="19" text-anchor="middle">record_processing_state</text>
+
+    <text class="field-text field-pk field-fk" x="10" y="48">record_id (PK, FK)</text>
+    <text class="field-text" x="10" y="61" style="fill: #27ae60; font-weight: bold;">current_stage</text>
+    <text class="field-text" x="10" y="74">harvest_status</text>
+    <text class="field-text" x="10" y="87">transformation_status</text>
+    <text class="field-text" x="10" y="100">embedding_status</text>
+    <text class="field-text" x="10" y="113">opensearch_sync_status</text>
+    <text class="field-text" x="10" y="126">last_error_stage</text>
+    <text class="field-text" x="10" y="139">last_error_message</text>
+    <text class="field-text" x="10" y="152" style="fill: #e67e22; font-weight: bold;">retry_count</text>
+    <text class="field-text" x="10" y="165" style="fill: #e67e22; font-weight: bold;">next_retry_at</text>
+    <text class="field-text" x="10" y="178" style="fill: #e67e22; font-weight: bold;">quarantine_reason</text>
+    <text class="field-text field-fk" x="10" y="191">processing_run_id (FK)</text>
+    <text class="field-text" x="10" y="204">updated_at</text>
+
+    <!-- Benefits -->
+    <text class="note" x="10" y="226">✓ Replaces invalid_records table</text>
+    <text class="note" x="10" y="239">✓ Single error message per record</text>
+    <text class="note" x="10" y="252">✓ Built-in retry mechanism</text>
+    <text class="note" x="10" y="265">✓ Quarantine without moving data</text>
+    <text class="note" x="10" y="278">✓ 1:1 with records table</text>
+  </g>
+
+  <!-- AUDIT TABLES -->
+
+  <!-- record_changes table -->
+  <g id="record_changes" transform="translate(320, 455)">
+    <rect class="table-box" width="240" height="210" rx="5"/>
+    <rect class="table-header cat-audit" width="240" height="28" rx="5 5 0 0"/>
+    <text class="table-title" x="120" y="19" text-anchor="middle">record_changes</text>
+
+    <text class="field-text field-pk" x="10" y="48">id (PK)</text>
+    <text class="field-text field-fk" x="10" y="61">record_id (FK)</text>
+    <text class="field-text" x="10" y="74">operation (create/update/delete)</text>
+    <text class="field-text" x="10" y="87">changed_fields[]</text>
+    <text class="field-text" x="10" y="100">old_values</text>
+    <text class="field-text" x="10" y="113">new_values</text>
+    <text class="field-text field-fk" x="10" y="126">processing_run_id (FK)</text>
+    <text class="field-text" x="10" y="139">created_at</text>
+    <text class="field-text" x="10" y="152">created_by</text>
+
+    <text class="note" x="10" y="176">✓ Complete audit trail</text>
+    <text class="note" x="10" y="189">✓ Track all changes</text>
+  </g>
+
+  <!-- record_state_history table -->
+  <g id="record_state_history" transform="translate(620, 470)">
+    <rect class="table-box" width="240" height="190" rx="5"/>
+    <rect class="table-header cat-audit" width="240" height="28" rx="5 5 0 0"/>
+    <text class="table-title" x="120" y="19" text-anchor="middle">record_state_history</text>
+    <text style="font-size: 9px; fill: white;" x="120" y="32" text-anchor="middle">(optional)</text>
+
+    <text class="field-text field-pk" x="10" y="52">id (PK)</text>
+    <text class="field-text field-fk" x="10" y="65">record_id (FK)</text>
+    <text class="field-text" x="10" y="78">from_stage</text>
+    <text class="field-text" x="10" y="91">to_stage</text>
+    <text class="field-text field-fk" x="10" y="104">processing_run_id (FK)</text>
+    <text class="field-text" x="10" y="117">transitioned_at</text>
+    <text class="field-text" x="10" y="130">duration_ms</text>
+
+    <text class="note" x="10" y="154">✓ State machine tracking</text>
+  </g>
+
+  <!-- OPERATIONS TABLES -->
+
+  <!-- processing_runs table -->
+  <g id="processing_runs" transform="translate(950, 455)">
+    <rect class="table-box" width="260" height="300" rx="5"/>
+    <rect class="table-header cat-operations" width="260" height="28" rx="5 5 0 0"/>
+    <text class="table-title" x="130" y="19" text-anchor="middle">processing_runs</text>
+
+    <text class="field-text field-pk" x="10" y="48">id (PK)</text>
+    <text class="field-text" x="10" y="61">run_type (harvest/transform/embed/sync/full_pipeline)</text>
+    <text class="field-text field-fk" x="10" y="74">endpoint_id (FK, nullable)</text>
+    <text class="field-text" x="10" y="87">started_at</text>
+    <text class="field-text" x="10" y="100">completed_at</text>
+    <text class="field-text" x="10" y="113">status</text>
+    <text class="field-text" x="10" y="126">total_processed</text>
+    <text class="field-text" x="10" y="139">successful_count</text>
+    <text class="field-text" x="10" y="152">failed_count</text>
+    <text class="field-text" x="10" y="165">skipped_count</text>
+    <text class="field-text" x="10" y="178">configuration</text>
+    <text class="field-text" x="10" y="191">resumption_token</text>
+    <text class="field-text" x="10" y="204">error_summary</text>
+    <text class="field-text" x="10" y="217">metadata</text>
+
+    <text class="note" x="10" y="241">✓ Replaces harvest_runs</text>
+    <text class="note" x="10" y="255">✓ All processing types</text>
+  </g>
+
+  <!-- processing_events table -->
+  <g id="processing_events" transform="translate(1270, 455)">
+    <rect class="table-box" width="220" height="190" rx="5"/>
+    <rect class="table-header cat-operations" width="220" height="28" rx="5 5 0 0"/>
+    <text class="table-title" x="110" y="19" text-anchor="middle">processing_events</text>
+
+    <text class="field-text field-pk" x="10" y="48">id (PK)</text>
+    <text class="field-text field-fk" x="10" y="61">run_id (FK)</text>
+    <text class="field-text field-fk" x="10" y="74">record_id (FK, nullable)</text>
+    <text class="field-text" x="10" y="87">event_level</text>
+    <text class="field-text" x="10" y="100">message</text>
+    <text class="field-text" x="10" y="113">details</text>
+    <text class="field-text" x="10" y="126">created_at</text>
+
+    <text class="note" x="10" y="150">✓ Replaces processing_logs</text>
+  </g>
+
+  <!-- RELATIONSHIPS -->
+
+  <!-- repositories -> endpoints -->
+  <path class="relationship" d="M 250 180 L 320 180" marker-end="url(#arrow)"/>
+
+  <!-- endpoints -> records -->
+  <path class="relationship" d="M 560 215 L 620 180" marker-end="url(#arrow)"/>
+
+  <!-- records -> record_processing_state (1:1) -->
+  <path class="relationship-one-to-one" d="M 900 240 L 950 240" marker-end="url(#arrow-green)"/>
+  <text style="font-size: 9px; fill: #27ae60;" x="925" y="235">1:1</text>
+
+  <!-- records -> record_changes -->
+  <path class="relationship" d="M 740 420 L 430 450" marker-end="url(#arrow)"/>
+
+  <!-- records -> record_state_history -->
+  <path class="relationship" d="M 745 420 L 730 460" marker-end="url(#arrow)"/>
+
+  <!-- processing_runs -> endpoints -->
+  <path class="relationship" d="M 980 580 Q 560 580 560 330" marker-end="url(#arrow)"/>
+
+  <!-- processing_runs -> processing_events -->
+  <path class="relationship" d="M 1180 580 L 1270 530" marker-end="url(#arrow)"/>
+
+  <!-- processing_runs -> record_processing_state -->
+  <path class="relationship" d="M 1070 460 L 1080 405" marker-end="url(#arrow)"/>
+
+  <!-- processing_runs -> record_changes -->
+  <path class="relationship" d="M 980 580 Q 560 580 560 655" marker-end="url(#arrow)"/>
+
+  <!-- processing_runs -> record_state_history -->
+  <path class="relationship" d="M 980 580 Q 760 580 760 635" marker-end="url(#arrow)"/>
+
+  <!-- LEGEND -->
+  <g transform="translate(50, 950)">
+    <text style="font-family: Arial; font-size: 12px; font-weight: bold; fill: #2c3e50;" x="0" y="0">Categories:</text>
+    <rect x="100" y="-15" width="20" height="15" class="cat-core"/>
+    <text style="font-family: Arial; font-size: 11px; fill: #2c3e50;" x="125" y="-3">Core</text>
+
+    <rect x="180" y="-15" width="20" height="15" class="cat-main"/>
+    <text style="font-family: Arial; font-size: 11px; fill: #2c3e50;" x="205" y="-3">Main Data</text>
+
+    <rect x="280" y="-15" width="20" height="15" class="cat-processing"/>
+    <text style="font-family: Arial; font-size: 11px; fill: #2c3e50;" x="305" y="-3">Processing</text>
+
+    <rect x="390" y="-15" width="20" height="15" class="cat-audit"/>
+    <text style="font-family: Arial; font-size: 11px; fill: #2c3e50;" x="415" y="-3">Audit</text>
+
+    <rect x="480" y="-15" width="20" height="15" class="cat-operations"/>
+    <text style="font-family: Arial; font-size: 11px; fill: #2c3e50;" x="505" y="-3">Operations</text>
+  </g>
+
+  <!-- PIPELINE FLOW -->
+  <g transform="translate(650, 750)">
+    <rect x="0" y="0" width="500" height="150" fill="#e8f5e9" stroke="#66bb6a" stroke-width="1" rx="5"/>
+    <text style="font-family: Arial; font-size: 13px; font-weight: bold; fill: #2c3e50;" x="10" y="20">ETL Pipeline Flow:</text>
+
+    <text style="font-family: Arial; font-size: 11px; fill: #2c3e50;" x="15" y="40">1. Harvest: Insert/update records, set processing state</text>
+    <text style="font-family: Arial; font-size: 11px; fill: #2c3e50;" x="15" y="55">2. Delete events: Set deleted_at timestamp (soft delete)</text>
+    <text style="font-family: Arial; font-size: 11px; fill: #2c3e50;" x="15" y="70">3. Transform: Update datacite_json, update state</text>
+    <text style="font-family: Arial; font-size: 11px; fill: #2c3e50;" x="15" y="85">4. Embed: Calculate embeddings, update state</text>
+    <text style="font-family: Arial; font-size: 11px; fill: #2c3e50;" x="15" y="100">5. Sync: Push to OpenSearch, mark as synced</text>
+    <text style="font-family: Arial; font-size: 11px; fill: #2c3e50;" x="15" y="115">6. Failed records: Quarantined in place with retry logic</text>
+    <text style="font-family: Arial; font-size: 11px; fill: #2c3e50;" x="15" y="130">7. All operations logged in processing_runs/events</text>
+  </g>
+
+</svg>
