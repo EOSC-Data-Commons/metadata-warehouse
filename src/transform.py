@@ -4,11 +4,12 @@ import pgsql # type: ignore
 from fastapi.concurrency import run_in_threadpool
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
+from utils.queue_utils import XMLRecord
 #import psycopg2
 from tasks import transform_batch
 import os
 from fastapi import FastAPI
-from typing import Any
+from typing import Any, NamedTuple
 import logging
 
 
@@ -23,7 +24,7 @@ app = FastAPI()
 postgres_config: PostgresConfig = PostgresConfig()
 
 def create_jobs(index_name: str) -> int:
-    batch = []
+    batch: list[XMLRecord] = []
     tasks = 0
     offset = 0
     limit = int(BATCH_SIZE) if BATCH_SIZE else 250
@@ -36,7 +37,7 @@ def create_jobs(index_name: str) -> int:
         while fetch:
 
             with db.prepare(f"""
-            SELECT (xpath('/oai:record', info, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}'))[1] AS root
+            SELECT ID, (xpath('/oai:record', info, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}'))[1] AS root
         FROM raw
             ORDER BY ID
             LIMIT {limit}
@@ -44,7 +45,7 @@ def create_jobs(index_name: str) -> int:
             """) as docs:
 
                 for doc in docs():
-                    batch.append(doc.root)
+                    batch.append(XMLRecord(id=doc.id, xml=doc.root))
 
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')

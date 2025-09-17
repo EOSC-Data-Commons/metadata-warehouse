@@ -22,6 +22,7 @@ services:
             #"batches",
             "-E",
             "--pool=solo", # https://stackoverflow.com/questions/56767461/celery-workerlosterror-worker-exited-prematurely-signal-6-sigabrt
+            "--loglevel=INFO"
           ]
 
     transform:

@@ -10,12 +10,15 @@ from jsonschema.validators import validate
 from opensearchpy import OpenSearch
 from opensearchpy.helpers import bulk, BulkIndexError
 import xmltodict
+from config.postgres_config import PostgresConfig
+from utils.queue_utils import XMLRecord
 from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
     get_embedding_text_from_fields
 from utils import normalize_datacite_json
 from typing import Any
 from celery.utils.log import get_task_logger
 from celery.signals import after_setup_logger
+import pgsql # type: ignore
 
 @after_setup_logger.connect() # type: ignore
 def configurate_celery_task_logger(**kwargs: Any) -> None:
@@ -44,6 +47,7 @@ class TransformTask(Task): # type: ignore
     embedding_transformer: TextEmbedding
     client: OpenSearch
     schema: dict[Any, Any]
+    postgres_config: PostgresConfig
 
     def __init__(self) -> None:
 
@@ -58,19 +62,21 @@ class TransformTask(Task): # type: ignore
             logger=logger
         )
 
+        self.postgres_config = PostgresConfig()
+
         with open('config/schema.json') as f:
             self.schema = json.load(f)
 
 
 @celery_app.task(base=TransformTask, bind=True, ignore_result=True)
-def transform_batch(self: Any, batch: list[str], index_name: str) -> Any:
+def transform_batch(self: Any, batch: list[XMLRecord], index_name: str) -> Any:
     # transform to JSON and normalize
 
     logger.info(f'Starting processing batch of {len(batch)}')
 
     normalized = []
     for ele in batch:
-        converted = xmltodict.parse(ele, process_namespaces=True)
+        converted = xmltodict.parse(ele[1], process_namespaces=True) # named tuple serialized as list in broker
 
         if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
             rec_id = converted[OAI_RECORD][f'{OAI}:header'][
@@ -103,10 +109,20 @@ def transform_batch(self: Any, batch: list[str], index_name: str) -> Any:
                                                       file=Path('')))
         except ValidationError as e:
             logger.info(f'Validation failed for {rec_id}: {e.message}')
+            # flag source record as failed using ID
+            # TODO: this needs error handling as well, handle in dedicated connector class
+            with pgsql.Connection(('postgres', self.postgres_config.port), self.postgres_config.user, self.postgres_config.password,
+                                  tls=False) as db:
+                res = db.execute(f"""
+                    UPDATE raw
+                    SET valid = False, reason = '{e.message.replace("'", "''")}'
+                    WHERE ID = {ele[0]}; 
+                """) # named tuple serialized as list in broker
+                logger.info(f'wrote to record {ele[0]} with affected rows result {res}')
+
+            continue
         except Exception as e:
             logger.info(f'An error occurred for {rec_id} during transformation: {e}')
-        finally:
-            # TODO: flag source record as failed using rec_id
             continue
 
     try:
