@@ -1,0 +1,102 @@
+erDiagram
+    REPOSITORIES {
+        UUID id PK
+        VARCHAR255 name
+        VARCHAR50 code
+        TEXT description
+        VARCHAR2048 base_url
+        JSONB contact_info
+        JSONB metadata
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+        BOOLEAN is_active
+    }
+    
+    ENDPOINTS {
+        UUID id PK
+        UUID repository_id FK
+        VARCHAR255 name
+        TEXT description
+        VARCHAR2048 harvest_url
+        harvest_protocol protocol
+        VARCHAR255 scientific_discipline
+        VARCHAR255 oai_set
+        JSONB harvest_params
+        JSONB harvest_schedule
+        TIMESTAMPTZ last_harvest_date
+        TIMESTAMPTZ next_scheduled_harvest
+        JSONB metadata
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+        BOOLEAN is_active
+    }
+    
+    HARVEST_EVENTS {
+        UUID id PK
+        UUID repository_id FK
+        UUID endpoint_id FK
+        VARCHAR255 record_identifier
+        event_action action
+        event_status status
+        TEXT raw_metadata
+        content_format metadata_format
+        harvest_protocol metadata_protocol
+        JSONB additional_metadata
+        TIMESTAMPTZ datestamp
+        TIMESTAMPTZ harvested_at
+        TIMESTAMPTZ processed_at
+        TEXT error_message
+        INTEGER retry_count
+        UUID batch_id
+        VARCHAR255 celery_task_id
+    }
+    
+    RECORDS {
+        VARCHAR510 id PK
+        UUID endpoint_id FK
+        UUID repository_id FK
+        VARCHAR255 record_identifier
+        resource_type resource_type
+        VARCHAR255 doi
+        VARCHAR2048 url
+        TEXT title
+        TEXT raw_metadata
+        content_format metadata_format
+        harvest_protocol metadata_protocol
+        JSONB datacite_json
+        JSONB additional_metadata
+        FLOAT8_ARRAY embeddings
+        VARCHAR100 embedding_model
+        TIMESTAMPTZ datestamp
+        INTEGER version
+        BOOLEAN opensearch_synced
+        TIMESTAMPTZ opensearch_synced_at
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+        TIMESTAMPTZ deleted_at
+    }
+    
+    HARVEST_RUNS {
+        UUID id PK
+        UUID endpoint_id FK
+        TIMESTAMPTZ started_at
+        TIMESTAMPTZ completed_at
+        VARCHAR50 status
+        INTEGER records_harvested
+        INTEGER records_created
+        INTEGER records_updated
+        INTEGER records_deleted
+        INTEGER errors_count
+        TIMESTAMPTZ from_date
+        TIMESTAMPTZ until_date
+        TEXT resumption_token
+        JSONB error_log
+    }
+    
+    REPOSITORIES ||--o{ ENDPOINTS : "has many"
+    REPOSITORIES ||--o{ HARVEST_EVENTS : "has events"
+    REPOSITORIES ||--o{ RECORDS : "contains"
+    ENDPOINTS ||--o{ HARVEST_EVENTS : "generates"
+    ENDPOINTS ||--o{ RECORDS : "provides"
+    ENDPOINTS ||--o{ HARVEST_RUNS : "tracked by"
+    HARVEST_EVENTS }o--|| RECORDS : "transforms into"
