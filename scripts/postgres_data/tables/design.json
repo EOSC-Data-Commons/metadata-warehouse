@@ -62,7 +62,7 @@
           "nullable": true
         },
         "base_url": {
-          "type": "VARCHAR(2048)",
+          "type": "VARCHAR(500)",
           "nullable": true
         },
         "contact_info": {
@@ -115,6 +115,7 @@
         "name": {
           "type": "VARCHAR(255)",
           "nullable": false,
+            "unique": true,
           "description": "Endpoint name/identifier"
         },
         "description": {
@@ -122,7 +123,7 @@
           "nullable": true
         },
         "harvest_url": {
-          "type": "VARCHAR(2048)",
+          "type": "VARCHAR(500)",
           "nullable": false,
           "description": "URL for harvesting data"
         },
@@ -276,11 +277,6 @@
           "nullable": false,
           "default": 0,
           "description": "Number of processing attempts"
-        },
-        "batch_id": {
-          "type": "UUID",
-          "nullable": true,
-          "description": "Groups events for batch processing"
         },
         "celery_task_id": {
           "type": "VARCHAR(255)",
@@ -524,7 +520,6 @@
       {"fields": ["status"], "type": "btree"},
       {"fields": ["harvested_at"], "type": "btree"},
       {"fields": ["processed_at"], "type": "btree", "where": "processed_at IS NULL"},
-      {"fields": ["batch_id"], "type": "btree", "where": "batch_id IS NOT NULL"},
       {"fields": ["status", "harvested_at"], "type": "btree", "where": "status = 'pending'"},
       {"fields": ["endpoint_id", "record_identifier", "harvested_at"], "type": "btree"}
     ],

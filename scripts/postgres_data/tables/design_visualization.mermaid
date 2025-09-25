@@ -4,7 +4,7 @@ erDiagram
         VARCHAR255 name
         VARCHAR50 code
         TEXT description
-        VARCHAR2048 base_url
+        VARCHAR500 base_url
         JSONB contact_info
         JSONB metadata
         TIMESTAMPTZ created_at
@@ -17,7 +17,7 @@ erDiagram
         UUID repository_id FK
         VARCHAR255 name
         TEXT description
-        VARCHAR2048 harvest_url
+        VARCHAR500 harvest_url
         harvest_protocol protocol
         VARCHAR255 scientific_discipline
         VARCHAR255 oai_set
@@ -47,7 +47,6 @@ erDiagram
         TIMESTAMPTZ processed_at
         TEXT error_message
         INTEGER retry_count
-        UUID batch_id
         VARCHAR255 celery_task_id
     }
     
