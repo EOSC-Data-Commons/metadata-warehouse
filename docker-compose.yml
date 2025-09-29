@@ -16,7 +16,7 @@ services:
 
     flower:
         image: mher/flower
-          #build:
+        #build:
         #dockerfile: ./docker/transform/Dockerfile
         #context: .
         networks:
@@ -62,8 +62,8 @@ services:
               "-A",
               "tasks",
               "worker",
-              #"-Q",
-              #"batches",
+            #"-Q",
+            #"batches",
               "-E",
               "--pool=solo", # https://stackoverflow.com/questions/56767461/celery-workerlosterror-worker-exited-prematurely-signal-6-sigabrt
               "--loglevel=INFO"
@@ -176,14 +176,26 @@ services:
         networks:
             - warehouse-backend
 
+    #https://github.com/EOSC-Data-Commons/eoscdcpoc/pkgs/container/eoscdcpoc-frontend
+    frontend:
+        image: ghcr.io/eosc-data-commons/eoscdcpoc-frontend:latest
+        command: >
+            sh -c "echo 'Clearing frontend volume' && rm -rf /frontend-volume/* && echo 'Copying new frontend files' && cp -r /webapp/. /frontend-volume/ && echo 'Copy complete. Files in volume:' && ls -la /frontend-volume/"
+        volumes:
+            - frontend-data:/frontend-volume
+
     # https://github.com/EOSC-Data-Commons/data-commons-mcp/pkgs/container/data-commons-mcp
     mcp:
         restart: unless-stopped
-        image: ghcr.io/eosc-data-commons/data-commons-mcp:main
+        image: ghcr.io/eosc-data-commons/data-commons-mcp:latest
         depends_on:
             opensearch:
                 condition: service_healthy
-        env_file: [ keys.env]
+            frontend:
+                condition: service_completed_successfully
+        volumes:
+            - frontend-data:/src/webapp
+        env_file: [ keys.env ]
         environment:
             - RUST_LOG=info
             - OPENSEARCH_URL=http://opensearch:9200
@@ -197,6 +209,7 @@ volumes:
     opensearch-dashboards-data:
     broker-data:
     flower-data:
+    frontend-data:
 
 networks:
     warehouse-backend:
