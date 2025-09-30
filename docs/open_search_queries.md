@@ -20,6 +20,8 @@ GET /test_datacite/_search
 
 The sample queries are based on the OpenSearch [mapping](../src/config/opensearch_mapping.json).
 
+Local OpenSearch Dashboard URL: http://127.0.0.1:5601
+
 ## Specify the Source
 
 In the query, `_source` can be used to specify which fields of the [source](https://docs.opensearch.org/latest/field-types/metadata-fields/source/) should be returned:
@@ -270,3 +272,28 @@ See this [article](https://opster.com/guides/opensearch/opensearch-machine-learn
   }
 }
 ```
+
+## List available resource types
+
+`GET /test_datacite/_search`
+
+```json
+{
+  "size": 0,
+  "aggs": {
+    "titles": {
+      "nested": {
+        "path": "types"
+      },
+      "aggs": {
+        "lang": {
+          "terms": {
+            "field": "types.resourceTypeGeneral"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
