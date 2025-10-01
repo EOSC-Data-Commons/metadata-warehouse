@@ -41,8 +41,8 @@ def create_jobs(index_name: str) -> int:
         while fetch:
 
             with db.prepare(f"""
-            SELECT (xpath('/oai:record', info, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}'))[1] AS root
-        FROM raw
+            SELECT (xpath('/oai:record', raw_metadata, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}'))[1] AS root
+        FROM harvest_events
             ORDER BY ID
             LIMIT {limit}
             OFFSET {offset}
