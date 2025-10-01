@@ -12,7 +12,7 @@ load_dotenv()
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
 
-sql_files = ['types.sql', 'tables.sql', 'indexes.sql']
+sql_files = ['types.sql', 'tables.sql', 'indexes.sql', 'triggers.sql', 'seed.sql', 'views.sql', 'permissions.sql', 'verify.sql']
 
 with pgsql.Connection(('127.0.0.1', 5432), USER, PW, tls = False) as db:
 
