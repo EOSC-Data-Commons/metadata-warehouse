@@ -14,7 +14,7 @@ PW = os.environ.get('POSTGRES_PASSWORD')
 
 NS = {"oai": "http://www.openarchives.org/OAI/2.0/"}
 
-files: list[Path] = (list(Path('data').rglob("harvests_DANS_arch/*.xml")))
+files: list[Path] = (list(Path('data').rglob("*.xml")))
 
 with pgsql.Connection(('127.0.0.1', 5432), USER, PW, tls = False) as db:
     print(db)
