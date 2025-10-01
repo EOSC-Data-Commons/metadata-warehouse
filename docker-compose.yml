@@ -179,8 +179,20 @@ services:
     #https://github.com/EOSC-Data-Commons/eoscdcpoc/pkgs/container/eoscdcpoc-frontend
     frontend:
         image: ghcr.io/eosc-data-commons/eoscdcpoc-frontend:latest
+        # Removes only targeted frontend artifacts before refreshing them from /webapp.
         command: >
-            sh -c "echo 'Clearing frontend volume' && rm -rf /frontend-volume/* && echo 'Copying new frontend files' && cp -r /webapp/. /frontend-volume/ && echo 'Copy complete. Files in volume:' && ls -la /frontend-volume/"
+          sh -c 'set -eu
+          echo "Existing volume contents BEFORE prune (/frontend-volume)";
+          if [ -d /frontend-volume ]; then find /frontend-volume -maxdepth 2 -type f -print || true; else echo "(volume empty or not yet created)"; fi;
+          echo "Pruning old frontend artifacts (assets/, *.html, *.svg, *.css, *.js)";
+          rm -rf /frontend-volume/assets || true;
+          find /frontend-volume -maxdepth 1 -type f \( -name "*.html" -o -name "*.svg" -o -name "*.css" -o -name "*.js" \) -exec rm -f {} + || true;
+          echo "Copying updated assets directory";
+          if [ -d /webapp/assets ]; then cp -a /webapp/assets /frontend-volume/; fi;
+          echo "Copying root-level *.html / *.svg / *.css / *.js";
+          find /webapp -maxdepth 1 -type f \( -name "*.html" -o -name "*.svg" -o -name "*.css" -o -name "*.js" \) -exec cp -f {} /frontend-volume/ \+;
+          echo "Final volume contents AFTER copy";
+          find /frontend-volume -maxdepth 2 -type f -print'
         volumes:
             - frontend-data:/frontend-volume
 
