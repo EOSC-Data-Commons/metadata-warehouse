@@ -22,9 +22,9 @@ with pgsql.Connection(('localhost', 5432), user, pw, tls = False) as db:
     #print(db)
 
     with db.prepare("""
-    SELECT (xpath('/oai:record/oai:metadata', info, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}'))[1] AS root
-FROM raw
-    LIMIT 1000;
+    SELECT (xpath('/oai:record/oai:metadata', raw_metadata, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}'))[1] AS root
+FROM harvest_events
+    LIMIT 10;
     """) as docs:
 
         all_rows = docs()

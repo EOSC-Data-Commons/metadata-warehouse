@@ -10,6 +10,7 @@ dependencies = [
     "xmltodict",
     "jsonschema",
     "fastembed",
+    "lxml"
 ]
 
 [build-system]
