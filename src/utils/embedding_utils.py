@@ -1,11 +1,13 @@
 from pathlib import Path
 from typing import Any, NamedTuple
 from fastembed import TextEmbedding
+from .queue_utils import HarvestEvent
 
 class SourceWithEmbeddingText(NamedTuple):
     src: dict[str, Any] # 0, source document
     textToEmbed: str # 1, text to be embedded
     file: Path # 2, name of the original source file
+    event: HarvestEvent # 3, original harvest event
 
 def get_embedding_text_from_fields(source: dict[str, Any]) -> str:
     """
@@ -34,7 +36,7 @@ def extract_fields_from_source(source: dict[str, Any], field_name: str, subfield
     else:
         return []
 
-def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_model: TextEmbedding, embedding_field_name: str = 'emb') -> list[tuple[dict[str, Any], Path]]:
+def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_model: TextEmbedding, embedding_field_name: str = 'emb') -> list[tuple[dict[str, Any], SourceWithEmbeddingText]]:
     """
     Given a batch of `SourceWithEmbeddingText`, calculates the embeddings and returns the documents with the embeddings (integrated).
 
@@ -44,7 +46,10 @@ def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_mod
     :return: a tuple of source documents with embeddings (0) and the original file name (1).
     """
     embeddings = list(embedding_model.embed(list(map(lambda ele: ele[1], batch))))
-    src_emb = zip(list(map(lambda ele: ele[0], batch)), embeddings, list(map(lambda ele: ele[2], batch)))
+    src_emb = zip(
+        list(map(lambda ele: ele[0], batch)),
+        embeddings, batch
+    )
     return list(map(lambda ele: ({**ele[0], embedding_field_name: ele[1].tolist()}, ele[2]), src_emb))
 
 

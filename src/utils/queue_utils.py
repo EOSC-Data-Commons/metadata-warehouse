@@ -1,6 +1,6 @@
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 
-class XMLRecord(NamedTuple):
+class HarvestEvent(NamedTuple):
     id: str # 0
     xml: str # 1

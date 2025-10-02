@@ -116,7 +116,7 @@ COMMENT ON COLUMN harvest_events.celery_task_id IS 'Celery task ID when sent for
 
 -- Records Table
 CREATE TABLE IF NOT EXISTS records (
-    id VARCHAR(510) NOT NULL,
+    id VARCHAR(510) NOT NULL DEFAULT gen_random_uuid(),
     endpoint_id UUID NOT NULL,
     repository_id UUID NOT NULL,
     record_identifier VARCHAR(255) NOT NULL,

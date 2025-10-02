@@ -11,19 +11,21 @@ from opensearchpy import OpenSearch
 from opensearchpy.helpers import bulk, BulkIndexError
 import xmltodict
 from config.postgres_config import PostgresConfig
-from utils.queue_utils import XMLRecord
+from utils.queue_utils import HarvestEvent
 from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
     get_embedding_text_from_fields
 from utils import normalize_datacite_json
 from typing import Any
 from celery.utils.log import get_task_logger
 from celery.signals import after_setup_logger
-import pgsql # type: ignore
+import pgsql  # type: ignore
 
-@after_setup_logger.connect() # type: ignore
+
+@after_setup_logger.connect()  # type: ignore
 def configurate_celery_task_logger(**kwargs: Any) -> None:
     # https://docs.celeryq.dev/en/latest/userguide/signals.html#after-setup-logger
     dictConfig(LOGGING_CONFIG)
+
 
 logger = get_task_logger(__name__)
 
@@ -39,10 +41,12 @@ if not EMBEDDING_MODEL:
     raise ValueError('Missing EMBEDDING_MODEL environment variable')
 
 celery_app = Celery('tasks')
+
+
 # celery_app.task_serializer = 'json'
 # celery_app.ignore_result = False
 
-class TransformTask(Task): # type: ignore
+class TransformTask(Task):  # type: ignore
 
     embedding_transformer: TextEmbedding
     client: OpenSearch
@@ -50,7 +54,6 @@ class TransformTask(Task): # type: ignore
     postgres_config: PostgresConfig
 
     def __init__(self) -> None:
-
         if EMBEDDING_MODEL:
             self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL)
             logger.info(f'Setting up embedding transformer with model {EMBEDDING_MODEL}')
@@ -69,18 +72,19 @@ class TransformTask(Task): # type: ignore
 
 
 @celery_app.task(base=TransformTask, bind=True, ignore_result=True)
-def transform_batch(self: Any, batch: list[XMLRecord], index_name: str) -> Any:
+def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> Any:
     # transform to JSON and normalize
 
     logger.info(f'Starting processing batch of {len(batch)}')
 
-    normalized = []
+    normalized: list[SourceWithEmbeddingText] = []
     for ele in batch:
-        converted = xmltodict.parse(ele[1], process_namespaces=True) # named tuple serialized as list in broker
+        #logger.info(f'Processing {ele[0]}')
+        converted = xmltodict.parse(ele[1], process_namespaces=True)  # named tuple serialized as list in broker
 
         if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
             rec_id = converted[OAI_RECORD][f'{OAI}:header'][
-                    f'{OAI}:identifier']
+                f'{OAI}:identifier']
 
             logger.debug(f'{rec_id}')
 
@@ -106,20 +110,11 @@ def transform_batch(self: Any, batch: list[XMLRecord], index_name: str) -> Any:
             validate(instance=normalized_record, schema=self.schema)
             normalized.append(SourceWithEmbeddingText(src=normalized_record,
                                                       textToEmbed=get_embedding_text_from_fields(normalized_record),
-                                                      file=Path('')))
+                                                      file=Path(''),
+                                                      event=ele
+                                                      ))
         except ValidationError as e:
             logger.info(f'Validation failed for {rec_id}: {e.message}')
-            # flag source record as failed using ID
-            # TODO: this needs error handling as well, handle in dedicated connector class
-            with pgsql.Connection(('postgres', self.postgres_config.port), self.postgres_config.user, self.postgres_config.password,
-                                  tls=False) as db:
-                res = db.execute(f"""
-                    UPDATE raw
-                    SET valid = False, reason = '{e.message.replace("'", "''")}'
-                    WHERE ID = {ele[0]}; 
-                """) # named tuple serialized as list in broker
-                logger.info(f'wrote to record {ele[0]} with affected rows result {res}')
-
             continue
         except Exception as e:
             logger.info(f'An error occurred for {rec_id} during transformation: {e}')
@@ -127,7 +122,8 @@ def transform_batch(self: Any, batch: list[XMLRecord], index_name: str) -> Any:
 
     try:
         logger.info(f'About to Calculate embeddings for {len(normalized)}')
-        src_with_emb: list[tuple[dict[str, Any], Path]] = add_embeddings_to_source(normalized, self.embedding_transformer)
+        src_with_emb: list[tuple[dict[str, Any], SourceWithEmbeddingText]] = add_embeddings_to_source(normalized,
+                                                                                   self.embedding_transformer)
         logger.info(f'Calculated embeddings for {len(src_with_emb)}')
         preprocessed = preprocess_batch(list(map(lambda el: el[0], src_with_emb)), index_name)
     except Exception as e:
@@ -137,6 +133,31 @@ def transform_batch(self: Any, batch: list[XMLRecord], index_name: str) -> Any:
     try:
         success, failed = bulk(self.client, preprocessed)
         logger.info(f'Bulk results: success {success} failed: {failed}')
+
+        logger.info(f'first rec: {src_with_emb[0][1]}')
+
+        for rec in src_with_emb:
+            # TODO: use a bulk method
+            # write to records table
+
+            print(rec[0]['id'])
+            print(rec[0]['emb'])
+
+
+            with pgsql.Connection(('postgres', self.postgres_config.port), self.postgres_config.user, self.postgres_config.password,
+                                  tls=False) as db:
+
+                statements = f"""
+                INSERT INTO records (record_identifier, repository_id, endpoint_id, resource_type, title, raw_metadata, metadata_protocol, doi, embeddings) VALUES ('{rec[0]['id']}', (SELECT id from repositories WHERE code='DANS'), (SELECT id from endpoints WHERE harvest_url='https://easy.dans.knaw.nl/oai'), 'Dataset', '{rec[0]['titles'][0]['title'].replace("'", "''")}', 'test','OAI-PMH', 'test', '{{ {', '.join([str(f) for f in rec[0]['emb']])} }}')     
+                """
+
+                # {rec[1].event[1]}
+
+                logger.info(statements)
+
+                res = db.execute(statements) # named tuple serialized as list in broker
+
+
     except BulkIndexError as e:
         logger.error(f'Bulk failed: {e}')
         raise e

@@ -4,12 +4,12 @@ import pgsql # type: ignore
 from fastapi.concurrency import run_in_threadpool
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
-from utils.queue_utils import XMLRecord
+from utils.queue_utils import HarvestEvent
 #import psycopg2
 from tasks import transform_batch
 import os
 from fastapi import FastAPI
-from typing import Any, NamedTuple
+from typing import Any
 import logging
 
 
@@ -24,7 +24,7 @@ app = FastAPI()
 postgres_config: PostgresConfig = PostgresConfig()
 
 def create_jobs(index_name: str) -> int:
-    batch: list[XMLRecord] = []
+    batch: list[HarvestEvent] = []
     tasks = 0
     offset = 0
     limit = int(BATCH_SIZE) if BATCH_SIZE else 250
@@ -45,7 +45,7 @@ def create_jobs(index_name: str) -> int:
             """) as docs:
 
                 for doc in docs():
-                    batch.append(XMLRecord(id=doc.id, xml=doc.root))
+                    batch.append(HarvestEvent(id=doc.id, xml=doc.root))
 
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')
@@ -55,7 +55,6 @@ def create_jobs(index_name: str) -> int:
             # increment offset by limit
             offset = offset + limit
             # will be false if query returned fewer results than limit
-            fetch = len(batch) == limit
             batch = []
 
     return tasks
