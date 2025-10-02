@@ -32,19 +32,22 @@ class TestEmbeddingsUtils(unittest.TestCase):
                 'titles': ['a title']
             },
             textToEmbed='a title',
-            file=Path('myfile.json')
+            file=Path('myfile.json'),
+            event=None
         ), SourceWithEmbeddingText(
             src={
                 'titles': ['a title 1']
             },
             textToEmbed='a title 1',
-            file=Path('myfile1.json')
+            file=Path('myfile1.json'),
+            event=None
         ), SourceWithEmbeddingText(
             src={
                 'titles': ['a title 2']
             },
             textToEmbed='a title 2',
-            file=Path('myfile2.json')
+            file=Path('myfile2.json'),
+            event=None
         )]
         res = embedding_utils.add_embeddings_to_source(data, embedding_model)
 
@@ -52,14 +55,14 @@ class TestEmbeddingsUtils(unittest.TestCase):
 
         self.assertEqual(res[0][0]['titles'][0], 'a title')
         self.assertEqual(res[0][0]['emb'], [1,2,3])
-        self.assertEqual(res[0][1].name, 'myfile.json')
+        self.assertEqual(res[0][1][2].name, 'myfile.json')
 
 
         self.assertEqual(res[1][0]['titles'][0], 'a title 1')
         self.assertEqual(res[1][0]['emb'], [4, 5, 6])
-        self.assertEqual(res[1][1].name, 'myfile1.json')
+        self.assertEqual(res[1][1][2].name, 'myfile1.json')
 
         self.assertEqual(res[2][0]['titles'][0], 'a title 2')
         self.assertEqual(res[2][0]['emb'], [7, 8, 9])
-        self.assertEqual(res[2][1].name, 'myfile2.json')
+        self.assertEqual(res[2][1][2].name, 'myfile2.json')
 
