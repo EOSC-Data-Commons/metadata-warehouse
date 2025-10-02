@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, Optional
 from fastembed import TextEmbedding
 from .queue_utils import HarvestEvent
 
@@ -7,7 +7,7 @@ class SourceWithEmbeddingText(NamedTuple):
     src: dict[str, Any] # 0, source document
     textToEmbed: str # 1, text to be embedded
     file: Path # 2, name of the original source file
-    event: HarvestEvent # 3, original harvest event
+    event: Optional[HarvestEvent] # 3, original harvest event
 
 def get_embedding_text_from_fields(source: dict[str, Any]) -> str:
     """
