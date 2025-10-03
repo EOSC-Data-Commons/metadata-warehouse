@@ -19,6 +19,7 @@ from typing import Any
 from celery.utils.log import get_task_logger
 from celery.signals import after_setup_logger
 import pgsql  # type: ignore
+import datetime
 
 @after_setup_logger.connect()  # type: ignore
 def configurate_celery_task_logger(**kwargs: Any) -> None:
@@ -134,15 +135,17 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
 
     try:
         success, failed = bulk(self.client, preprocessed)
-        logger.info(f'Bulk results: success {success} failed: {failed}')
 
-        logger.info(f'first rec: {src_with_emb[0][1]}')
+        opensearch_synced_at = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f%z')
+        logger.info(f'Bulk results: success {success} failed: {failed}')
 
         for rec in src_with_emb:
             # TODO: use a bulk method
             # TODO: use a better solution like SQLAlchemy to construct queries
-
             # write to records table
+
+            if rec[1].event is None:
+                raise ValueError(f'Original HarvestEvent not found')
 
             logger.info(f'HarvestEvent: {rec[1].event}')
 
@@ -161,7 +164,12 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                     metadata_protocol,
                     doi,
                     url,
-                    embeddings) 
+                    embeddings,
+                    embedding_model,
+                    datacite_json,
+                    opensearch_synced,
+                    opensearch_synced_at
+                    ) 
                 VALUES (
                     '{rec[1].event.record_identifier}',
                     '{rec[1].event.repository_id}',
@@ -172,7 +180,12 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                     'OAI-PMH',
                     {'\'' + rec[0]['doi'] + '\'' if 'doi' in rec[0] else 'NULL' },
                     {'\'' + rec[0]['url'] + '\'' if 'url' in rec[0] else 'NULL' },
-                    '{{ {', '.join([str(f) for f in rec[0]['emb']])} }}')     
+                    '{{ {', '.join([str(f) for f in rec[0]['emb']])} }}',
+                    '{EMBEDDING_MODEL}',
+                    '{json.dumps({**rec[0], 'emb': None}).replace("'", "''")}',
+                    true,
+                    '{opensearch_synced_at}'
+                    )     
                 """
 
                 logger.info(statements)
@@ -182,6 +195,9 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
 
     except BulkIndexError as e:
         logger.error(f'Bulk failed: {e}')
+        raise e
+    except Exception as e:
+        logger.error(f'Writing batch failed: {e}')
         raise e
 
     return success
