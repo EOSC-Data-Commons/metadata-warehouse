@@ -20,7 +20,6 @@ from celery.utils.log import get_task_logger
 from celery.signals import after_setup_logger
 import pgsql  # type: ignore
 
-
 @after_setup_logger.connect()  # type: ignore
 def configurate_celery_task_logger(**kwargs: Any) -> None:
     # https://docs.celeryq.dev/en/latest/userguide/signals.html#after-setup-logger
@@ -79,8 +78,11 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
 
     normalized: list[SourceWithEmbeddingText] = []
     for ele in batch:
+
+        harvest_event = HarvestEvent(*ele) # reconstruct HravestEvent from serialized list
+
         #logger.info(f'Processing {ele[0]}')
-        converted = xmltodict.parse(ele[1], process_namespaces=True)  # named tuple serialized as list in broker
+        converted = xmltodict.parse(harvest_event.xml, process_namespaces=True)  # named tuple serialized as list in broker
 
         if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
             rec_id = converted[OAI_RECORD][f'{OAI}:header'][
@@ -111,7 +113,7 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
             normalized.append(SourceWithEmbeddingText(src=normalized_record,
                                                       textToEmbed=get_embedding_text_from_fields(normalized_record),
                                                       file=Path(''),
-                                                      event=ele
+                                                      event=harvest_event
                                                       ))
         except ValidationError as e:
             logger.info(f'Validation failed for {rec_id}: {e.message}')
@@ -138,20 +140,40 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
 
         for rec in src_with_emb:
             # TODO: use a bulk method
+            # TODO: use a better solution like SQLAlchemy to construct queries
+
             # write to records table
 
-            print(rec[0]['id'])
-            print(rec[0]['emb'])
-
+            logger.info(f'HarvestEvent: {rec[1].event}')
 
             with pgsql.Connection(('postgres', self.postgres_config.port), self.postgres_config.user, self.postgres_config.password,
                                   tls=False) as db:
 
                 statements = f"""
-                INSERT INTO records (record_identifier, repository_id, endpoint_id, resource_type, title, raw_metadata, metadata_protocol, doi, embeddings) VALUES ('{rec[0]['id']}', (SELECT id from repositories WHERE code='DANS'), (SELECT id from endpoints WHERE harvest_url='https://easy.dans.knaw.nl/oai'), 'Dataset', '{rec[0]['titles'][0]['title'].replace("'", "''")}', 'test','OAI-PMH', 'test', '{{ {', '.join([str(f) for f in rec[0]['emb']])} }}')     
+                INSERT INTO records 
+                (   
+                    record_identifier,
+                    repository_id,
+                    endpoint_id,
+                    resource_type,
+                    title,
+                    raw_metadata,
+                    metadata_protocol,
+                    doi,
+                    url,
+                    embeddings) 
+                VALUES (
+                    '{rec[1].event.record_identifier}',
+                    '{rec[1].event.repository_id}',
+                    '{rec[1].event.endpoint_id}',
+                    'Dataset',
+                    '{rec[0]['titles'][0]['title'].replace("'", "''")}',
+                    '{rec[1].event.xml.replace("'", "''")}',
+                    'OAI-PMH',
+                    {'\'' + rec[0]['doi'] + '\'' if 'doi' in rec[0] else 'NULL' },
+                    {'\'' + rec[0]['url'] + '\'' if 'url' in rec[0] else 'NULL' },
+                    '{{ {', '.join([str(f) for f in rec[0]['emb']])} }}')     
                 """
-
-                # {rec[1].event[1]}
 
                 logger.info(statements)
 

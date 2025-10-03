@@ -1,17 +1,16 @@
 from datetime import datetime
 from logging.config import dictConfig
-import pgsql # type: ignore
+import pgsql  # type: ignore
 from fastapi.concurrency import run_in_threadpool
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
 from utils.queue_utils import HarvestEvent
-#import psycopg2
+# import psycopg2
 from tasks import transform_batch
 import os
 from fastapi import FastAPI
 from typing import Any
 import logging
-
 
 dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
@@ -23,6 +22,7 @@ if not BATCH_SIZE or not BATCH_SIZE.isnumeric():
 app = FastAPI()
 postgres_config: PostgresConfig = PostgresConfig()
 
+
 def create_jobs(index_name: str) -> int:
     batch: list[HarvestEvent] = []
     tasks = 0
@@ -31,13 +31,14 @@ def create_jobs(index_name: str) -> int:
     fetch = True
 
     logger.info(f'Preparing jobs')
-    with pgsql.Connection(('postgres', postgres_config.port), postgres_config.user, postgres_config.password, tls=False) as db:
+    with pgsql.Connection(('postgres', postgres_config.port), postgres_config.user, postgres_config.password,
+                          tls=False) as db:
         # print(db)
 
         while fetch:
 
             with db.prepare(f"""
-            SELECT ID, (xpath('/oai:record', raw_metadata, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}'))[1] AS root
+            SELECT ID, repository_id, endpoint_id, record_identifier, (xpath('/oai:record', raw_metadata, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}'))[1] AS record
         FROM harvest_events
             ORDER BY ID
             LIMIT {limit}
@@ -45,7 +46,10 @@ def create_jobs(index_name: str) -> int:
             """) as docs:
 
                 for doc in docs():
-                    batch.append(HarvestEvent(id=doc.id, xml=doc.root))
+                    batch.append(
+                        HarvestEvent(id=doc.id, xml=doc.record, repository_id=doc.repository_id,
+                                     endpoint_id=doc.endpoint_id, record_identifier=doc.record_identifier)
+                    )
 
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')
@@ -62,7 +66,6 @@ def create_jobs(index_name: str) -> int:
 
 @app.get("/index")
 async def index(index_name: str) -> dict[str, Any]:
-
     try:
         # https://www.starlette.io/threadpool/
         results = await run_in_threadpool(
@@ -74,6 +77,7 @@ async def index(index_name: str) -> dict[str, Any]:
 
     logger.info(f'Got results: {results}')
     return {'number of batches': results}
+
 
 @app.get("/health")
 async def health() -> dict[str, Any]:

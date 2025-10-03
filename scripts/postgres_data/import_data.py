@@ -14,8 +14,8 @@ PW = os.environ.get('POSTGRES_PASSWORD')
 
 NS = {"oai": "http://www.openarchives.org/OAI/2.0/"}
 
-def import_data(repo_code: str, harvest_url: str, dir: Path):
-    files: list[Path] = list(dir)
+def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
+    files: list[Path] = list(dir.rglob("*.xml"))
 
     with pgsql.Connection(('127.0.0.1', 5432), USER, PW, tls = False) as db:
         try:
@@ -69,12 +69,12 @@ with pgsql.Connection(('127.0.0.1', 5432), USER, PW, tls=False) as db:
         print(f'An error occurred when deleting data in DB: {e}', file=sys.stderr)
 
 
-import_data('DANS', 'https://archaeology.datastations.nl/oai', Path('data/harvests_DANS_arch').rglob("*.xml"))
-import_data('DANS', 'https://ssh.datastations.nl/oai', Path('data/harvests_DANS_soc').rglob("*.xml"))
-import_data('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/harvests_DANS_life').rglob("*.xml"))
-import_data('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/harvests_DANS_phystech').rglob("*.xml"))
-import_data('DANS', 'https://dataverse.nl/oai', Path('data/harvests_DANS_gen').rglob("*.xml"))
-import_data('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('data/harvests_SWISS_dc_datacite').rglob("*.xml"))
-import_data('DABAR', 'https://dabar.srce.hr/oai', Path('data/harvests_DABAR').rglob("*.xml"))
-import_data('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/harvests_HAL_sample').rglob("*.xml"))
+import_data('DANS', 'https://archaeology.datastations.nl/oai', Path('data/harvests_DANS_arch'))
+import_data('DANS', 'https://ssh.datastations.nl/oai', Path('data/harvests_DANS_soc'))
+import_data('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/harvests_DANS_life'))
+import_data('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/harvests_DANS_phystech'))
+import_data('DANS', 'https://dataverse.nl/oai', Path('data/harvests_DANS_gen'))
+import_data('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('data/harvests_SWISS_dc_datacite'))
+import_data('DABAR', 'https://dabar.srce.hr/oai', Path('data/harvests_DABAR'))
+import_data('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/harvests_HAL_sample'))
 
