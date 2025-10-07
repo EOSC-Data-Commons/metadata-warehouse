@@ -117,10 +117,31 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                                                       event=harvest_event
                                                       ))
         except ValidationError as e:
-            logger.info(f'Validation failed for {rec_id}: {e.message}')
+            logger.info(f'Validation failed for {rec_id} in harvest_event {harvest_event.id}: {e.message}')
+            with pgsql.Connection(('postgres', self.postgres_config.port), self.postgres_config.user,
+                                  self.postgres_config.password,
+                                  tls=False) as db:
+                db.execute(
+                    f"""
+                    UPDATE harvest_events 
+                    SET error_message = '{e.message.replace("'", "''")}'
+                    WHERE id = '{harvest_event.id}'  
+                    """
+                )
             continue
         except Exception as e:
-            logger.info(f'An error occurred for {rec_id} during transformation: {e}')
+            logger.info(f'An error occurred for {rec_id} in harvest_event {harvest_event.id} during transformation: {e}')
+            with pgsql.Connection(('postgres', self.postgres_config.port), self.postgres_config.user,
+                                  self.postgres_config.password,
+                                  tls=False) as db:
+
+                db.execute(
+                    f"""
+                                    UPDATE harvest_events 
+                                    SET error_message = '{str(e).replace("'", "''")}'
+                                    WHERE id = '{harvest_event.id}'  
+                                    """
+                )
             continue
 
     try:
@@ -135,8 +156,10 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
 
     try:
         success, failed = bulk(self.client, preprocessed)
+        if success < len(src_with_emb):
+            logger.error(f'Normalized doc size was {len(src_with_emb)} but only {len(success)} were imported into OpenSearch.')
 
-        opensearch_synced_at = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f%z')
+        opensearch_synced_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f%z')
         logger.info(f'Bulk results: success {success} failed: {failed}')
 
         for rec in src_with_emb:
@@ -147,7 +170,7 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
             if rec[1].event is None:
                 raise ValueError(f'Original HarvestEvent not found')
 
-            logger.info(f'HarvestEvent: {rec[1].event}')
+            #logger.info(f'HarvestEvent: {rec[1].event}')
 
             with pgsql.Connection(('postgres', self.postgres_config.port), self.postgres_config.user, self.postgres_config.password,
                                   tls=False) as db:
@@ -188,7 +211,7 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                     )     
                 """
 
-                logger.info(statements)
+                #logger.info(statements)
 
                 res = db.execute(statements) # named tuple serialized as list in broker
 

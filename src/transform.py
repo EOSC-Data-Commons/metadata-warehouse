@@ -38,7 +38,13 @@ def create_jobs(index_name: str) -> int:
         while fetch:
 
             with db.prepare(f"""
-            SELECT ID, repository_id, endpoint_id, record_identifier, (xpath('/oai:record', raw_metadata, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}'))[1] AS record
+            SELECT ID, 
+            repository_id, 
+            endpoint_id, 
+            record_identifier, 
+            (
+                xpath('/oai:record', raw_metadata, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}')
+            )[1] AS record
         FROM harvest_events
             ORDER BY ID
             LIMIT {limit}
@@ -59,6 +65,8 @@ def create_jobs(index_name: str) -> int:
             # increment offset by limit
             offset = offset + limit
             # will be false if query returned fewer results than limit
+            fetch = len(batch) == limit
+            #fetch = False
             batch = []
 
     return tasks
