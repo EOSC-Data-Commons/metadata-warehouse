@@ -27,14 +27,13 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
                 with open(file) as f:
                     xml = f.read()
 
-                existing_tree = ET.parse(file)
-                existing_root = existing_tree.getroot()
-                identifier = existing_root.find("./oai:header/oai:identifier", namespaces=NS)
+                root = ET.fromstring(xml)
+                identifier = root.find("./oai:header/oai:identifier", namespaces=NS)
 
                 if identifier is None:
                     raise ValueError(f'XML OAI-PMH record {file} without identifier')
 
-                print(identifier.text)
+                print(f'record identifier: {identifier.text}')
 
                 # escape single quotes in XML content: https://www.postgresql.org/docs/current/sql-syntax-lexical.html#SQL-SYNTAX-STRINGS
                 db.execute(f"""
