@@ -82,6 +82,8 @@ To run the containers:
 
 ## Run Transformation Process
 
+The transformer container provides an [API](http://127.0.0.1:8080/docs) to start the transformation and indexing process.
+
 - check if transformer container is up and running:
   ```sh
   http://127.0.0.1:8080/health
@@ -94,3 +96,4 @@ To run the containers:
   ```sh
   http://127.0.0.1:5555/tasks
   ```
+

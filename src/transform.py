@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from logging.config import dictConfig
 import pgsql  # type: ignore
 from fastapi.concurrency import run_in_threadpool
@@ -8,9 +8,10 @@ from utils.queue_utils import HarvestEvent
 # import psycopg2
 from tasks import transform_batch
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from typing import Any
 import logging
+from pydantic import BaseModel
 
 dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
@@ -19,9 +20,26 @@ BATCH_SIZE = os.environ.get('CELERY_BATCH_SIZE')
 if not BATCH_SIZE or not BATCH_SIZE.isnumeric():
     raise ValueError('Missing or invalid CELERY_BATCH_SIZE environment variable')
 
-app = FastAPI()
+tags_metadata = [
+    {
+        'name': 'health',
+        'description': 'Health route'
+    },
+    {
+        'name': 'index',
+        'description': 'Transformation and index process'
+    }
+]
+
+app = FastAPI(openapi_tags=tags_metadata)
 postgres_config: PostgresConfig = PostgresConfig()
 
+class Health(BaseModel):
+    status: str
+    time: str
+
+class Index(BaseModel):
+    number_of_batches: int
 
 def create_jobs(index_name: str) -> int:
     batch: list[HarvestEvent] = []
@@ -72,8 +90,8 @@ def create_jobs(index_name: str) -> int:
     return tasks
 
 
-@app.get("/index")
-async def index(index_name: str) -> dict[str, Any]:
+@app.get('/index')
+async def index(index_name: str = Query(default='test_datacite', description='Name of the OpenSearch index'), tags=['index']) -> Index:
     try:
         # https://www.starlette.io/threadpool/
         results = await run_in_threadpool(
@@ -84,10 +102,10 @@ async def index(index_name: str) -> dict[str, Any]:
         raise e
 
     logger.info(f'Got results: {results}')
-    return {'number of batches': results}
+    return Index(number_of_batches=results)
 
 
-@app.get("/health")
-async def health() -> dict[str, Any]:
+@app.get('/health', tags=['health'])
+async def health() -> Health:
     logger.info('health route called')
-    return {'status': 'ok', 'time': datetime.now()}
+    return Health(status = 'ok', time=str(datetime.now(timezone.utc)))
