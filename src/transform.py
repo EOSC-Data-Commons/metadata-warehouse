@@ -90,8 +90,8 @@ def create_jobs(index_name: str) -> int:
     return tasks
 
 
-@app.get('/index')
-async def index(index_name: str = Query(default='test_datacite', description='Name of the OpenSearch index'), tags=['index']) -> Index:
+@app.get('/index', tags = ['index'])
+async def index(index_name: str = Query(default='test_datacite', description='Name of the OpenSearch index')) -> Index:
     try:
         # https://www.starlette.io/threadpool/
         results = await run_in_threadpool(
