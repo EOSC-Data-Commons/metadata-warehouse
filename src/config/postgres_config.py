@@ -15,5 +15,5 @@ class PostgresConfig:
             self.password = password
             self.port = 5432
         else:
-            raise ValueError('Missing POSTGRES_USER or POSTGRES_PASSWORD')
+            raise ValueError('Missing POSTGRES_USER or POSTGRES_PASSWORD in environment (docker-compose.yml).')
 

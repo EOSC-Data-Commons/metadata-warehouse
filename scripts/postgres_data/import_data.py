@@ -12,6 +12,9 @@ load_dotenv()
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
 
+if not USER or not PW:
+    raise ValueError('Missing POSTGRES_ADMIN or POSTGRES_PASSWORD in environment.')
+
 NS = {"oai": "http://www.openarchives.org/OAI/2.0/"}
 
 def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
