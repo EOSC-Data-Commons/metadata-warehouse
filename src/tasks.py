@@ -11,6 +11,7 @@ from opensearchpy import OpenSearch
 from opensearchpy.helpers import bulk, BulkIndexError
 import xmltodict
 from config.postgres_config import PostgresConfig
+from config.opensearch_config import OpenSearchConfig
 from utils.queue_utils import HarvestEvent
 from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
     get_embedding_text_from_fields
@@ -58,8 +59,9 @@ class TransformTask(Task):  # type: ignore
             self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL)
             logger.info(f'Setting up embedding transformer with model {EMBEDDING_MODEL}')
 
+        opensearch_config = OpenSearchConfig()
         self.client = OpenSearch(
-            hosts=[{'host': 'opensearch', 'port': 9200}],
+            hosts=[{'host': opensearch_config.host, 'port': opensearch_config.port}],
             http_auth=None,
             use_ssl=False,
             logger=logger
@@ -118,7 +120,7 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                                                       ))
         except ValidationError as e:
             logger.info(f'Validation failed for {rec_id} in harvest_event {harvest_event.id}: {e.message}')
-            with pgsql.Connection(('postgres', self.postgres_config.port), self.postgres_config.user,
+            with pgsql.Connection((self.postgres_config.address, self.postgres_config.port), self.postgres_config.user,
                                   self.postgres_config.password,
                                   tls=False) as db:
                 db.execute(
@@ -131,7 +133,7 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
             continue
         except Exception as e:
             logger.info(f'An error occurred for {rec_id} in harvest_event {harvest_event.id} during transformation: {e}')
-            with pgsql.Connection(('postgres', self.postgres_config.port), self.postgres_config.user,
+            with pgsql.Connection((self.postgres_config.address, self.postgres_config.port), self.postgres_config.user,
                                   self.postgres_config.password,
                                   tls=False) as db:
 
@@ -172,7 +174,7 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
 
             #logger.info(f'HarvestEvent: {rec[1].event}')
 
-            with pgsql.Connection(('postgres', self.postgres_config.port), self.postgres_config.user, self.postgres_config.password,
+            with pgsql.Connection((self.postgres_config.address, self.postgres_config.port), self.postgres_config.user, self.postgres_config.password,
                                   tls=False) as db:
 
                 statements = f"""
@@ -213,7 +215,7 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
 
                 #logger.info(statements)
 
-                res = db.execute(statements) # named tuple serialized as list in broker
+                db.execute(statements) # named tuple serialized as list in broker
 
 
     except BulkIndexError as e:

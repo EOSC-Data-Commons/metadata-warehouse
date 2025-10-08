@@ -5,11 +5,9 @@ from fastapi.concurrency import run_in_threadpool
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
 from utils.queue_utils import HarvestEvent
-# import psycopg2
 from tasks import transform_batch
 import os
 from fastapi import FastAPI, Query
-from typing import Any
 import logging
 from pydantic import BaseModel
 
@@ -49,7 +47,7 @@ def create_jobs(index_name: str) -> int:
     fetch = True
 
     logger.info(f'Preparing jobs')
-    with pgsql.Connection(('postgres', postgres_config.port), postgres_config.user, postgres_config.password,
+    with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user, postgres_config.password,
                           tls=False) as db:
         # print(db)
 
