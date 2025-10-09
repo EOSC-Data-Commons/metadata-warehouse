@@ -40,6 +40,13 @@ class Index(BaseModel):
     number_of_batches: int
 
 def create_jobs(index_name: str) -> int:
+    """
+    Creates and enqueues transformation jobs from harvest_events table.
+
+    :param index_name: OpenSearch index to write resulting JSON files to.
+    :return: Number of batches scheduled for processing.
+    """
+
     batch: list[HarvestEvent] = []
     tasks = 0
     offset = 0
@@ -73,13 +80,17 @@ def create_jobs(index_name: str) -> int:
                                      endpoint_id=doc.endpoint_id, record_identifier=doc.record_identifier)
                     )
 
+                if len(batch) == 0:
+                    # batch is empty
+                    break
+
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')
             transform_batch.delay(batch, index_name)
-            tasks = tasks + 1
+            tasks += 1
 
             # increment offset by limit
-            offset = offset + limit
+            offset += limit
             # will be false if query returned fewer results than limit
             fetch = len(batch) == limit
             #fetch = False
