@@ -7,7 +7,7 @@ from config.postgres_config import PostgresConfig
 from utils.queue_utils import HarvestEvent
 from tasks import transform_batch
 import os
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 import logging
 from pydantic import BaseModel
 
@@ -34,7 +34,7 @@ postgres_config: PostgresConfig = PostgresConfig()
 
 class Health(BaseModel):
     status: str
-    time: str
+    time: datetime
 
 class Index(BaseModel):
     number_of_batches: int
@@ -97,7 +97,8 @@ async def index(index_name: str = Query(default='test_datacite', description='Na
         )
 
     except Exception as e:
-        raise e
+        logger.exception("Indexing failed")
+        raise HTTPException(status_code=500, detail=str(e))
 
     logger.info(f'Got results: {results}')
     return Index(number_of_batches=results)
@@ -106,4 +107,4 @@ async def index(index_name: str = Query(default='test_datacite', description='Na
 @app.get('/health', tags=['health'])
 async def health() -> Health:
     logger.info('health route called')
-    return Health(status = 'ok', time=str(datetime.now(timezone.utc)))
+    return Health(status = 'ok', time=datetime.now(timezone.utc))
