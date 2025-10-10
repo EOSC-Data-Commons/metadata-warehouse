@@ -75,6 +75,8 @@ services:
             #CELERY_RESULT_BACKEND: "file:///var/celery/results"
             CELERY_RESULT_BACKEND: redis://broker:6379/0
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
+            POSTGRES_USER: "${POSTGRES_ADMIN}"
+            POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
         healthcheck:
             test: celery -A tasks status
             interval: 10s
@@ -124,7 +126,7 @@ services:
 
 
     pgadmin:
-        image: dpage/pgadmin4:9.6
+        image: dpage/pgadmin4:9.8
         container_name: pgadmin4_container
         restart: unless-stopped
         depends_on:
