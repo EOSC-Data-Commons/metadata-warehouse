@@ -1,11 +1,11 @@
 #!/usr/bin/env -S uv run --script
 import sys
 import traceback
-import pgsql
 import os
 from dotenv import load_dotenv
 from pathlib import Path
 from lxml import etree as ET
+import psycopg2
 
 load_dotenv()
 
@@ -21,14 +21,16 @@ NS = {"oai": "http://www.openarchives.org/OAI/2.0/"}
 def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
     files: list[Path] = list(dir.rglob("*.xml"))
 
-    with pgsql.Connection(('127.0.0.1', 5432), USER, PW, tls=False) as db:
-        try:
-            for file in files:
+    try:
+        conn = psycopg2.connect(dbname='admin', user=USER, host='127.0.0.1', password=PW, port=5432)
 
+        with conn.cursor() as curs:
+            for file in files:
                 with open(file) as f:
                     xml = f.read()
 
-                root = ET.fromstring(xml)
+                # https://stackoverflow.com/questions/15830421/xml-unicode-strings-with-encoding-declaration-are-not-supported
+                root = ET.fromstring(bytes(xml, encoding='utf-8'))
                 identifier = root.find("./oai:header/oai:identifier", namespaces=NS)
 
                 if identifier is None:
@@ -36,30 +38,32 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
 
                 print(f'record identifier: {identifier.text}')
 
-                # escape single quotes in XML content: https://www.postgresql.org/docs/current/sql-syntax-lexical.html#SQL-SYNTAX-STRINGS
-                db.execute(f"""
-                INSERT INTO harvest_events 
-                    (record_identifier, 
-                    raw_metadata, 
-                    repository_id, 
-                    endpoint_id, 
-                    action, 
-                    metadata_protocol,
-                    metadata_format
-                    ) 
-                VALUES ( 
-                    '{identifier.text}', 
-                    XMLPARSE(DOCUMENT '{xml.replace("'", "''")}'), 
-                    (SELECT id from repositories WHERE code='{repo_code}'),
-                     (SELECT id from endpoints WHERE harvest_url='{harvest_url}'), 
-                     'create', 
-                     'OAI-PMH',
-                      'XML');
-                """)
+                curs.execute(f"""
+                                INSERT INTO harvest_events 
+                                    (record_identifier, 
+                                    raw_metadata, 
+                                    repository_id, 
+                                    endpoint_id, 
+                                    action, 
+                                    metadata_protocol,
+                                    metadata_format
+                                    ) 
+                                VALUES ( 
+                                    %s, 
+                                    XMLPARSE(DOCUMENT %s), 
+                                    (SELECT id from repositories WHERE code=%s),
+                                    (SELECT id from endpoints WHERE harvest_url=%s), 
+                                    %s, 
+                                    %s,
+                                    %s);
+                                """, (identifier.text, xml, repo_code, harvest_url, 'create', 'OAI-PMH', 'XML'))
 
-        except Exception as e:
-            print(f'An error occurred when loading data in DB: {e}', file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
+        # not sure if this works for a whole repo like HAL
+        conn.commit()
+
+    except Exception as e:
+        print(f'An error occurred when loading data in DB: {e}', file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
 
 
 HARVEST_ENDPOINTS = [
