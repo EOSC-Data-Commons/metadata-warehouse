@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
+from json import JSONDecodeError
 from logging.config import dictConfig
+from typing import Optional
 import pgsql  # type: ignore
 from fastapi.concurrency import run_in_threadpool
 from config.logging_config import LOGGING_CONFIG
@@ -10,6 +12,7 @@ import os
 from fastapi import FastAPI, Query, HTTPException
 import logging
 from pydantic import BaseModel
+import json
 
 dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
@@ -32,12 +35,63 @@ tags_metadata = [
 app = FastAPI(openapi_tags=tags_metadata)
 postgres_config: PostgresConfig = PostgresConfig()
 
+
 class Health(BaseModel):
     status: str
     time: datetime
 
+
 class Index(BaseModel):
     number_of_batches: int
+
+class HarvestParams(BaseModel):
+    metadata_prefix: str
+    set: Optional[str]
+
+class EndpointConfig(BaseModel):
+    name: str
+    harvest_url: str
+    harvest_params: HarvestParams
+    code: str
+    suffix: str
+    protocol: str
+    last_harvest_date: Optional[datetime]
+
+
+class Config(BaseModel):
+    endpoints_configs: list[EndpointConfig]
+
+
+def get_config() -> list[EndpointConfig]:
+    endpoints: list[EndpointConfig] = []
+
+    try:
+        with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user,
+                              postgres_config.password,
+                              tls=False) as db:
+
+            with db.prepare(f"""
+                SELECT endpoints.name, endpoints.harvest_url, endpoints.harvest_params, endpoints.code as suffix, endpoints.protocol, endpoints.last_harvest_date, repositories.code
+    FROM endpoints, repositories
+    WHERE endpoints.repository_id = repositories.id
+            """) as docs:
+                for doc in docs():
+
+                    harvest_params = json.loads(doc.harvest_params)
+
+                    endpoints.append(
+                        EndpointConfig(name=doc.name, harvest_url=doc.harvest_url, code=doc.code, protocol=doc.protocol,
+                                       harvest_params=HarvestParams(metadata_prefix=harvest_params.get('metadata_prefix'), set=harvest_params.get('set')), suffix=doc.suffix,
+                                       last_harvest_date=doc.last_harvest_date))
+
+        return endpoints
+    except JSONDecodeError as e:
+        logger.exception(f'Parsing of harvest_params failed: {e}')
+        raise HTTPException(status_code=500, detail='Reading config failed.')
+    except Exception as e:
+        logger.exception(f'An error occurred when reading config: {e}')
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 def create_jobs(index_name: str) -> int:
     """
@@ -54,7 +108,8 @@ def create_jobs(index_name: str) -> int:
     fetch = True
 
     logger.info(f'Preparing jobs')
-    with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user, postgres_config.password,
+    with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user,
+                          postgres_config.password,
                           tls=False) as db:
         # print(db)
 
@@ -93,13 +148,13 @@ def create_jobs(index_name: str) -> int:
             offset += limit
             # will be false if query returned fewer results than limit
             fetch = len(batch) == limit
-            #fetch = False
+            # fetch = False
             batch = []
 
     return tasks
 
 
-@app.get('/index', tags = ['index'])
+@app.get('/index', tags=['index'])
 async def index(index_name: str = Query(default='test_datacite', description='Name of the OpenSearch index')) -> Index:
     try:
         # https://www.starlette.io/threadpool/
@@ -118,4 +173,9 @@ async def index(index_name: str = Query(default='test_datacite', description='Na
 @app.get('/health', tags=['health'])
 async def health() -> Health:
     logger.info('health route called')
-    return Health(status = 'ok', time=datetime.now(timezone.utc))
+    return Health(status='ok', time=datetime.now(timezone.utc))
+
+
+@app.get('/config', tags=['config'])
+async def config() -> Config:
+    return Config(endpoints_configs=get_config())
