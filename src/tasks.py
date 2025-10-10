@@ -159,7 +159,7 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
     try:
         success, failed = bulk(self.client, preprocessed)
         if success < len(src_with_emb):
-            logger.error(f'Normalized doc size was {len(src_with_emb)} but only {len(success)} were imported into OpenSearch.')
+            logger.error(f'Normalized doc size was {len(src_with_emb)} but only {success} were imported into OpenSearch.')
 
         opensearch_synced_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f%z')
         logger.info(f'Bulk results: success {success} failed: {failed}')
