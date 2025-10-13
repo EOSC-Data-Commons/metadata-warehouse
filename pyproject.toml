@@ -12,6 +12,7 @@ dependencies = [
     "fastembed",
     "watchdog",
     "fastapi[standard]",
+    "psycopg[binary]",
     # "flower", # only needed when not using mher/flower
 ]
 

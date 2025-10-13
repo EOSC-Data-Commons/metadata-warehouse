@@ -10,7 +10,7 @@ dependencies = [
     "jsonschema",
     "fastembed",
     "lxml",
-    "psycopg2-binary"
+    "psycopg[binary]"
 ]
 
 [build-system]

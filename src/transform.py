@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from logging.config import dictConfig
 import pgsql  # type: ignore
+import psycopg
+from psycopg.rows import dict_row
 from fastapi.concurrency import run_in_threadpool
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
@@ -54,13 +56,15 @@ def create_jobs(index_name: str) -> int:
     fetch = True
 
     logger.info(f'Preparing jobs')
-    with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user, postgres_config.password,
-                          tls=False) as db:
+
+    conn = psycopg.connect(dbname='admin', user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row)
+
+    with conn.cursor() as curs:
         # print(db)
 
         while fetch:
 
-            with db.prepare(f"""
+            curs.execute(f"""
             SELECT ID, 
             repository_id, 
             endpoint_id, 
@@ -72,17 +76,20 @@ def create_jobs(index_name: str) -> int:
             ORDER BY ID
             LIMIT {limit}
             OFFSET {offset}
-            """) as docs:
+            """)
 
-                for doc in docs():
-                    batch.append(
-                        HarvestEvent(id=doc.id, xml=doc.record, repository_id=doc.repository_id,
-                                     endpoint_id=doc.endpoint_id, record_identifier=doc.record_identifier)
-                    )
+            for doc in curs.fetchall():
 
-                if len(batch) == 0:
-                    # batch is empty
-                    break
+                logger.debug(doc)
+
+                batch.append(
+                    HarvestEvent(id=doc['id'], xml=doc['record'], repository_id=doc['repository_id'],
+                                 endpoint_id=doc['endpoint_id'], record_identifier=doc['record_identifier'])
+                )
+
+            if len(batch) == 0:
+                # batch is empty
+                break
 
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')
@@ -92,10 +99,11 @@ def create_jobs(index_name: str) -> int:
             # increment offset by limit
             offset += limit
             # will be false if query returned fewer results than limit
-            fetch = len(batch) == limit
-            #fetch = False
+            #fetch = len(batch) == limit
+            fetch = False
             batch = []
 
+    conn.close()
     return tasks
 
 

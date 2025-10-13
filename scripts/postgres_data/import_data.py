@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 from lxml import etree as ET
-import psycopg2
+import psycopg
 
 load_dotenv()
 
@@ -22,7 +22,7 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
     files: list[Path] = list(dir.rglob("*.xml"))
 
     try:
-        conn = psycopg2.connect(dbname='admin', user=USER, host='127.0.0.1', password=PW, port=5432)
+        conn = psycopg.connect(dbname='admin', user=USER, host='127.0.0.1', password=PW, port=5432)
 
         with conn.cursor() as curs:
             for file in files:
@@ -60,7 +60,7 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
 
         # not sure if this works for a whole repo like HAL
         conn.commit()
-
+        conn.close()
     except Exception as e:
         print(f'An error occurred when loading data in DB: {e}', file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
