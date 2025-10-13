@@ -22,7 +22,8 @@ dev = [
     "types-xmltodict",
     "celery-stubs",
     "mypy",
-    "types-jsonschema"
+    "types-jsonschema",
+    "types-requests"
 ]
 
 [tool.pytest.ini_options]
