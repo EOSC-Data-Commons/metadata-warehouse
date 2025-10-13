@@ -54,7 +54,7 @@ class TransformTask(Task):  # type: ignore
     embedding_transformer: TextEmbedding
     client: OpenSearch
     schema: dict[Any, Any]
-    postgres_conn: Connection
+    postgres_conn: Any
 
 
     def __init__(self) -> None:
