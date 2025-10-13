@@ -3,7 +3,6 @@ from json import JSONDecodeError
 from logging.config import dictConfig
 from typing import Optional
 import pgsql  # type: ignore
-from fastapi.concurrency import run_in_threadpool
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
 from utils.queue_utils import HarvestEventQueue
@@ -72,41 +71,48 @@ class Config(BaseModel):
 class HarvestEvent(BaseModel):
     record_identifier: str
     raw_metadata: str
-    additional_metadata: str
+    additional_metadata: Optional[str] = None
     harvest_url: str
     repo_code: str
 
-def create_harvest_event(harvest_event: HarvestEvent) -> None:
-    try:
-        with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user,
-                              postgres_config.password,
-                              tls=False) as db:
+def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
+    """
+    Creates a record in table harvest_events
 
-            db. execute(f"""
-             INSERT INTO harvest_events 
-                    (record_identifier, 
-                    raw_metadata, 
-                    repository_id, 
-                    endpoint_id, 
-                    action, 
-                    metadata_protocol,
-                    metadata_format
-                    ) 
-                VALUES ( 
-                    '{harvest_event.record_identifier}', 
-                    XMLPARSE(DOCUMENT '{harvest_event.raw_metadata.replace("'", "''")}'), 
-                    (SELECT id from repositories WHERE code='{harvest_event.repo_code}'),
-                     (SELECT id from endpoints WHERE harvest_url='{harvest_event.harvest_url}'), 
-                     'create', 
-                     'OAI-PMH',
-                      'XML');
-            """)
-    except Exception as e:
-        logger.exception(f'An error occurred when reading config: {e}')
-        raise HTTPException(status_code=500, detail=str(e))
+    :param harvest_event: The new record to be created.
+    :return:
+    """
+
+    with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user,
+                          postgres_config.password,
+                          tls=False) as db:
+
+        db. execute(f"""
+         INSERT INTO harvest_events 
+                (record_identifier, 
+                raw_metadata, 
+                repository_id, 
+                endpoint_id, 
+                action, 
+                metadata_protocol,
+                metadata_format
+                ) 
+            VALUES ( 
+                '{harvest_event.record_identifier}', 
+                XMLPARSE(DOCUMENT '{harvest_event.raw_metadata.replace("'", "''")}'), 
+                (SELECT id from repositories WHERE code='{harvest_event.repo_code}'),
+                 (SELECT id from endpoints WHERE harvest_url='{harvest_event.harvest_url}'), 
+                 'create', 
+                 'OAI-PMH',
+                  'XML');
+        """)
 
 
-def get_config() -> list[EndpointConfig]:
+
+def get_config_from_db() -> list[EndpointConfig]:
+    """
+    Returns the config for the available endpoints.
+    """
     endpoints: list[EndpointConfig] = []
 
     try:
@@ -192,19 +198,17 @@ def create_jobs(index_name: str) -> int:
             offset += limit
             # will be false if query returned fewer results than limit
             fetch = len(batch) == limit
-            # fetch = False
+            #fetch = False
             batch = []
 
     return tasks
 
 @app.get('/index', tags=['index'])
-async def index(index_name: str = Query(default='test_datacite', description='Name of the OpenSearch index')) -> Index:
+def init_index(index_name: str = Query(default='test_datacite', description='Name of the OpenSearch index')) -> Index:
+    # this long-running method is synchronous and runs in an external threadpool, see https://fastapi.tiangolo.com/async/#path-operation-functions
+    # this way, it does not block the server
     try:
-        # https://www.starlette.io/threadpool/
-        results = await run_in_threadpool(
-            create_jobs, index_name
-        )
-
+        results = create_jobs(index_name)
     except Exception as e:
         logger.exception("Indexing failed")
         raise HTTPException(status_code=500, detail=str(e))
@@ -214,15 +218,25 @@ async def index(index_name: str = Query(default='test_datacite', description='Na
 
 
 @app.get('/health', tags=['health'])
-async def health() -> Health:
+def get_health() -> Health:
     logger.info('health route called')
     return Health(status='ok', time=datetime.now(timezone.utc))
 
 
 @app.get('/config', tags=['config'])
-async def config() -> Config:
-    return Config(endpoints_configs=get_config())
+def get_config() -> Config:
+    try:
+        return Config(endpoints_configs=get_config_from_db())
+    except Exception as e:
+        logger.exception("Indexing failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post('/harvest_event', tags=['harvest_event'])
-def harvest_event(harvest_event: HarvestEvent) -> None:
-    create_harvest_event(harvest_event)
+def create_harvest_event(harvest_event: HarvestEvent) -> None:
+    try:
+        logger.debug(harvest_event)
+        create_harvest_event_in_db(harvest_event)
+    except Exception as e:
+        logger.exception(f'An error occurred when creating harvest event: {e}')
+        raise HTTPException(status_code=500, detail=str(e))

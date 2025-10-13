@@ -1,66 +1,46 @@
 #!/usr/bin/env -S uv run --script
-import sys
-import traceback
-import pgsql
 import os
 from dotenv import load_dotenv
 from pathlib import Path
 from lxml import etree as ET
-
-load_dotenv()
-
-USER = os.environ.get('POSTGRES_ADMIN')
-PW = os.environ.get('POSTGRES_PASSWORD')
-
-if not USER or not PW:
-    raise ValueError('Missing POSTGRES_ADMIN or POSTGRES_PASSWORD in environment.')
+import requests
+import traceback
+import sys
+import json
 
 NS = {"oai": "http://www.openarchives.org/OAI/2.0/"}
-
 
 def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
     files: list[Path] = list(dir.rglob("*.xml"))
 
-    with pgsql.Connection(('127.0.0.1', 5432), USER, PW, tls=False) as db:
+    for file in files:
+
         try:
-            for file in files:
+            with open(file) as f:
+                xml = f.read()
 
-                with open(file) as f:
-                    xml = f.read()
+            root = ET.fromstring(xml)
+            identifier = root.find("./oai:header/oai:identifier", namespaces=NS)
 
-                root = ET.fromstring(xml)
-                identifier = root.find("./oai:header/oai:identifier", namespaces=NS)
+            if identifier is None:
+                raise ValueError(f'XML OAI-PMH record {file} without identifier')
 
-                if identifier is None:
-                    raise ValueError(f'XML OAI-PMH record {file} without identifier')
+            payload = {
+                'record_identifier': identifier.text,
+                'raw_metadata': xml,
+                'harvest_url': harvest_url,
+                'repo_code': repo_code
+            }
 
-                print(f'record identifier: {identifier.text}')
+            res = requests.post('http://127.0.0.1:8080/harvest_event', json=payload)
 
-                # escape single quotes in XML content: https://www.postgresql.org/docs/current/sql-syntax-lexical.html#SQL-SYNTAX-STRINGS
-                db.execute(f"""
-                INSERT INTO harvest_events 
-                    (record_identifier, 
-                    raw_metadata, 
-                    repository_id, 
-                    endpoint_id, 
-                    action, 
-                    metadata_protocol,
-                    metadata_format
-                    ) 
-                VALUES ( 
-                    '{identifier.text}', 
-                    XMLPARSE(DOCUMENT '{xml.replace("'", "''")}'), 
-                    (SELECT id from repositories WHERE code='{repo_code}'),
-                     (SELECT id from endpoints WHERE harvest_url='{harvest_url}'), 
-                     'create', 
-                     'OAI-PMH',
-                      'XML');
-                """)
+            res.raise_for_status()
+
+            print(identifier.text)
 
         except Exception as e:
-            print(f'An error occurred when loading data in DB: {e}', file=sys.stderr)
+            print(f'An error occurred when loading data in DB: {e.with_traceback}', file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
-
 
 HARVEST_ENDPOINTS = [
     ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/harvests_DANS_arch')),
