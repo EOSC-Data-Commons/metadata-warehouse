@@ -1,7 +1,7 @@
 from typing import NamedTuple, Optional
 
 
-class HarvestEvent(NamedTuple):
+class HarvestEventQueue(NamedTuple):
     id: str # 0
     xml: str # 1
     repository_id: str # 2

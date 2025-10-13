@@ -6,7 +6,7 @@ import pgsql  # type: ignore
 from fastapi.concurrency import run_in_threadpool
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
-from utils.queue_utils import HarvestEvent
+from utils.queue_utils import HarvestEventQueue
 from tasks import transform_batch
 import os
 from fastapi import FastAPI, Query, HTTPException
@@ -29,6 +29,14 @@ tags_metadata = [
     {
         'name': 'index',
         'description': 'Transformation and index process'
+    },
+    {
+        'name': 'config',
+        'description': 'Get available endpoints'
+    },
+    {
+        'name': 'harvest_events',
+        'description': 'Create a harvest event'
     }
 ]
 
@@ -60,6 +68,42 @@ class EndpointConfig(BaseModel):
 
 class Config(BaseModel):
     endpoints_configs: list[EndpointConfig]
+
+class HarvestEvent(BaseModel):
+    record_identifier: str
+    raw_metadata: str
+    additional_metadata: str
+    harvest_url: str
+    repo_code: str
+
+def create_harvest_event(harvest_event: HarvestEvent):
+    try:
+        with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user,
+                              postgres_config.password,
+                              tls=False) as db:
+
+            db. execute(f"""
+             INSERT INTO harvest_events 
+                    (record_identifier, 
+                    raw_metadata, 
+                    repository_id, 
+                    endpoint_id, 
+                    action, 
+                    metadata_protocol,
+                    metadata_format
+                    ) 
+                VALUES ( 
+                    '{harvest_event.record_identifier}', 
+                    XMLPARSE(DOCUMENT '{harvest_event.raw_metadata.replace("'", "''")}'), 
+                    (SELECT id from repositories WHERE code='{harvest_event.repo_code}'),
+                     (SELECT id from endpoints WHERE harvest_url='{harvest_event.harvest_url}'), 
+                     'create', 
+                     'OAI-PMH',
+                      'XML');
+            """)
+    except Exception as e:
+        logger.exception(f'An error occurred when reading config: {e}')
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def get_config() -> list[EndpointConfig]:
@@ -101,7 +145,7 @@ def create_jobs(index_name: str) -> int:
     :return: Number of batches scheduled for processing.
     """
 
-    batch: list[HarvestEvent] = []
+    batch: list[HarvestEventQueue] = []
     tasks = 0
     offset = 0
     limit = int(BATCH_SIZE) if BATCH_SIZE else 250
@@ -131,8 +175,8 @@ def create_jobs(index_name: str) -> int:
 
                 for doc in docs():
                     batch.append(
-                        HarvestEvent(id=doc.id, xml=doc.record, repository_id=doc.repository_id,
-                                     endpoint_id=doc.endpoint_id, record_identifier=doc.record_identifier)
+                        HarvestEventQueue(id=doc.id, xml=doc.record, repository_id=doc.repository_id,
+                                          endpoint_id=doc.endpoint_id, record_identifier=doc.record_identifier)
                     )
 
                 if len(batch) == 0:
@@ -152,7 +196,6 @@ def create_jobs(index_name: str) -> int:
             batch = []
 
     return tasks
-
 
 @app.get('/index', tags=['index'])
 async def index(index_name: str = Query(default='test_datacite', description='Name of the OpenSearch index')) -> Index:
@@ -179,3 +222,7 @@ async def health() -> Health:
 @app.get('/config', tags=['config'])
 async def config() -> Config:
     return Config(endpoints_configs=get_config())
+
+@app.post('/harvest_event', tags=['harvest_event'])
+def harvest_event(harvest_event: HarvestEvent):
+    create_harvest_event(harvest_event)

@@ -12,7 +12,7 @@ from opensearchpy.helpers import bulk, BulkIndexError
 import xmltodict
 from config.postgres_config import PostgresConfig
 from config.opensearch_config import OpenSearchConfig
-from utils.queue_utils import HarvestEvent
+from utils.queue_utils import HarvestEventQueue
 from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
     get_embedding_text_from_fields
 from utils import normalize_datacite_json
@@ -74,7 +74,7 @@ class TransformTask(Task):  # type: ignore
 
 
 @celery_app.task(base=TransformTask, bind=True, ignore_result=True)
-def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> Any:
+def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) -> Any:
     # transform to JSON and normalize
 
     logger.info(f'Starting processing batch of {len(batch)}')
@@ -82,7 +82,7 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
     normalized: list[SourceWithEmbeddingText] = []
     for ele in batch:
 
-        harvest_event = HarvestEvent(*ele) # reconstruct HravestEvent from serialized list
+        harvest_event = HarvestEventQueue(*ele) # reconstruct HravestEvent from serialized list
 
         #logger.info(f'Processing {ele[0]}')
         converted = xmltodict.parse(harvest_event.xml, process_namespaces=True)  # named tuple serialized as list in broker
