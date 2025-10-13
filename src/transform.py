@@ -76,7 +76,7 @@ class HarvestEvent(BaseModel):
     harvest_url: str
     repo_code: str
 
-def create_harvest_event(harvest_event: HarvestEvent):
+def create_harvest_event(harvest_event: HarvestEvent) -> None:
     try:
         with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user,
                               postgres_config.password,
@@ -224,5 +224,5 @@ async def config() -> Config:
     return Config(endpoints_configs=get_config())
 
 @app.post('/harvest_event', tags=['harvest_event'])
-def harvest_event(harvest_event: HarvestEvent):
+def harvest_event(harvest_event: HarvestEvent) -> None:
     create_harvest_event(harvest_event)
