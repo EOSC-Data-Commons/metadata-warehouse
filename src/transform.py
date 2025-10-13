@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 from logging.config import dictConfig
-import pgsql  # type: ignore
 import psycopg
 from psycopg.rows import dict_row
 from fastapi.concurrency import run_in_threadpool
@@ -74,9 +73,9 @@ def create_jobs(index_name: str) -> int:
             )[1] AS record
         FROM harvest_events
             ORDER BY ID
-            LIMIT {limit}
-            OFFSET {offset}
-            """)
+            LIMIT %s
+            OFFSET %s
+            """, (limit, offset))
 
             for doc in curs.fetchall():
 
@@ -99,8 +98,8 @@ def create_jobs(index_name: str) -> int:
             # increment offset by limit
             offset += limit
             # will be false if query returned fewer results than limit
-            #fetch = len(batch) == limit
-            fetch = False
+            fetch = len(batch) == limit
+            #fetch = False
             batch = []
 
     conn.close()

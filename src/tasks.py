@@ -19,8 +19,10 @@ from utils import normalize_datacite_json
 from typing import Any
 from celery.utils.log import get_task_logger
 from celery.signals import after_setup_logger
-import pgsql  # type: ignore
 import datetime
+import psycopg
+from psycopg import Connection
+from psycopg.rows import dict_row
 
 @after_setup_logger.connect()  # type: ignore
 def configurate_celery_task_logger(**kwargs: Any) -> None:
@@ -52,7 +54,8 @@ class TransformTask(Task):  # type: ignore
     embedding_transformer: TextEmbedding
     client: OpenSearch
     schema: dict[Any, Any]
-    postgres_config: PostgresConfig
+    postgres_conn: Connection
+
 
     def __init__(self) -> None:
         if EMBEDDING_MODEL:
@@ -67,7 +70,8 @@ class TransformTask(Task):  # type: ignore
             logger=logger
         )
 
-        self.postgres_config = PostgresConfig()
+        postgres_config = PostgresConfig()
+        self.postgres_conn = psycopg.connect(dbname='admin', user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row)
 
         with open('config/schema.json') as f:
             self.schema = json.load(f)
@@ -120,30 +124,30 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                                                       ))
         except ValidationError as e:
             logger.info(f'Validation failed for {rec_id} in harvest_event {harvest_event.id}: {e.message}')
-            with pgsql.Connection((self.postgres_config.address, self.postgres_config.port), self.postgres_config.user,
-                                  self.postgres_config.password,
-                                  tls=False) as db:
-                db.execute(
-                    f"""
-                    UPDATE harvest_events 
-                    SET error_message = '{e.message.replace("'", "''")}'
-                    WHERE id = '{harvest_event.id}'  
+            with self.postgres_conn.cursor() as curs:
+
+                curs.execute(
                     """
+                    UPDATE harvest_events 
+                    SET error_message = %s
+                    WHERE id = %s  
+                    """, (e.message, harvest_event.id)
                 )
+
+            self.postgres_conn.commit()
             continue
         except Exception as e:
             logger.info(f'An error occurred for {rec_id} in harvest_event {harvest_event.id} during transformation: {e}')
-            with pgsql.Connection((self.postgres_config.address, self.postgres_config.port), self.postgres_config.user,
-                                  self.postgres_config.password,
-                                  tls=False) as db:
+            with self.postgres_conn.cursor() as curs:
 
-                db.execute(
-                    f"""
-                                    UPDATE harvest_events 
-                                    SET error_message = '{str(e).replace("'", "''")}'
-                                    WHERE id = '{harvest_event.id}'  
-                                    """
+                curs.execute(
+                    """
+                    UPDATE harvest_events 
+                    SET error_message = %s
+                    WHERE id = %s  
+                    """, (str(e), harvest_event.id)
                 )
+            self.postgres_conn.commit()
             continue
 
     try:
@@ -165,8 +169,6 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
         logger.info(f'Bulk results: success {success} failed: {failed}')
 
         for rec in src_with_emb:
-            # TODO: use a bulk method
-            # TODO: use a better solution like SQLAlchemy to construct queries
             # write to records table
 
             if rec[1].event is None:
@@ -174,10 +176,9 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
 
             #logger.info(f'HarvestEvent: {rec[1].event}')
 
-            with pgsql.Connection((self.postgres_config.address, self.postgres_config.port), self.postgres_config.user, self.postgres_config.password,
-                                  tls=False) as db:
+            with self.postgres_conn.cursor() as curs:
 
-                statements = f"""
+                curs.execute("""
                 INSERT INTO records 
                 (   
                     record_identifier,
@@ -196,27 +197,38 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                     opensearch_synced_at
                     ) 
                 VALUES (
-                    '{rec[1].event.record_identifier}',
-                    '{rec[1].event.repository_id}',
-                    '{rec[1].event.endpoint_id}',
+                    %s,
+                    %s,
+                    %s,
                     'Dataset',
-                    '{rec[0]['titles'][0]['title'].replace("'", "''")}',
-                    '{rec[1].event.xml.replace("'", "''")}',
+                    %s,
+                    %s,
                     'OAI-PMH',
-                    {'\'' + rec[0]['doi'] + '\'' if 'doi' in rec[0] else 'NULL' },
-                    {'\'' + rec[0]['url'] + '\'' if 'url' in rec[0] else 'NULL' },
-                    '{{ {', '.join([str(f) for f in rec[0]['emb']])} }}',
-                    '{EMBEDDING_MODEL}',
-                    '{json.dumps({**rec[0], 'emb': None}).replace("'", "''")}',
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
                     true,
-                    '{opensearch_synced_at}'
+                    %s
                     )     
-                """
+                """, (rec[1].event.record_identifier,
+                      rec[1].event.repository_id,
+                      rec[1].event.endpoint_id,
+                      rec[0]['titles'][0]['title'],
+                      rec[1].event.xml,
+                      rec[0].get('doi'),
+                      rec[0].get('url'),
+                      [rec[0]['emb']][0], # TODO: improve this
+                      EMBEDDING_MODEL,
+                     json.dumps({**rec[0], 'emb': None}),
+                    opensearch_synced_at)
+                )
 
+                # ', '.join([str(f) for f in rec[0]['emb']])
                 #logger.info(statements)
 
-                db.execute(statements) # named tuple serialized as list in broker
-
+        self.postgres_conn.commit()
 
     except BulkIndexError as e:
         logger.error(f'Bulk failed: {e}')

@@ -38,7 +38,7 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
 
                 print(f'record identifier: {identifier.text}')
 
-                curs.execute(f"""
+                curs.execute("""
                                 INSERT INTO harvest_events 
                                     (record_identifier, 
                                     raw_metadata, 
