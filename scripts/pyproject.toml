@@ -13,6 +13,11 @@ dependencies = [
     "lxml"
 ]
 
+[dependency-groups]
+dev = [
+    "types-requests"
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

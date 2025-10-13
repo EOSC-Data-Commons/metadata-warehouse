@@ -6,7 +6,6 @@ from lxml import etree as ET
 import requests
 import traceback
 import sys
-import json
 
 NS = {"oai": "http://www.openarchives.org/OAI/2.0/"}
 
