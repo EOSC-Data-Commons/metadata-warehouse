@@ -34,6 +34,10 @@ tags_metadata = [
         'description': 'Get available endpoints'
     },
     {
+        'name': 'harvest_run',
+        'description': 'Create a harvest run'
+    },
+    {
         'name': 'harvest_event',
         'description': 'Create a harvest event'
     }
@@ -73,10 +77,49 @@ class Config(BaseModel):
 
 class HarvestEvent(BaseModel):
     record_identifier: str
-    raw_metadata: str
-    additional_metadata: Optional[str] = None
+    raw_metadata: str # XML
+    additional_metadata: Optional[str] = None # XML or JSON (stringified)
     harvest_url: str
     repo_code: str
+
+
+class HarvestRun(BaseModel):
+    harvest_url: str
+
+def create_harvest_run_in_db(harvest_run: HarvestRun) -> None:
+    """
+    Creates a new entry in harvest_runs and returns its id.
+
+    :param harvest_run: The new entry to be created.
+    """
+
+    with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user,
+                          postgres_config.password,
+                          tls=False) as db:
+
+        # TODO: only allow one open harvest run per endpoint
+        # TODO check (in one transaction):
+        # - an open harvest run exists for the given endpoint
+        # - only create a new harvest run if all previous are closed, if any
+
+        # https://stackoverflow.com/questions/15710162/conditional-insert-into-statement-in-postgres/15710289
+        db.execute(f"""
+            WITH endpoint_id_harvest_url AS (
+	            SELECT id from endpoints WHERE harvest_url='{harvest_run.harvest_url}'
+            )
+
+            INSERT INTO harvest_runs
+                (endpoint_id, status)
+                select 
+                (SELECT id from endpoint_id_harvest_url),
+                'open'
+                where not exists (    
+                    select 1 from harvest_runs, endpoint_id_harvest_url where status = 'open' and harvest_runs.endpoint_id = endpoint_id_harvest_url.id
+                )	
+            """)
+
+        # TODO: return id of latest record -> psycopg: https://stackoverflow.com/questions/5247685/python-postgres-psycopg2-getting-id-of-row-just-inserted
+
 
 
 def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
@@ -84,7 +127,6 @@ def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
     Creates a record in table harvest_events
 
     :param harvest_event: The new record to be created.
-    :return:
     """
 
     with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user,
@@ -240,6 +282,15 @@ def create_harvest_event(harvest_event: HarvestEvent) -> None:
     try:
         logger.debug(harvest_event)
         create_harvest_event_in_db(harvest_event)
+    except Exception as e:
+        logger.exception(f'An error occurred when creating harvest event: {e}')
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post('/harvest_run', tags=['harvest_run'])
+def create_harvest_run(harvest_run: HarvestRun) -> None:
+    try:
+        logger.debug(harvest_run)
+        return create_harvest_run_in_db(harvest_run)
     except Exception as e:
         logger.exception(f'An error occurred when creating harvest event: {e}')
         raise HTTPException(status_code=500, detail=str(e))
