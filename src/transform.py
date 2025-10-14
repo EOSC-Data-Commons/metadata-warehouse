@@ -27,14 +27,14 @@ tags_metadata = [
     },
     {
         'name': 'index',
-        'description': 'Transformation and index process'
+        'description': 'Start transformation and index process'
     },
     {
         'name': 'config',
         'description': 'Get available endpoints'
     },
     {
-        'name': 'harvest_events',
+        'name': 'harvest_event',
         'description': 'Create a harvest event'
     }
 ]
@@ -51,9 +51,11 @@ class Health(BaseModel):
 class Index(BaseModel):
     number_of_batches: int
 
+
 class HarvestParams(BaseModel):
     metadata_prefix: str
-    set: Optional[str]
+    set: Optional[list[str]]
+
 
 class EndpointConfig(BaseModel):
     name: str
@@ -68,12 +70,14 @@ class EndpointConfig(BaseModel):
 class Config(BaseModel):
     endpoints_configs: list[EndpointConfig]
 
+
 class HarvestEvent(BaseModel):
     record_identifier: str
     raw_metadata: str
     additional_metadata: Optional[str] = None
     harvest_url: str
     repo_code: str
+
 
 def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
     """
@@ -106,7 +110,6 @@ def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
                  'OAI-PMH',
                   'XML');
         """)
-
 
 
 def get_config_from_db() -> list[EndpointConfig]:
@@ -143,7 +146,7 @@ def get_config_from_db() -> list[EndpointConfig]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def create_jobs(index_name: str) -> int:
+def create_jobs_in_queue(index_name: str) -> int:
     """
     Creates and enqueues transformation jobs from harvest_events table.
 
@@ -208,7 +211,7 @@ def init_index(index_name: str = Query(default='test_datacite', description='Nam
     # this long-running method is synchronous and runs in an external threadpool, see https://fastapi.tiangolo.com/async/#path-operation-functions
     # this way, it does not block the server
     try:
-        results = create_jobs(index_name)
+        results = create_jobs_in_queue(index_name)
     except Exception as e:
         logger.exception("Indexing failed")
         raise HTTPException(status_code=500, detail=str(e))

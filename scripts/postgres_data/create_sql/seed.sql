@@ -111,7 +111,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "set": "openaire_data"}'
+    '{"metadata_prefix": "oai_datacite", "set": ["openaire_data"]}'
 FROM repositories r
 WHERE r.code = 'DABAR'
 ON CONFLICT (name) DO NOTHING;
