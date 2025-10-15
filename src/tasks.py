@@ -178,6 +178,8 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
 
             with self.postgres_conn.cursor() as curs:
 
+                logger.info(rec[1].event.record_identifier)
+
                 curs.execute("""
                 INSERT INTO records 
                 (   
@@ -226,7 +228,6 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                 )
 
                 # ', '.join([str(f) for f in rec[0]['emb']])
-                #logger.info(statements)
 
         self.postgres_conn.commit()
 

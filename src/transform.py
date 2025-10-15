@@ -63,13 +63,13 @@ def create_jobs(index_name: str) -> int:
 
         while fetch:
 
-            curs.execute(f"""
+            curs.execute("""
             SELECT ID, 
             repository_id, 
             endpoint_id, 
             record_identifier, 
             (
-                xpath('/oai:record', raw_metadata, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}')
+                xpath('/oai:record', raw_metadata, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}')
             )[1] AS record
         FROM harvest_events
             ORDER BY ID
