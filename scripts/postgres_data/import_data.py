@@ -28,7 +28,8 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
                 with open(file) as f:
                     xml = f.read()
 
-                root = ET.fromstring(xml)
+                # https://stackoverflow.com/questions/15830421/xml-unicode-strings-with-encoding-declaration-are-not-supported
+                root = ET.fromstring(bytes(xml, encoding='utf-8'))
                 identifier = root.find("./oai:header/oai:identifier", namespaces=NS)
 
                 if identifier is None:
