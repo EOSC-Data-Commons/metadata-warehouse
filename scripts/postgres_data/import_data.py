@@ -22,9 +22,11 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
     files: list[Path] = list(dir.rglob("*.xml"))
 
     try:
-        conn = psycopg.connect(dbname='admin', user=USER, host='127.0.0.1', password=PW, port=5432)
+        # https://www.psycopg.org/psycopg3/docs/basic/transactions.html#transactions-management
+        # when using the connection context, Psycopg will commit the connection at the end of the block (or roll it back if the block is exited with an exception)
+        with psycopg.connect(dbname='admin', user=USER, host='127.0.0.1', password=PW, port=5432) as conn:
 
-        with conn.cursor() as curs:
+            cur = conn.cursor()
             for file in files:
                 with open(file) as f:
                     xml = f.read()
@@ -38,7 +40,7 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
 
                 print(f'record identifier: {identifier.text}')
 
-                curs.execute("""
+                cur.execute("""
                                 INSERT INTO harvest_events 
                                     (record_identifier, 
                                     raw_metadata, 
@@ -58,9 +60,6 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
                                     %s);
                                 """, (identifier.text, xml, repo_code, harvest_url, 'create', 'OAI-PMH', 'XML'))
 
-        # not sure if this works for a whole repo like HAL
-        conn.commit()
-        conn.close()
     except Exception as e:
         print(f'An error occurred when loading data in DB: {e}', file=sys.stderr)
         traceback.print_exc(file=sys.stderr)

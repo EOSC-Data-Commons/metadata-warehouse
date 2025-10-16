@@ -56,14 +56,14 @@ def create_jobs(index_name: str) -> int:
 
     logger.info(f'Preparing jobs')
 
-    conn = psycopg.connect(dbname='admin', user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row)
+    with psycopg.connect(dbname='admin', user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
 
-    with conn.cursor() as curs:
+        cur = conn.cursor()
         # print(db)
 
         while fetch:
 
-            curs.execute("""
+            cur.execute("""
             SELECT ID, 
             repository_id, 
             endpoint_id, 
@@ -77,7 +77,7 @@ def create_jobs(index_name: str) -> int:
             OFFSET %s
             """, (limit, offset))
 
-            for doc in curs.fetchall():
+            for doc in cur.fetchall():
 
                 logger.debug(doc)
 
@@ -102,7 +102,6 @@ def create_jobs(index_name: str) -> int:
             #fetch = False
             batch = []
 
-    conn.close()
     return tasks
 
 
