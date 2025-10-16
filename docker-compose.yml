@@ -77,6 +77,8 @@ services:
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+            POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
+            POSTGRES_PORT: "${POSTGRES_PORT}"
         healthcheck:
             test: celery -A tasks status
             interval: 10s
@@ -98,6 +100,8 @@ services:
             CELERY_RESULT_BACKEND: redis://broker:6379/0
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+            POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
+            POSTGRES_PORT: "${POSTGRES_PORT}"
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
             CELERY_BATCH_SIZE: "${CELERY_BATCH_SIZE}"
         depends_on:
