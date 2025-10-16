@@ -6,8 +6,11 @@ This repo contains a `docker-compose.yml` file which configures the containers a
 To run the containers:
 - users and passwords (adjust env variables as needed and set new passwords):
   ```sh
-  cp env.template .env`
+  cp env.template .env
   ```
+  Optionally add the following env variables for postgres and/or OpenSearch (not needed for local dev):
+    - `POSTGRES_ADDRESS` (default "postgres") and `POSTGRES_PORT` (default 5432)
+    - `OPENSEARCH_ADDRESS` (default "opensearch") and `OPENSEARCH_PORT` (default 9200)
 - API keys for mcp server:
   ```sh
   cp keys.env.template keys.env
