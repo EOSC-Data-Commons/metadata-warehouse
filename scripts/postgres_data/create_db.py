@@ -11,10 +11,12 @@ load_dotenv()
 
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
+ADDRESS = os.environ.get('POSTGRES_ADDRESS')
+PORT = os.environ.get('POSTGRES_PORT')
 
 sql_files = ['types.sql', 'tables.sql', 'indexes.sql', 'triggers.sql', 'seed.sql', 'views.sql', 'permissions.sql', 'verify.sql']
 
-with pgsql.Connection(('127.0.0.1', 5432), USER, PW, tls = False) as db:
+with pgsql.Connection((ADDRESS if ADDRESS else '127.0.0.1', int(PORT) if PORT else 5432), USER, PW, tls = False) as db:
 
     for sql_f in sql_files:
         try:
