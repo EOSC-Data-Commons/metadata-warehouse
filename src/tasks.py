@@ -54,7 +54,7 @@ class TransformTask(Task):  # type: ignore
     embedding_transformer: TextEmbedding
     client: OpenSearch
     schema: dict[Any, Any]
-    postgres_conn: Any
+    postgres_config: PostgresConfig
 
 
     def __init__(self) -> None:
@@ -70,8 +70,7 @@ class TransformTask(Task):  # type: ignore
             logger=logger
         )
 
-        postgres_config = PostgresConfig()
-        self.postgres_conn = psycopg.connect(dbname='admin', user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row)
+        self.postgres_config = PostgresConfig()
 
         with open('config/schema.json') as f:
             self.schema = json.load(f)
@@ -81,52 +80,57 @@ class TransformTask(Task):  # type: ignore
 def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> Any:
     # transform to JSON and normalize
 
-    logger.info(f'Starting processing batch of {len(batch)}')
+    with psycopg.connect(dbname='admin', user=self.postgres_config.user, host=self.postgres_config.address,
+                                         password=self.postgres_config.password, port=self.postgres_config.port,
+                                         row_factory=dict_row) as conn:
 
-    normalized: list[SourceWithEmbeddingText] = []
-    for ele in batch:
+        cur = conn.cursor()
 
-        harvest_event = HarvestEvent(*ele) # reconstruct HravestEvent from serialized list
+        logger.info(f'Starting processing batch of {len(batch)}')
 
-        #logger.info(f'Processing {ele[0]}')
-        converted = xmltodict.parse(harvest_event.xml, process_namespaces=True)  # named tuple serialized as list in broker
+        normalized: list[SourceWithEmbeddingText] = []
+        for ele in batch:
 
-        if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
-            rec_id = converted[OAI_RECORD][f'{OAI}:header'][
-                f'{OAI}:identifier']
+            harvest_event = HarvestEvent(*ele) # reconstruct HarvestEvent from serialized list
 
-            logger.debug(f'{rec_id}')
+            #logger.info(f'Processing {ele[0]}')
+            converted = xmltodict.parse(harvest_event.xml, process_namespaces=True)  # named tuple serialized as list in broker
 
-            metadata = converted[OAI_RECORD][OAI_METADATA]
-        else:
-            # Converted JSON cannot be processed, log this
-            logger.debug(f'Cannot access {OAI_METADATA} in : {converted}')
-            continue
+            if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
+                rec_id = converted[OAI_RECORD][f'{OAI}:header'][
+                    f'{OAI}:identifier']
 
-        if DATACITE_RESOURCE in metadata:
-            resource = metadata[DATACITE_RESOURCE]
-        elif HAL_RESOURCE in metadata:
-            # HAL
-            resource = metadata[HAL_RESOURCE]
-        else:
-            # JSON cannot be processed, log this
-            logger.debug(f'Cannot access {DATACITE_RESOURCE} or {HAL_RESOURCE} in : {metadata}')
-            continue
+                logger.debug(f'{rec_id}')
 
-        # Catch and log errors
-        try:
-            normalized_record = normalize_datacite_json.normalize_datacite_json(resource)
-            validate(instance=normalized_record, schema=self.schema)
-            normalized.append(SourceWithEmbeddingText(src=normalized_record,
-                                                      textToEmbed=get_embedding_text_from_fields(normalized_record),
-                                                      file=Path(''),
-                                                      event=harvest_event
-                                                      ))
-        except ValidationError as e:
-            logger.info(f'Validation failed for {rec_id} in harvest_event {harvest_event.id}: {e.message}')
-            with self.postgres_conn.cursor() as curs:
+                metadata = converted[OAI_RECORD][OAI_METADATA]
+            else:
+                # Converted JSON cannot be processed, log this
+                logger.debug(f'Cannot access {OAI_METADATA} in : {converted}')
+                continue
 
-                curs.execute(
+            if DATACITE_RESOURCE in metadata:
+                resource = metadata[DATACITE_RESOURCE]
+            elif HAL_RESOURCE in metadata:
+                # HAL
+                resource = metadata[HAL_RESOURCE]
+            else:
+                # JSON cannot be processed, log this
+                logger.debug(f'Cannot access {DATACITE_RESOURCE} or {HAL_RESOURCE} in : {metadata}')
+                continue
+
+            # Catch and log errors
+            try:
+                normalized_record = normalize_datacite_json.normalize_datacite_json(resource)
+                validate(instance=normalized_record, schema=self.schema)
+                normalized.append(SourceWithEmbeddingText(src=normalized_record,
+                                                          textToEmbed=get_embedding_text_from_fields(normalized_record),
+                                                          file=Path(''),
+                                                          event=harvest_event
+                                                          ))
+            except ValidationError as e:
+                logger.info(f'Validation failed for {rec_id} in harvest_event {harvest_event.id}: {e.message}')
+
+                cur.execute(
                     """
                     UPDATE harvest_events 
                     SET error_message = %s
@@ -134,53 +138,46 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                     """, (e.message, harvest_event.id)
                 )
 
-            self.postgres_conn.commit()
-            continue
-        except Exception as e:
-            logger.info(f'An error occurred for {rec_id} in harvest_event {harvest_event.id} during transformation: {e}')
-            with self.postgres_conn.cursor() as curs:
+                continue
+            except Exception as e:
+                logger.info(f'An error occurred for {rec_id} in harvest_event {harvest_event.id} during transformation: {e}')
 
-                curs.execute(
+                cur.execute(
                     """
                     UPDATE harvest_events 
                     SET error_message = %s
                     WHERE id = %s  
                     """, (str(e), harvest_event.id)
                 )
-            self.postgres_conn.commit()
-            continue
+                continue
 
-    try:
-        logger.info(f'About to Calculate embeddings for {len(normalized)}')
-        src_with_emb: list[tuple[dict[str, Any], SourceWithEmbeddingText]] = add_embeddings_to_source(normalized,
-                                                                                   self.embedding_transformer)
-        logger.info(f'Calculated embeddings for {len(src_with_emb)}')
-        preprocessed = preprocess_batch(list(map(lambda el: el[0], src_with_emb)), index_name)
-    except Exception as e:
-        logger.error(f'Could not calculate embeddings: {e}')
-        raise e
+        try:
+            logger.info(f'About to Calculate embeddings for {len(normalized)}')
+            src_with_emb: list[tuple[dict[str, Any], SourceWithEmbeddingText]] = add_embeddings_to_source(normalized,
+                                                                                       self.embedding_transformer)
+            logger.info(f'Calculated embeddings for {len(src_with_emb)}')
+            preprocessed = preprocess_batch(list(map(lambda el: el[0], src_with_emb)), index_name)
+        except Exception as e:
+            logger.error(f'Could not calculate embeddings: {e}')
+            raise e
 
-    try:
-        success, failed = bulk(self.client, preprocessed)
-        if success < len(src_with_emb):
-            logger.error(f'Normalized doc size was {len(src_with_emb)} but only {success} were imported into OpenSearch.')
+        try:
+            success, failed = bulk(self.client, preprocessed)
+            if success < len(src_with_emb):
+                logger.error(f'Normalized doc size was {len(src_with_emb)} but only {success} were imported into OpenSearch.')
 
-        opensearch_synced_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f%z')
-        logger.info(f'Bulk results: success {success} failed: {failed}')
+            opensearch_synced_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f%z')
+            logger.info(f'Bulk results: success {success} failed: {failed}')
 
-        for rec in src_with_emb:
-            # write to records table
+            for rec in src_with_emb:
+                # write to records table
 
-            if rec[1].event is None:
-                raise ValueError(f'Original HarvestEvent not found')
+                if rec[1].event is None:
+                    raise ValueError(f'Original HarvestEvent not found')
 
-            #logger.info(f'HarvestEvent: {rec[1].event}')
+                #logger.info(rec[1].event.record_identifier)
 
-            with self.postgres_conn.cursor() as curs:
-
-                logger.info(rec[1].event.record_identifier)
-
-                curs.execute("""
+                cur.execute("""
                 INSERT INTO records 
                 (   
                     record_identifier,
@@ -227,15 +224,11 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                     opensearch_synced_at)
                 )
 
-                # ', '.join([str(f) for f in rec[0]['emb']])
-
-        self.postgres_conn.commit()
-
-    except BulkIndexError as e:
-        logger.error(f'Bulk failed: {e}')
-        raise e
-    except Exception as e:
-        logger.error(f'Writing batch failed: {e}')
-        raise e
+        except BulkIndexError as e:
+            logger.error(f'Bulk failed: {e}')
+            raise e
+        except Exception as e:
+            logger.error(f'Writing batch failed: {e}')
+            raise e
 
     return success
