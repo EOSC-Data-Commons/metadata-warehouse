@@ -127,20 +127,9 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                                                           file=Path(''),
                                                           event=harvest_event
                                                           ))
-            except ValidationError as e:
-                logger.info(f'Validation failed for {rec_id} in harvest_event {harvest_event.id}: {e.message}')
 
-                cur.execute(
-                    """
-                    UPDATE harvest_events 
-                    SET error_message = %s
-                    WHERE id = %s  
-                    """, (e.message, harvest_event.id)
-                )
-
-                continue
             except Exception as e:
-                logger.info(f'An error occurred for {rec_id} in harvest_event {harvest_event.id} during transformation: {e}')
+                logger.info(f'An error occurred for {rec_id} in harvest_event {harvest_event.id} during transformation or validation: {e}')
 
                 cur.execute(
                     """
@@ -177,6 +166,20 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
 
                 #logger.info(rec[1].event.record_identifier)
 
+                record_identifier = rec[1].event.record_identifier
+                repository_id = rec[1].event.repository_id
+                endpoint_id = rec[1].event.endpoint_id
+                resource_type = 'Dataset' # TODO: get this information from record
+                title = rec[0]['titles'][0]['title']
+                xml = rec[1].event.xml
+                protocol = 'OAI-PMH'
+                doi = rec[0].get('doi')
+                url = rec[0].get('url')
+                #embedding = [rec[0]['emb']][0]
+                embedding = rec[0]['emb']
+                datacite_json = json.dumps({**rec[0], 'emb': None})
+                opensearch_synced = True
+
                 cur.execute("""
                 INSERT INTO records 
                 (   
@@ -196,32 +199,22 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                     opensearch_synced_at
                     ) 
                 VALUES (
-                    %s,
-                    %s,
-                    %s,
-                    'Dataset',
-                    %s,
-                    %s,
-                    'OAI-PMH',
-                    %s,
-                    %s,
-                    %s,
-                    %s,
-                    %s,
-                    true,
-                    %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )     
-                """, (rec[1].event.record_identifier,
-                      rec[1].event.repository_id,
-                      rec[1].event.endpoint_id,
-                      rec[0]['titles'][0]['title'],
-                      rec[1].event.xml,
-                      rec[0].get('doi'),
-                      rec[0].get('url'),
-                      [rec[0]['emb']][0], # TODO: improve this
+                """, (record_identifier,
+                      repository_id,
+                      endpoint_id,
+                      resource_type,
+                      title,
+                      xml,
+                      protocol,
+                      doi,
+                      url,
+                      embedding,
                       EMBEDDING_MODEL,
-                     json.dumps({**rec[0], 'emb': None}),
-                    opensearch_synced_at)
+                      datacite_json,
+                      opensearch_synced,
+                      opensearch_synced_at)
                 )
 
         except BulkIndexError as e:
