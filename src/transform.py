@@ -79,11 +79,12 @@ def create_jobs(index_name: str) -> int:
 
             for doc in cur.fetchall():
 
-                logger.debug(doc)
-
+                # https://www.psycopg.org/psycopg3/docs/basic/adapt.html#uuid-adaptation
+                # https://docs.python.org/3/library/uuid.html#uuid.UUID
+                # str(uuid) returns a string in the form 12345678-1234-5678-1234-567812345678 where the 32 hexadecimal digits represent the UUID.
                 batch.append(
-                    HarvestEvent(id=doc['id'], xml=doc['record'], repository_id=doc['repository_id'],
-                                 endpoint_id=doc['endpoint_id'], record_identifier=doc['record_identifier'])
+                    HarvestEvent(id=str(doc['id']), xml=doc['record'], repository_id=str(doc['repository_id']),
+                                 endpoint_id=str(doc['endpoint_id']), record_identifier=doc['record_identifier'])
                 )
 
             if len(batch) == 0:

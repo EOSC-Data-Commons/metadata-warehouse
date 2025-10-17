@@ -93,7 +93,7 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
 
             harvest_event = HarvestEvent(*ele) # reconstruct HarvestEvent from serialized list
 
-            #logger.info(f'Processing {ele[0]}')
+            #logger.info(f'Processing {harvest_event}')
             converted = xmltodict.parse(harvest_event.xml, process_namespaces=True)  # named tuple serialized as list in broker
 
             if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
