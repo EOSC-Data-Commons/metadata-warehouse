@@ -11,6 +11,8 @@ load_dotenv()
 
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
+ADDRESS = os.environ.get('POSTGRES_ADDRESS')
+PORT = os.environ.get('POSTGRES_PORT')
 
 if not USER or not PW:
     raise ValueError('Missing POSTGRES_ADMIN or POSTGRES_PASSWORD in environment.')
@@ -21,7 +23,7 @@ NS = {"oai": "http://www.openarchives.org/OAI/2.0/"}
 def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
     files: list[Path] = list(dir.rglob("*.xml"))
 
-    with pgsql.Connection(('127.0.0.1', 5432), USER, PW, tls=False) as db:
+    with pgsql.Connection((ADDRESS if ADDRESS else '127.0.0.1', int(PORT) if PORT else 5432), USER, PW, tls=False) as db:
         try:
             for file in files:
 
