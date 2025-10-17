@@ -11,10 +11,16 @@ load_dotenv()
 
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
+ADDRESS = os.environ.get('POSTGRES_ADDRESS')
+PORT = os.environ.get('POSTGRES_PORT')
+
+if not USER or not PW:
+    raise ValueError('Missing POSTGRES_ADMIN or POSTGRES_PASSWORD in environment.')
+
 
 sql_files = ['types.sql', 'tables.sql', 'indexes.sql', 'triggers.sql', 'seed.sql', 'views.sql', 'permissions.sql', 'verify.sql']
 
-with pgsql.Connection(('127.0.0.1', 5432), USER, PW, tls = False) as db:
+with pgsql.Connection((ADDRESS if ADDRESS else '127.0.0.1', int(PORT) if PORT else 5432), USER, PW, tls = False) as db:
 
     for sql_f in sql_files:
         try:
@@ -23,7 +29,7 @@ with pgsql.Connection(('127.0.0.1', 5432), USER, PW, tls = False) as db:
             res = db.execute(sql_statements)
             print(f'Executed {sql_f}')
         except Exception as e:
-            print(f'An error occurred when creating DB: {e}', file=sys.stderr)
+            print(f'An error occurred when creating DB with {sql_f}: {e}', file=sys.stderr)
 
 
 

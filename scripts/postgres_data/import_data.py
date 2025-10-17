@@ -11,6 +11,8 @@ load_dotenv()
 
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
+ADDRESS = os.environ.get('POSTGRES_ADDRESS')
+PORT = os.environ.get('POSTGRES_PORT')
 
 if not USER or not PW:
     raise ValueError('Missing POSTGRES_ADMIN or POSTGRES_PASSWORD in environment.')
@@ -24,7 +26,7 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
     try:
         # https://www.psycopg.org/psycopg3/docs/basic/transactions.html#transactions-management
         # when using the connection context, Psycopg will commit the connection at the end of the block (or roll it back if the block is exited with an exception)
-        with psycopg.connect(dbname='admin', user=USER, host='127.0.0.1', password=PW, port=5432) as conn:
+        with psycopg.connect(dbname='admin', user=USER, host=ADDRESS if ADDRESS else '127.0.0.1', password=PW, port=int(PORT) if PORT else 5432) as conn:
 
             cur = conn.cursor()
             for file in files:
