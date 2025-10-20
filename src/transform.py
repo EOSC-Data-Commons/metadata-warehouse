@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from logging.config import dictConfig
-import pgsql  # type: ignore
+import psycopg
+from psycopg.rows import dict_row
 from fastapi.concurrency import run_in_threadpool
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
@@ -54,35 +55,41 @@ def create_jobs(index_name: str) -> int:
     fetch = True
 
     logger.info(f'Preparing jobs')
-    with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user, postgres_config.password,
-                          tls=False) as db:
+
+    with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+
+        cur = conn.cursor()
         # print(db)
 
         while fetch:
 
-            with db.prepare(f"""
+            cur.execute("""
             SELECT ID, 
             repository_id, 
             endpoint_id, 
             record_identifier, 
             (
-                xpath('/oai:record', raw_metadata, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}')
+                xpath('/oai:record', raw_metadata, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}')
             )[1] AS record
         FROM harvest_events
             ORDER BY ID
-            LIMIT {limit}
-            OFFSET {offset}
-            """) as docs:
+            LIMIT %s
+            OFFSET %s
+            """, (limit, offset))
 
-                for doc in docs():
-                    batch.append(
-                        HarvestEvent(id=doc.id, xml=doc.record, repository_id=doc.repository_id,
-                                     endpoint_id=doc.endpoint_id, record_identifier=doc.record_identifier)
-                    )
+            for doc in cur.fetchall():
 
-                if len(batch) == 0:
-                    # batch is empty
-                    break
+                # https://www.psycopg.org/psycopg3/docs/basic/adapt.html#uuid-adaptation
+                # https://docs.python.org/3/library/uuid.html#uuid.UUID
+                # str(uuid) returns a string in the form 12345678-1234-5678-1234-567812345678 where the 32 hexadecimal digits represent the UUID.
+                batch.append(
+                    HarvestEvent(id=str(doc['id']), xml=doc['record'], repository_id=str(doc['repository_id']),
+                                 endpoint_id=str(doc['endpoint_id']), record_identifier=doc['record_identifier'])
+                )
+
+            if len(batch) == 0:
+                # batch is empty
+                break
 
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')

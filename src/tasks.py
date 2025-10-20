@@ -19,8 +19,10 @@ from utils import normalize_datacite_json
 from typing import Any
 from celery.utils.log import get_task_logger
 from celery.signals import after_setup_logger
-import pgsql  # type: ignore
 import datetime
+import psycopg
+from psycopg import Connection
+from psycopg.rows import dict_row
 
 @after_setup_logger.connect()  # type: ignore
 def configurate_celery_task_logger(**kwargs: Any) -> None:
@@ -54,6 +56,7 @@ class TransformTask(Task):  # type: ignore
     schema: dict[Any, Any]
     postgres_config: PostgresConfig
 
+
     def __init__(self) -> None:
         if EMBEDDING_MODEL:
             self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL)
@@ -77,107 +80,107 @@ class TransformTask(Task):  # type: ignore
 def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> Any:
     # transform to JSON and normalize
 
-    logger.info(f'Starting processing batch of {len(batch)}')
+    with psycopg.connect(dbname=self.postgres_config.user, user=self.postgres_config.user, host=self.postgres_config.address,
+                                         password=self.postgres_config.password, port=self.postgres_config.port,
+                                         row_factory=dict_row) as conn:
 
-    normalized: list[SourceWithEmbeddingText] = []
-    for ele in batch:
+        cur = conn.cursor()
 
-        harvest_event = HarvestEvent(*ele) # reconstruct HravestEvent from serialized list
+        logger.info(f'Starting processing batch of {len(batch)}')
 
-        #logger.info(f'Processing {ele[0]}')
-        converted = xmltodict.parse(harvest_event.xml, process_namespaces=True)  # named tuple serialized as list in broker
+        normalized: list[SourceWithEmbeddingText] = []
+        for ele in batch:
 
-        if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
-            rec_id = converted[OAI_RECORD][f'{OAI}:header'][
-                f'{OAI}:identifier']
+            harvest_event = HarvestEvent(*ele) # reconstruct HarvestEvent from serialized list
 
-            logger.debug(f'{rec_id}')
+            logger.debug(f'Processing {harvest_event}')
+            converted = xmltodict.parse(harvest_event.xml, process_namespaces=True)  # named tuple serialized as list in broker
 
-            metadata = converted[OAI_RECORD][OAI_METADATA]
-        else:
-            # Converted JSON cannot be processed, log this
-            logger.debug(f'Cannot access {OAI_METADATA} in : {converted}')
-            continue
+            if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
+                rec_id = converted[OAI_RECORD][f'{OAI}:header'][
+                    f'{OAI}:identifier']
 
-        if DATACITE_RESOURCE in metadata:
-            resource = metadata[DATACITE_RESOURCE]
-        elif HAL_RESOURCE in metadata:
-            # HAL
-            resource = metadata[HAL_RESOURCE]
-        else:
-            # JSON cannot be processed, log this
-            logger.debug(f'Cannot access {DATACITE_RESOURCE} or {HAL_RESOURCE} in : {metadata}')
-            continue
+                logger.debug(f'{rec_id}')
 
-        # Catch and log errors
-        try:
-            normalized_record = normalize_datacite_json.normalize_datacite_json(resource)
-            validate(instance=normalized_record, schema=self.schema)
-            normalized.append(SourceWithEmbeddingText(src=normalized_record,
-                                                      textToEmbed=get_embedding_text_from_fields(normalized_record),
-                                                      file=Path(''),
-                                                      event=harvest_event
-                                                      ))
-        except ValidationError as e:
-            logger.info(f'Validation failed for {rec_id} in harvest_event {harvest_event.id}: {e.message}')
-            with pgsql.Connection((self.postgres_config.address, self.postgres_config.port), self.postgres_config.user,
-                                  self.postgres_config.password,
-                                  tls=False) as db:
-                db.execute(
-                    f"""
-                    UPDATE harvest_events 
-                    SET error_message = '{e.message.replace("'", "''")}'
-                    WHERE id = '{harvest_event.id}'  
+                metadata = converted[OAI_RECORD][OAI_METADATA]
+            else:
+                # Converted JSON cannot be processed, log this
+                logger.debug(f'Cannot access {OAI_METADATA} in : {converted}')
+                continue
+
+            if DATACITE_RESOURCE in metadata:
+                resource = metadata[DATACITE_RESOURCE]
+            elif HAL_RESOURCE in metadata:
+                # HAL
+                resource = metadata[HAL_RESOURCE]
+            else:
+                # JSON cannot be processed, log this
+                logger.debug(f'Cannot access {DATACITE_RESOURCE} or {HAL_RESOURCE} in : {metadata}')
+                continue
+
+            # Catch and log errors
+            try:
+                normalized_record = normalize_datacite_json.normalize_datacite_json(resource)
+                validate(instance=normalized_record, schema=self.schema)
+                normalized.append(SourceWithEmbeddingText(src=normalized_record,
+                                                          textToEmbed=get_embedding_text_from_fields(normalized_record),
+                                                          file=Path(''),
+                                                          event=harvest_event
+                                                          ))
+
+            except Exception as e:
+                logger.info(f'An error occurred for {rec_id} in harvest_event {harvest_event.id} during transformation or validation: {e}')
+
+                cur.execute(
                     """
+                    UPDATE harvest_events 
+                    SET error_message = %s
+                    WHERE id = %s  
+                    """, (str(e), harvest_event.id)
                 )
-            continue
+                continue
+
+        try:
+            logger.info(f'About to Calculate embeddings for {len(normalized)}')
+            src_with_emb: list[tuple[dict[str, Any], SourceWithEmbeddingText]] = add_embeddings_to_source(normalized,
+                                                                                       self.embedding_transformer)
+            logger.info(f'Calculated embeddings for {len(src_with_emb)}')
+            preprocessed = preprocess_batch(list(map(lambda el: el[0], src_with_emb)), index_name)
         except Exception as e:
-            logger.info(f'An error occurred for {rec_id} in harvest_event {harvest_event.id} during transformation: {e}')
-            with pgsql.Connection((self.postgres_config.address, self.postgres_config.port), self.postgres_config.user,
-                                  self.postgres_config.password,
-                                  tls=False) as db:
+            logger.error(f'Could not calculate embeddings: {e}')
+            raise e
 
-                db.execute(
-                    f"""
-                                    UPDATE harvest_events 
-                                    SET error_message = '{str(e).replace("'", "''")}'
-                                    WHERE id = '{harvest_event.id}'  
-                                    """
-                )
-            continue
+        try:
+            success, failed = bulk(self.client, preprocessed)
+            if success < len(src_with_emb):
+                logger.error(f'Normalized doc size was {len(src_with_emb)} but only {success} were imported into OpenSearch.')
 
-    try:
-        logger.info(f'About to Calculate embeddings for {len(normalized)}')
-        src_with_emb: list[tuple[dict[str, Any], SourceWithEmbeddingText]] = add_embeddings_to_source(normalized,
-                                                                                   self.embedding_transformer)
-        logger.info(f'Calculated embeddings for {len(src_with_emb)}')
-        preprocessed = preprocess_batch(list(map(lambda el: el[0], src_with_emb)), index_name)
-    except Exception as e:
-        logger.error(f'Could not calculate embeddings: {e}')
-        raise e
+            opensearch_synced_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f%z')
+            logger.info(f'Bulk results: success {success} failed: {failed}')
 
-    try:
-        success, failed = bulk(self.client, preprocessed)
-        if success < len(src_with_emb):
-            logger.error(f'Normalized doc size was {len(src_with_emb)} but only {success} were imported into OpenSearch.')
+            for rec in src_with_emb:
+                # write to records table
 
-        opensearch_synced_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f%z')
-        logger.info(f'Bulk results: success {success} failed: {failed}')
+                if rec[1].event is None:
+                    raise ValueError(f'Original HarvestEvent not found')
 
-        for rec in src_with_emb:
-            # TODO: use a bulk method
-            # TODO: use a better solution like SQLAlchemy to construct queries
-            # write to records table
+                #logger.info(rec[1].event.record_identifier)
 
-            if rec[1].event is None:
-                raise ValueError(f'Original HarvestEvent not found')
+                record_identifier = rec[1].event.record_identifier
+                repository_id = rec[1].event.repository_id
+                endpoint_id = rec[1].event.endpoint_id
+                resource_type = 'Dataset' # TODO: get this information from record
+                title = rec[0]['titles'][0]['title']
+                xml = rec[1].event.xml
+                protocol = 'OAI-PMH'
+                doi = rec[0].get('doi')
+                url = rec[0].get('url')
+                #embedding = [rec[0]['emb']][0]
+                embedding = rec[0]['emb']
+                datacite_json = json.dumps({**rec[0], 'emb': None})
+                opensearch_synced = True
 
-            #logger.info(f'HarvestEvent: {rec[1].event}')
-
-            with pgsql.Connection((self.postgres_config.address, self.postgres_config.port), self.postgres_config.user, self.postgres_config.password,
-                                  tls=False) as db:
-
-                statements = f"""
+                cur.execute("""
                 INSERT INTO records 
                 (   
                     record_identifier,
@@ -196,33 +199,29 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                     opensearch_synced_at
                     ) 
                 VALUES (
-                    '{rec[1].event.record_identifier}',
-                    '{rec[1].event.repository_id}',
-                    '{rec[1].event.endpoint_id}',
-                    'Dataset',
-                    '{rec[0]['titles'][0]['title'].replace("'", "''")}',
-                    '{rec[1].event.xml.replace("'", "''")}',
-                    'OAI-PMH',
-                    {'\'' + rec[0]['doi'] + '\'' if 'doi' in rec[0] else 'NULL' },
-                    {'\'' + rec[0]['url'] + '\'' if 'url' in rec[0] else 'NULL' },
-                    '{{ {', '.join([str(f) for f in rec[0]['emb']])} }}',
-                    '{EMBEDDING_MODEL}',
-                    '{json.dumps({**rec[0], 'emb': None}).replace("'", "''")}',
-                    true,
-                    '{opensearch_synced_at}'
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )     
-                """
+                """, (record_identifier,
+                      repository_id,
+                      endpoint_id,
+                      resource_type,
+                      title,
+                      xml,
+                      protocol,
+                      doi,
+                      url,
+                      embedding,
+                      EMBEDDING_MODEL,
+                      datacite_json,
+                      opensearch_synced,
+                      opensearch_synced_at)
+                )
 
-                #logger.info(statements)
-
-                db.execute(statements) # named tuple serialized as list in broker
-
-
-    except BulkIndexError as e:
-        logger.error(f'Bulk failed: {e}')
-        raise e
-    except Exception as e:
-        logger.error(f'Writing batch failed: {e}')
-        raise e
+        except BulkIndexError as e:
+            logger.error(f'Bulk failed: {e}')
+            raise e
+        except Exception as e:
+            logger.error(f'Writing batch failed: {e}')
+            raise e
 
     return success

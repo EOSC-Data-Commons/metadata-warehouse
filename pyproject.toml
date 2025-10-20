@@ -5,13 +5,13 @@ description = "Prepare and import DataCite OAI-PMH XML metadata into PostgreSQL 
 requires-python = ">=3.12"
 dependencies = [
     "opensearch-py",
-    "pgsql",
     "celery[redis]",
     "xmltodict",
     "jsonschema",
     "fastembed",
     "watchdog",
     "fastapi[standard]",
+    "psycopg[binary]",
     # "flower", # only needed when not using mher/flower
 ]
 
@@ -22,7 +22,8 @@ dev = [
     "types-xmltodict",
     "celery-stubs",
     "mypy",
-    "types-jsonschema"
+    "types-jsonschema",
+    "lxml-stubs"
 ]
 
 [tool.pytest.ini_options]
