@@ -51,6 +51,7 @@ services:
             context: .
         volumes:
             - ./src:/code/app
+            - ./cache_celery:/tmp/fastembed_cache
         networks:
             - warehouse-backend
         depends_on:
@@ -81,6 +82,8 @@ services:
             POSTGRES_PORT: "${POSTGRES_PORT}"
             OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
             OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
+            FASTEMBED_CACHE_PATH: "${FASTEMBED_CACHE_PATH}"
+            FASTEMBED_LOCAL_MODEL: "${FASTEMBED_LOCAL_MODEL}"
         healthcheck:
             test: celery -A tasks status
             interval: 10s
@@ -93,6 +96,7 @@ services:
             context: .
         volumes:
             - ./src:/code/app
+            - ./cache_transform:/tmp/fastembed_cache
         command: [ "fastapi", "run", "--host", "0.0.0.0", "transform.py", "--port", "80" ]
         networks:
             - warehouse-backend
@@ -108,6 +112,8 @@ services:
             OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
             CELERY_BATCH_SIZE: "${CELERY_BATCH_SIZE}"
+            FASTEMBED_CACHE_PATH: "${FASTEMBED_CACHE_PATH}"
+            FASTEMBED_LOCAL_MODEL: "${FASTEMBED_LOCAL_MODEL}"
         depends_on:
             postgres:
                 condition: service_healthy
