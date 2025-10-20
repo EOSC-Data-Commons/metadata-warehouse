@@ -56,7 +56,7 @@ def create_jobs(index_name: str) -> int:
 
     logger.info(f'Preparing jobs')
 
-    with psycopg.connect(dbname='admin', user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+    with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
 
         cur = conn.cursor()
         # print(db)

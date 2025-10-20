@@ -80,7 +80,7 @@ class TransformTask(Task):  # type: ignore
 def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> Any:
     # transform to JSON and normalize
 
-    with psycopg.connect(dbname='admin', user=self.postgres_config.user, host=self.postgres_config.address,
+    with psycopg.connect(dbname=self.postgres_config.user, user=self.postgres_config.user, host=self.postgres_config.address,
                                          password=self.postgres_config.password, port=self.postgres_config.port,
                                          row_factory=dict_row) as conn:
 
@@ -93,7 +93,7 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
 
             harvest_event = HarvestEvent(*ele) # reconstruct HarvestEvent from serialized list
 
-            #logger.info(f'Processing {harvest_event}')
+            logger.debug(f'Processing {harvest_event}')
             converted = xmltodict.parse(harvest_event.xml, process_namespaces=True)  # named tuple serialized as list in broker
 
             if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
