@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from json import JSONDecodeError
 from logging.config import dictConfig
 from typing import Optional
-import pgsql  # type: ignore
+import psycopg
+from psycopg.rows import dict_row
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
 from utils.queue_utils import HarvestEventQueue
@@ -11,7 +12,6 @@ import os
 from fastapi import FastAPI, Query, HTTPException
 import logging
 from pydantic import BaseModel
-import json
 
 dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
@@ -93,17 +93,16 @@ def create_harvest_run_in_db(harvest_run: HarvestRun) -> None:
     :param harvest_run: The new entry to be created.
     """
 
-    with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user,
-                          postgres_config.password,
-                          tls=False) as db:
+    with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
 
+        cur = conn.cursor()
         # TODO: only allow one open harvest run per endpoint
         # TODO check (in one transaction):
         # - an open harvest run exists for the given endpoint
         # - only create a new harvest run if all previous are closed, if any
 
         # https://stackoverflow.com/questions/15710162/conditional-insert-into-statement-in-postgres/15710289
-        db.execute(f"""
+        cur.execute(f"""
             WITH endpoint_id_harvest_url AS (
 	            SELECT id from endpoints WHERE harvest_url='{harvest_run.harvest_url}'
             )
@@ -129,29 +128,29 @@ def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
     :param harvest_event: The new record to be created.
     """
 
-    with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user,
-                          postgres_config.password,
-                          tls=False) as db:
+    with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
 
-        db. execute(f"""
-         INSERT INTO harvest_events 
-                (record_identifier, 
-                raw_metadata, 
-                repository_id, 
-                endpoint_id, 
-                action, 
-                metadata_protocol,
-                metadata_format
-                ) 
-            VALUES ( 
-                '{harvest_event.record_identifier}', 
-                XMLPARSE(DOCUMENT '{harvest_event.raw_metadata.replace("'", "''")}'), 
-                (SELECT id from repositories WHERE code='{harvest_event.repo_code}'),
-                 (SELECT id from endpoints WHERE harvest_url='{harvest_event.harvest_url}'), 
-                 'create', 
-                 'OAI-PMH',
-                  'XML');
-        """)
+        cur = conn.cursor()
+
+        cur.execute("""
+                        INSERT INTO harvest_events 
+                            (record_identifier, 
+                            raw_metadata, 
+                            repository_id, 
+                            endpoint_id, 
+                            action, 
+                            metadata_protocol,
+                            metadata_format
+                            ) 
+                        VALUES ( 
+                            %s, 
+                            XMLPARSE(DOCUMENT %s), 
+                            (SELECT id from repositories WHERE code=%s),
+                            (SELECT id from endpoints WHERE harvest_url=%s), 
+                            %s, 
+                            %s,
+                            %s);
+                        """, (harvest_event.record_identifier, harvest_event.raw_metadata, harvest_event.repo_code, harvest_event.harvest_url, 'create', 'OAI-PMH', 'XML'))
 
 
 def get_config_from_db() -> list[EndpointConfig]:
@@ -161,23 +160,23 @@ def get_config_from_db() -> list[EndpointConfig]:
     endpoints: list[EndpointConfig] = []
 
     try:
-        with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user,
-                              postgres_config.password,
-                              tls=False) as db:
+        with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address,
+                             password=postgres_config.password, port=postgres_config.port,
+                             row_factory=dict_row) as conn:
 
-            with db.prepare(f"""
+            cur = conn.cursor()
+
+            cur.execute(f"""
                 SELECT endpoints.name, endpoints.harvest_url, endpoints.harvest_params, endpoints.code as suffix, endpoints.protocol, endpoints.last_harvest_date, repositories.code
     FROM endpoints, repositories
     WHERE endpoints.repository_id = repositories.id
-            """) as docs:
-                for doc in docs():
+            """)
+            for doc in cur.fetchall():
 
-                    harvest_params = json.loads(doc.harvest_params)
-
-                    endpoints.append(
-                        EndpointConfig(name=doc.name, harvest_url=doc.harvest_url, code=doc.code, protocol=doc.protocol,
-                                       harvest_params=HarvestParams(metadata_prefix=harvest_params.get('metadata_prefix'), set=harvest_params.get('set')), suffix=doc.suffix,
-                                       last_harvest_date=doc.last_harvest_date))
+                endpoints.append(
+                    EndpointConfig(name=doc['name'], harvest_url=doc['harvest_url'], code=doc['code'], protocol=doc['protocol'],
+                                   harvest_params=HarvestParams(metadata_prefix=doc['harvest_params'].get('metadata_prefix'), set=doc['harvest_params'].get('set')), suffix=doc['suffix'],
+                                   last_harvest_date=doc['last_harvest_date']))
 
         return endpoints
     except JSONDecodeError as e:
@@ -203,36 +202,42 @@ def create_jobs_in_queue(index_name: str) -> int:
     fetch = True
 
     logger.info(f'Preparing jobs')
-    with pgsql.Connection((postgres_config.address, postgres_config.port), postgres_config.user,
-                          postgres_config.password,
-                          tls=False) as db:
+
+    with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+
+        cur = conn.cursor()
+
         # print(db)
 
         while fetch:
 
-            with db.prepare(f"""
+            cur.execute("""
             SELECT ID, 
             repository_id, 
             endpoint_id, 
             record_identifier, 
             (
-                xpath('/oai:record', raw_metadata, '{{{{oai, http://www.openarchives.org/OAI/2.0/}},{{datacite, http://datacite.org/schema/kernel-4}}}}')
+                xpath('/oai:record', raw_metadata, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}')
             )[1] AS record
         FROM harvest_events
             ORDER BY ID
-            LIMIT {limit}
-            OFFSET {offset}
-            """) as docs:
+            LIMIT %s
+            OFFSET %s
+            """, (limit, offset))
 
-                for doc in docs():
-                    batch.append(
-                        HarvestEventQueue(id=doc.id, xml=doc.record, repository_id=doc.repository_id,
-                                          endpoint_id=doc.endpoint_id, record_identifier=doc.record_identifier)
-                    )
+            for doc in cur.fetchall():
 
-                if len(batch) == 0:
-                    # batch is empty
-                    break
+                # https://www.psycopg.org/psycopg3/docs/basic/adapt.html#uuid-adaptation
+                # https://docs.python.org/3/library/uuid.html#uuid.UUID
+                # str(uuid) returns a string in the form 12345678-1234-5678-1234-567812345678 where the 32 hexadecimal digits represent the UUID.
+                batch.append(
+                    HarvestEventQueue(id=str(doc['id']), xml=doc['record'], repository_id=str(doc['repository_id']),
+                                 endpoint_id=str(doc['endpoint_id']), record_identifier=doc['record_identifier'])
+                )
+
+            if len(batch) == 0:
+                # batch is empty
+                break
 
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')

@@ -70,7 +70,6 @@ COMMENT ON COLUMN endpoints.name IS 'Endpoint name/identifier';
 COMMENT ON COLUMN endpoints.harvest_url IS 'URL for harvesting data';
 COMMENT ON COLUMN endpoints.protocol IS 'Primary harvest protocol';
 COMMENT ON COLUMN endpoints.scientific_discipline IS 'e.g., Agriculture, Physics';
-COMMENT ON COLUMN endpoints.oai_set IS 'OAI-PMH set specification';
 COMMENT ON COLUMN endpoints.harvest_params IS 'API keys, auth tokens, custom headers, etc.';
 COMMENT ON COLUMN endpoints.harvest_schedule IS 'Cron expression and scheduling configuration';
 

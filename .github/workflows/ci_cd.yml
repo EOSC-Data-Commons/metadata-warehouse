@@ -21,7 +21,7 @@ jobs:
             -   name: Check with mypy
                 run: |
                     uv run mypy --strict src
-                    uv run mypy --strict --ignore-missing-imports scripts
+                    uv run mypy --strict scripts
     test-docker-build:
         runs-on: ubuntu-latest
         steps:
