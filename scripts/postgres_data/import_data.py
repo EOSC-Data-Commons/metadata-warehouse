@@ -25,8 +25,7 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
 
     try:
         # https://www.psycopg.org/psycopg3/docs/basic/transactions.html#transactions-management
-        # when using the connection context, Psycopg will commit the connection at the end of the block (or roll it back if the block is exited with an exception)
-        with psycopg.connect(dbname=USER, user=USER, host=ADDRESS if ADDRESS else '127.0.0.1', password=PW, port=int(PORT) if PORT else 5432) as conn:
+        with psycopg.connect(dbname=USER, user=USER, host=ADDRESS if ADDRESS else '127.0.0.1', password=PW, port=int(PORT) if PORT else 5432, autocommit=True) as conn:
 
             cur = conn.cursor()
             for file in files:
