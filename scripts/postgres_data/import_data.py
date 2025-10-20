@@ -1,6 +1,4 @@
 #!/usr/bin/env -S uv run --script
-import os
-from dotenv import load_dotenv
 from pathlib import Path
 from lxml import etree as ET
 import requests
@@ -13,7 +11,6 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
     files: list[Path] = list(dir.rglob("*.xml"))
 
     for file in files:
-
         try:
             with open(file) as f:
                 xml = f.read()
