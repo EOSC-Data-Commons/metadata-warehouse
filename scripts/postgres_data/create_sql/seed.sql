@@ -12,11 +12,10 @@ VALUES
 ON CONFLICT (code) DO NOTHING;
 
 -- DANS Archaeology
-INSERT INTO endpoints (repository_id, name, code, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
 SELECT
     r.id,
     'Archaeology Data Station',
-    'arch',
     'https://archaeology.datastations.nl/oai',
     'OAI-PMH',
     'Multidisciplinary',
@@ -27,11 +26,10 @@ WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
 
 -- DANS Social Sciences Data Station
-INSERT INTO endpoints (repository_id, name, code, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
 SELECT
     r.id,
     'Social Sciences Data Station',
-    'soc',
     'https://ssh.datastations.nl/oai',
     'OAI-PMH',
     'Multidisciplinary',
@@ -42,11 +40,10 @@ WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
 
 -- DANS Life Sciences
-INSERT INTO endpoints (repository_id, name, code, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
 SELECT
     r.id,
     'Life Sciences',
-    'life',
     'https://lifesciences.datastations.nl/oai',
     'OAI-PMH',
     'Multidisciplinary',
@@ -57,11 +54,10 @@ WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
 
 -- DANS Physical and Technical Sciences
-INSERT INTO endpoints (repository_id, name, code, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
 SELECT
     r.id,
     'Physical and Technical Sciences',
-    'phystech',
     'https://phys-techsciences.datastations.nl/oai',
     'OAI-PMH',
     'Multidisciplinary',
@@ -72,11 +68,10 @@ WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
 
 -- DANS Generalist
-INSERT INTO endpoints (repository_id, name, code, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
 SELECT
     r.id,
     'Generalist',
-    'gen',
     'https://dataverse.nl/oai',
     'OAI-PMH',
     'Multidisciplinary',
@@ -87,11 +82,10 @@ WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
 
 -- SwissUbase
-INSERT INTO endpoints (repository_id, name, code, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
 SELECT
     r.id,
     'SwissUbase',
-    'swiss',
     'https://www.swissubase.ch/oai-pmh/v1/oai',
     'OAI-PMH',
     'Multidisciplinary',
@@ -102,11 +96,10 @@ WHERE r.code = 'SWISS'
 ON CONFLICT (name) DO NOTHING;
 
 -- DABAR
-INSERT INTO endpoints (repository_id, name, code, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
 SELECT
     r.id,
     'DABAR',
-    'dabar',
     'https://dabar.srce.hr/oai',
     'OAI-PMH',
     'Multidisciplinary',
@@ -117,11 +110,10 @@ WHERE r.code = 'DABAR'
 ON CONFLICT (name) DO NOTHING;
 
 -- HAL
-INSERT INTO endpoints (repository_id, name, code, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
 SELECT
     r.id,
     'HAL',
-    'hal',
     'https://api.archives-ouvertes.fr/oai/hal',
     'OAI-PMH',
     'Multidisciplinary',

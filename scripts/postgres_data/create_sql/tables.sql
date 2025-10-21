@@ -45,7 +45,6 @@ CREATE TABLE IF NOT EXISTS endpoints (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     repository_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
-    code VARCHAR(50) NOT NULL UNIQUE,
     description TEXT,
     harvest_url VARCHAR(500) NOT NULL UNIQUE,
     protocol harvest_protocol NOT NULL DEFAULT 'OAI-PMH',

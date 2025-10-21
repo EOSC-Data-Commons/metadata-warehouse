@@ -66,7 +66,6 @@ class EndpointConfig(BaseModel):
     harvest_url: str
     harvest_params: HarvestParams
     code: str
-    suffix: str
     protocol: str
     last_harvest_date: Optional[datetime]
 
@@ -167,7 +166,7 @@ def get_config_from_db() -> list[EndpointConfig]:
             cur = conn.cursor()
 
             cur.execute(f"""
-                SELECT endpoints.name, endpoints.harvest_url, endpoints.harvest_params, endpoints.code as suffix, endpoints.protocol, endpoints.last_harvest_date, repositories.code
+                SELECT endpoints.name, endpoints.harvest_url, endpoints.harvest_params, endpoints.protocol, endpoints.last_harvest_date, repositories.code
     FROM endpoints, repositories
     WHERE endpoints.repository_id = repositories.id
             """)
@@ -175,7 +174,7 @@ def get_config_from_db() -> list[EndpointConfig]:
 
                 endpoints.append(
                     EndpointConfig(name=doc['name'], harvest_url=doc['harvest_url'], code=doc['code'], protocol=doc['protocol'],
-                                   harvest_params=HarvestParams(metadata_prefix=doc['harvest_params'].get('metadata_prefix'), set=doc['harvest_params'].get('set')), suffix=doc['suffix'],
+                                   harvest_params=HarvestParams(metadata_prefix=doc['harvest_params'].get('metadata_prefix'), set=doc['harvest_params'].get('set')),
                                    last_harvest_date=doc['last_harvest_date']))
 
         return endpoints
