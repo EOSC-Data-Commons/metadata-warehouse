@@ -170,11 +170,11 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 protocol = 'OAI-PMH'
                 doi = rec[0].get('doi')
                 url = rec[0].get('url')
-                #embedding = [rec[0]['emb']][0]
-                embedding = rec[0]['emb']
+                embeddings = rec[0]['emb']
                 datacite_json = json.dumps({**rec[0], 'emb': None})
                 opensearch_synced = True
 
+                # https://neon.com/postgresql/postgresql-tutorial/postgresql-upsert
                 cur.execute("""
                 INSERT INTO records 
                 (   
@@ -195,8 +195,10 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                     ) 
                 VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                    )     
-                """, (record_identifier,
+                    )
+                    ON CONFLICT (endpoint_id, record_identifier)
+                    DO UPDATE SET resource_type = %s, title = %s, raw_metadata = %s, doi = %s, url = %s, embeddings = %s, embedding_model = %s, datacite_json = %s, opensearch_synced_at = %s      
+                """, (record_identifier, # Insert
                       repository_id,
                       endpoint_id,
                       resource_type,
@@ -205,11 +207,21 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                       protocol,
                       doi,
                       url,
-                      embedding,
+                      embeddings,
                       EMBEDDING_MODEL,
                       datacite_json,
                       opensearch_synced,
-                      opensearch_synced_at)
+                      opensearch_synced_at,
+                      resource_type, # Update
+                      title,
+                      xml,
+                      doi,
+                      url,
+                      embeddings,
+                      EMBEDDING_MODEL,
+                      datacite_json,
+                      opensearch_synced_at
+                      )
                 )
 
         except BulkIndexError as e:
