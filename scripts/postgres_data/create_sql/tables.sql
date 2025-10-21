@@ -187,6 +187,10 @@ CREATE TABLE IF NOT EXISTS harvest_runs (
         REFERENCES endpoints(id) ON DELETE CASCADE
 );
 
+CREATE UNIQUE INDEX harvest_runs_open_endpoint_unique
+ON harvest_runs (endpoint_id)
+WHERE status = 'open';
+
 COMMENT ON TABLE harvest_runs IS 'Track harvest execution history';
 COMMENT ON COLUMN harvest_runs.status IS 'running, completed, failed, partial';
 COMMENT ON COLUMN harvest_runs.from_date IS 'Harvest from date parameter';

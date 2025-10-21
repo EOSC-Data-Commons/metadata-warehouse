@@ -85,7 +85,7 @@ class HarvestEvent(BaseModel):
 class HarvestRun(BaseModel):
     harvest_url: str
 
-def create_harvest_run_in_db(harvest_run: HarvestRun) -> None:
+def create_harvest_run_in_db(harvest_run: HarvestRun) -> str:
     """
     Creates a new entry in harvest_runs and returns its id.
 
@@ -101,23 +101,25 @@ def create_harvest_run_in_db(harvest_run: HarvestRun) -> None:
         # - only create a new harvest run if all previous are closed, if any
 
         # https://stackoverflow.com/questions/15710162/conditional-insert-into-statement-in-postgres/15710289
-        cur.execute(f"""
-            WITH endpoint_id_harvest_url AS (
-	            SELECT id from endpoints WHERE harvest_url='{harvest_run.harvest_url}'
-            )
-
+        res = cur.execute("""
             INSERT INTO harvest_runs
                 (endpoint_id, status)
                 select 
-                (SELECT id from endpoint_id_harvest_url),
+                (SELECT id FROM endpoints WHERE harvest_url = %s),
                 'open'
-                where not exists (    
-                    select 1 from harvest_runs, endpoint_id_harvest_url where status = 'open' and harvest_runs.endpoint_id = endpoint_id_harvest_url.id
-                )	
-            """)
+            """, [harvest_run.harvest_url])
 
-        # TODO: return id of latest record -> psycopg: https://stackoverflow.com/questions/5247685/python-postgres-psycopg2-getting-id-of-row-just-inserted
+        logger.debug(f'insert operation state: {res}')
 
+        cur.execute("SELECT id FROM harvest_runs WHERE status = 'open' and endpoint_id = (SELECT id from endpoints WHERE harvest_url = %s)", [harvest_run.harvest_url])
+        new_harvest_run = cur.fetchone()
+
+        if new_harvest_run is None:
+            raise Exception(f'Harvest run could not be created')
+
+        logger.debug(f'{new_harvest_run}')
+
+        return str(new_harvest_run['id'])
 
 
 def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
@@ -165,7 +167,7 @@ def get_config_from_db() -> list[EndpointConfig]:
 
             cur = conn.cursor()
 
-            cur.execute(f"""
+            cur.execute("""
                 SELECT endpoints.name, endpoints.harvest_url, endpoints.harvest_params, endpoints.protocol, endpoints.last_harvest_date, repositories.code
     FROM endpoints, repositories
     WHERE endpoints.repository_id = repositories.id
@@ -291,7 +293,7 @@ def create_harvest_event(harvest_event: HarvestEvent) -> None:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post('/harvest_run', tags=['harvest_run'])
-def create_harvest_run(harvest_run: HarvestRun) -> None:
+def create_harvest_run(harvest_run: HarvestRun) -> str:
     try:
         logger.debug(harvest_run)
         return create_harvest_run_in_db(harvest_run)
