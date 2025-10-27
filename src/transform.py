@@ -82,14 +82,20 @@ class HarvestEvent(BaseModel):
     repo_code: str
 
 
-class HarvestRun(BaseModel):
+class HarvestRunRequest(BaseModel):
     harvest_url: str
 
-def create_harvest_run_in_db(harvest_run: HarvestRun) -> str:
+class HarvestRunResponse(BaseModel):
+    id: str
+    harvest_url: str
+    from_date: Optional[datetime]
+    until_date: datetime
+
+def create_harvest_run_in_db(harvest_url: str) -> HarvestRunResponse:
     """
     Creates a new entry in harvest_runs and returns its id.
 
-    :param harvest_run: The new entry to be created.
+    :param harvest_url: The new entry to be created.
     """
 
     with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
@@ -103,15 +109,22 @@ def create_harvest_run_in_db(harvest_run: HarvestRun) -> str:
         # https://stackoverflow.com/questions/15710162/conditional-insert-into-statement-in-postgres/15710289
         res = cur.execute("""
             INSERT INTO harvest_runs
-                (endpoint_id, status)
+                (endpoint_id, status, from_date)
                 select 
                 (SELECT id FROM endpoints WHERE harvest_url = %s),
-                'open'
-            """, [harvest_run.harvest_url])
+                'open',
+                (SELECT until_date 
+     FROM harvest_runs hr
+     JOIN endpoints e ON hr.endpoint_id = e.id
+     WHERE e.harvest_url = %s 
+       AND hr.status = 'closed' 
+     ORDER BY hr.started_at DESC 
+     LIMIT 1)
+            """, (harvest_url, harvest_url))
 
         logger.debug(f'insert operation state: {res}')
 
-        cur.execute("SELECT id FROM harvest_runs WHERE status = 'open' and endpoint_id = (SELECT id from endpoints WHERE harvest_url = %s)", [harvest_run.harvest_url])
+        cur.execute("SELECT id, from_date, until_date FROM harvest_runs WHERE status = 'open' and endpoint_id = (SELECT id from endpoints WHERE harvest_url = %s)", [harvest_url])
         new_harvest_run = cur.fetchone()
 
         if new_harvest_run is None:
@@ -119,7 +132,13 @@ def create_harvest_run_in_db(harvest_run: HarvestRun) -> str:
 
         logger.debug(f'{new_harvest_run}')
 
-        return str(new_harvest_run['id'])
+        return HarvestRunResponse(
+            id=str(new_harvest_run['id']),
+            harvest_url=harvest_url,
+            from_date=new_harvest_run['from_date'],
+            until_date=new_harvest_run['until_date']
+        )
+
 
 
 def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
@@ -168,9 +187,15 @@ def get_config_from_db() -> list[EndpointConfig]:
             cur = conn.cursor()
 
             cur.execute("""
-                SELECT endpoints.name, endpoints.harvest_url, endpoints.harvest_params, endpoints.protocol, endpoints.last_harvest_date, repositories.code
-    FROM endpoints, repositories
-    WHERE endpoints.repository_id = repositories.id
+SELECT 
+    e.name, 
+    e.harvest_url, 
+    e.harvest_params, 
+    e.protocol, 
+    e.last_harvest_date, 
+    r.code
+FROM endpoints e
+INNER JOIN repositories r ON e.repository_id = r.id
             """)
             for doc in cur.fetchall():
 
@@ -293,10 +318,10 @@ def create_harvest_event(harvest_event: HarvestEvent) -> None:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post('/harvest_run', tags=['harvest_run'])
-def create_harvest_run(harvest_run: HarvestRun) -> str:
+def create_harvest_run(harvest_run: HarvestRunRequest) -> HarvestRunResponse:
     try:
         logger.debug(harvest_run)
-        return create_harvest_run_in_db(harvest_run)
+        return create_harvest_run_in_db(harvest_run.harvest_url)
     except Exception as e:
         logger.exception(f'An error occurred when creating harvest event: {e}')
         raise HTTPException(status_code=500, detail=str(e))

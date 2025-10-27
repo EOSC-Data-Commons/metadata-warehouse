@@ -179,7 +179,7 @@ CREATE TABLE IF NOT EXISTS harvest_runs (
     records_deleted INTEGER NOT NULL DEFAULT 0,
     errors_count INTEGER NOT NULL DEFAULT 0,
     from_date TIMESTAMP WITH TIME ZONE,
-    until_date TIMESTAMP WITH TIME ZONE,
+    until_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     resumption_token TEXT,
     error_log JSONB,
     CONSTRAINT harvest_runs_pkey PRIMARY KEY (id),
