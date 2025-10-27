@@ -4,6 +4,7 @@ from lxml import etree as ET
 import requests
 import traceback
 import sys
+from datetime import datetime, timezone
 
 NS = {"oai": "http://www.openarchives.org/OAI/2.0/"}
 
@@ -30,6 +31,8 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
     except Exception as e:
         print(f'An error occurred when loading data in DB: {e}', file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
+
+    started = datetime.now(timezone.utc)
 
     for file in files:
         try:
@@ -60,6 +63,20 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
         except Exception as e:
             print(f'An error occurred when loading data in DB: {e}', file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
+
+
+    completed = datetime.now(timezone.utc)
+
+    res = requests.put('http://127.0.0.1:8080/harvest_run', json={
+        'id': harvest_run_id,
+        'success': True,
+        'started_at': started.strftime('%Y-%m-%d %H:%M:%S.%f%z'),
+        'completed_at': completed.strftime('%Y-%m-%d %H:%M:%S.%f%z')
+    })
+
+    res.raise_for_status()
+
+    print(res.json())
 
 HARVEST_ENDPOINTS = [
     ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/harvests_DANS_arch')),
