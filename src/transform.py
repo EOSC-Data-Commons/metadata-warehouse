@@ -135,7 +135,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
 
         logger.debug(f'insert operation state: {res}')
 
-        cur.execute("""SELECT hr.id, hr.from_date, hr.until_date,  e.name, e.harvest_url, e.harvest_params, e.protocol, e.last_harvest_date, r.code  
+        cur.execute("""SELECT hr.id, hr.from_date, hr.until_date,  e.name, e.harvest_url, e.harvest_params, e.protocol, r.code  
                     FROM harvest_runs hr
                     JOIN endpoints e ON hr.endpoint_id = e.id
                     JOIN repositories r ON e.repository_id = r.id
@@ -156,7 +156,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
         )
 
 
-def close_harvest_run_in_db(harvest_run: HarvestRunCloseRequest):
+def close_harvest_run_in_db(harvest_run: HarvestRunCloseRequest) -> None:
     with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address,
                          password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
 
@@ -225,7 +225,6 @@ SELECT
     e.harvest_url, 
     e.harvest_params, 
     e.protocol, 
-    e.last_harvest_date, 
     r.code
 FROM endpoints e
 INNER JOIN repositories r ON e.repository_id = r.id
@@ -234,8 +233,7 @@ INNER JOIN repositories r ON e.repository_id = r.id
 
                 endpoints.append(
                     EndpointConfig(name=doc['name'], harvest_url=doc['harvest_url'], code=doc['code'], protocol=doc['protocol'],
-                                   harvest_params=HarvestParams(metadata_prefix=doc['harvest_params'].get('metadata_prefix'), set=doc['harvest_params'].get('set')),
-                                   last_harvest_date=doc['last_harvest_date']))
+                                   harvest_params=HarvestParams(metadata_prefix=doc['harvest_params'].get('metadata_prefix'), set=doc['harvest_params'].get('set'))))
 
         return endpoints
     except JSONDecodeError as e:
@@ -360,7 +358,7 @@ def create_harvest_run(harvest_run: HarvestRunCreateRequest) -> HarvestRunCreate
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put('/harvest_run', tags=['harvest_run'])
-def close_harvest_run(harvest_run: HarvestRunCloseRequest):
+def close_harvest_run(harvest_run: HarvestRunCloseRequest) -> None:
     try:
         return close_harvest_run_in_db(harvest_run)
     except Exception as e:
