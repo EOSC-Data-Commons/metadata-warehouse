@@ -72,11 +72,45 @@ COMMENT ON COLUMN endpoints.scientific_discipline IS 'e.g., Agriculture, Physics
 COMMENT ON COLUMN endpoints.harvest_params IS 'API keys, auth tokens, custom headers, etc.';
 COMMENT ON COLUMN endpoints.harvest_schedule IS 'Cron expression and scheduling configuration';
 
+
+-- Harvest Runs Table
+CREATE TABLE IF NOT EXISTS harvest_runs (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    endpoint_id UUID NOT NULL,
+    started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(50) NOT NULL,
+    records_harvested INTEGER NOT NULL DEFAULT 0,
+    records_created INTEGER NOT NULL DEFAULT 0,
+    records_updated INTEGER NOT NULL DEFAULT 0,
+    records_deleted INTEGER NOT NULL DEFAULT 0,
+    errors_count INTEGER NOT NULL DEFAULT 0,
+    from_date TIMESTAMP WITH TIME ZONE,
+    until_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    resumption_token TEXT,
+    error_log JSONB,
+    CONSTRAINT harvest_runs_pkey PRIMARY KEY (id),
+    CONSTRAINT harvest_runs_endpoint_id_fkey FOREIGN KEY (endpoint_id)
+        REFERENCES endpoints(id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX harvest_runs_open_endpoint_unique
+ON harvest_runs (endpoint_id)
+WHERE status = 'open';
+
+COMMENT ON TABLE harvest_runs IS 'Track harvest execution history';
+COMMENT ON COLUMN harvest_runs.status IS 'running, completed, failed, partial';
+COMMENT ON COLUMN harvest_runs.from_date IS 'Harvest from date parameter';
+COMMENT ON COLUMN harvest_runs.until_date IS 'Harvest until date parameter';
+COMMENT ON COLUMN harvest_runs.resumption_token IS 'OAI-PMH resumption token if interrupted';
+COMMENT ON COLUMN harvest_runs.error_log IS 'Detailed error information';
+
 -- Harvest Events Table
 CREATE TABLE IF NOT EXISTS harvest_events (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     repository_id UUID NOT NULL,
     endpoint_id UUID NOT NULL,
+    harvest_run_id UUID NOT NULL,
     record_identifier VARCHAR(255) NOT NULL,
     action event_action NOT NULL,
     status event_status NOT NULL DEFAULT 'pending',
@@ -91,10 +125,13 @@ CREATE TABLE IF NOT EXISTS harvest_events (
     retry_count INTEGER NOT NULL DEFAULT 0,
     celery_task_id VARCHAR(255),
     CONSTRAINT harvest_events_pkey PRIMARY KEY (id),
+    CONSTRAINT harvest_events_endpoint_id_harvest_run_record_identifier_key UNIQUE (endpoint_id, harvest_run_id, record_identifier),
     CONSTRAINT harvest_events_repository_id_fkey FOREIGN KEY (repository_id)
         REFERENCES repositories(id) ON DELETE CASCADE,
     CONSTRAINT harvest_events_endpoint_id_fkey FOREIGN KEY (endpoint_id)
-        REFERENCES endpoints(id) ON DELETE CASCADE
+        REFERENCES endpoints(id) ON DELETE CASCADE,
+    CONSTRAINT harvest_events_harvest_run_id_fkey FOREIGN KEY (harvest_run_id)
+        REFERENCES harvest_runs(id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE harvest_events IS 'Queue of harvested metadata events awaiting transformation';
@@ -166,37 +203,7 @@ COMMENT ON COLUMN records.opensearch_synced IS 'Whether synced to OpenSearch';
 COMMENT ON COLUMN records.opensearch_synced_at IS 'When last synced to OpenSearch';
 COMMENT ON COLUMN records.deleted_at IS 'Soft delete timestamp';
 
--- Harvest Runs Table
-CREATE TABLE IF NOT EXISTS harvest_runs (
-    id UUID NOT NULL DEFAULT gen_random_uuid(),
-    endpoint_id UUID NOT NULL,
-    started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    status VARCHAR(50) NOT NULL,
-    records_harvested INTEGER NOT NULL DEFAULT 0,
-    records_created INTEGER NOT NULL DEFAULT 0,
-    records_updated INTEGER NOT NULL DEFAULT 0,
-    records_deleted INTEGER NOT NULL DEFAULT 0,
-    errors_count INTEGER NOT NULL DEFAULT 0,
-    from_date TIMESTAMP WITH TIME ZONE,
-    until_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    resumption_token TEXT,
-    error_log JSONB,
-    CONSTRAINT harvest_runs_pkey PRIMARY KEY (id),
-    CONSTRAINT harvest_runs_endpoint_id_fkey FOREIGN KEY (endpoint_id)
-        REFERENCES endpoints(id) ON DELETE CASCADE
-);
 
-CREATE UNIQUE INDEX harvest_runs_open_endpoint_unique
-ON harvest_runs (endpoint_id)
-WHERE status = 'open';
-
-COMMENT ON TABLE harvest_runs IS 'Track harvest execution history';
-COMMENT ON COLUMN harvest_runs.status IS 'running, completed, failed, partial';
-COMMENT ON COLUMN harvest_runs.from_date IS 'Harvest from date parameter';
-COMMENT ON COLUMN harvest_runs.until_date IS 'Harvest until date parameter';
-COMMENT ON COLUMN harvest_runs.resumption_token IS 'OAI-PMH resumption token if interrupted';
-COMMENT ON COLUMN harvest_runs.error_log IS 'Detailed error information';
 
 
 

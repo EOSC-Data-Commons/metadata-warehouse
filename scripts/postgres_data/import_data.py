@@ -9,6 +9,27 @@ NS = {"oai": "http://www.openarchives.org/OAI/2.0/"}
 
 def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
     files: list[Path] = list(dir.rglob("*.xml"))
+    harvest_run_id = None
+
+    try:
+        harvest_run = requests.post('http://127.0.0.1:8080/harvest_run', json={
+            'harvest_url': harvest_url
+        })
+
+        harvest_run.raise_for_status()
+
+        response = harvest_run.json()
+
+        print(response)
+
+        harvest_run_id = response.get('id')
+
+        if harvest_run_id is None:
+            raise ValueError('harvest_run_id not set')
+
+    except Exception as e:
+        print(f'An error occurred when loading data in DB: {e}', file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
 
     for file in files:
         try:
@@ -26,17 +47,18 @@ def import_data(repo_code: str, harvest_url: str, dir: Path) -> None:
                 'record_identifier': identifier.text,
                 'raw_metadata': xml,
                 'harvest_url': harvest_url,
-                'repo_code': repo_code
+                'repo_code': repo_code,
+                'harvest_run_id': harvest_run_id
             }
 
             res = requests.post('http://127.0.0.1:8080/harvest_event', json=payload)
 
             res.raise_for_status()
 
-            print(identifier.text)
+            #print(identifier.text)
 
         except Exception as e:
-            print(f'An error occurred when loading data in DB: {e.with_traceback}', file=sys.stderr)
+            print(f'An error occurred when loading data in DB: {e}', file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
 
 HARVEST_ENDPOINTS = [

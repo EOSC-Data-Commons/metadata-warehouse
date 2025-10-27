@@ -80,6 +80,7 @@ class HarvestEvent(BaseModel):
     additional_metadata: Optional[str] = None # XML or JSON (stringified)
     harvest_url: str
     repo_code: str
+    harvest_run_id: str
 
 
 class HarvestRunRequest(BaseModel):
@@ -160,7 +161,8 @@ def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
                             endpoint_id, 
                             action, 
                             metadata_protocol,
-                            metadata_format
+                            metadata_format,
+                            harvest_run_id
                             ) 
                         VALUES ( 
                             %s, 
@@ -169,8 +171,10 @@ def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
                             (SELECT id from endpoints WHERE harvest_url=%s), 
                             %s, 
                             %s,
-                            %s);
-                        """, (harvest_event.record_identifier, harvest_event.raw_metadata, harvest_event.repo_code, harvest_event.harvest_url, 'create', 'OAI-PMH', 'XML'))
+                            %s,
+                            (SELECT id FROM harvest_runs WHERE id = %s and status = 'open')
+                            );
+                        """, (harvest_event.record_identifier, harvest_event.raw_metadata, harvest_event.repo_code, harvest_event.harvest_url, 'create', 'OAI-PMH', 'XML', harvest_event.harvest_run_id))
 
 
 def get_config_from_db() -> list[EndpointConfig]:
