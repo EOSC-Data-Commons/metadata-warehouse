@@ -44,3 +44,10 @@ DO $$ BEGIN
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
+
+-- Harvest Run State
+DO $$ BEGIN
+    CREATE TYPE harvest_run_state AS ENUM ('open', 'closed', 'failed');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;

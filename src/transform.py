@@ -67,7 +67,6 @@ class EndpointConfig(BaseModel):
     harvest_params: HarvestParams
     code: str
     protocol: str
-    last_harvest_date: Optional[datetime]
 
 
 class Config(BaseModel):
@@ -82,17 +81,28 @@ class HarvestEvent(BaseModel):
     repo_code: str
     harvest_run_id: str
 
+class HarvestRunBase(BaseModel):
+    pass
 
-class HarvestRunRequest(BaseModel):
+class HarvestRunCreateRequest(HarvestRunBase):
     harvest_url: str
 
-class HarvestRunResponse(BaseModel):
+class HarvestRunCreateResponse(HarvestRunBase):
     id: str
-    harvest_url: str
     from_date: Optional[datetime]
     until_date: datetime
+    endpoint_config: EndpointConfig
 
-def create_harvest_run_in_db(harvest_url: str) -> HarvestRunResponse:
+class HarvestRunCloseRequest(HarvestRunBase):
+    id: str
+    success: bool
+    started_at: datetime
+    completed_at: datetime
+
+class HarvestRunCloseResponse(HarvestRunBase):
+    pass
+
+def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
     """
     Creates a new entry in harvest_runs and returns its id.
 
@@ -125,7 +135,11 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunResponse:
 
         logger.debug(f'insert operation state: {res}')
 
-        cur.execute("SELECT id, from_date, until_date FROM harvest_runs WHERE status = 'open' and endpoint_id = (SELECT id from endpoints WHERE harvest_url = %s)", [harvest_url])
+        cur.execute("""SELECT hr.id, hr.from_date, hr.until_date,  e.name, e.harvest_url, e.harvest_params, e.protocol, e.last_harvest_date, r.code  
+                    FROM harvest_runs hr
+                    JOIN endpoints e ON hr.endpoint_id = e.id
+                    JOIN repositories r ON e.repository_id = r.id
+                    WHERE hr.status = 'open' and e.harvest_url = %s""", [harvest_url])
         new_harvest_run = cur.fetchone()
 
         if new_harvest_run is None:
@@ -133,13 +147,28 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunResponse:
 
         logger.debug(f'{new_harvest_run}')
 
-        return HarvestRunResponse(
+        return HarvestRunCreateResponse(
             id=str(new_harvest_run['id']),
-            harvest_url=harvest_url,
             from_date=new_harvest_run['from_date'],
-            until_date=new_harvest_run['until_date']
+            until_date=new_harvest_run['until_date'],
+            endpoint_config=EndpointConfig(name=new_harvest_run['name'], harvest_url=new_harvest_run['harvest_url'], code=new_harvest_run['code'], protocol=new_harvest_run['protocol'],
+                                   harvest_params=HarvestParams(metadata_prefix=new_harvest_run['harvest_params'].get('metadata_prefix'), set=new_harvest_run['harvest_params'].get('set')))
         )
 
+
+def close_harvest_run_in_db(harvest_run: HarvestRunCloseRequest):
+    with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address,
+                         password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+
+        cur = conn.cursor()
+
+        state = 'closed' if harvest_run.success else 'failed'
+
+        cur.execute("""
+            UPDATE harvest_runs
+            SET status = %s, started_at = %s, completed_at = %s 
+            WHERE id = %s and status = 'open'
+        """, (state, harvest_run.started_at, harvest_run.completed_at, harvest_run.id))
 
 
 def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
@@ -322,10 +351,19 @@ def create_harvest_event(harvest_event: HarvestEvent) -> None:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post('/harvest_run', tags=['harvest_run'])
-def create_harvest_run(harvest_run: HarvestRunRequest) -> HarvestRunResponse:
+def create_harvest_run(harvest_run: HarvestRunCreateRequest) -> HarvestRunCreateResponse:
     try:
         logger.debug(harvest_run)
         return create_harvest_run_in_db(harvest_run.harvest_url)
     except Exception as e:
         logger.exception(f'An error occurred when creating harvest event: {e}')
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.put('/harvest_run', tags=['harvest_run'])
+def close_harvest_run(harvest_run: HarvestRunCloseRequest):
+    try:
+        return close_harvest_run_in_db(harvest_run)
+    except Exception as e:
+        logger.exception(f'An error occurred when creating harvest event: {e}')
+        raise HTTPException(status_code=500, detail=str(e))
+
