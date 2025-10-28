@@ -55,11 +55,15 @@ class Health(BaseModel):
 class Index(BaseModel):
     number_of_batches: int
 
+class AdditionalMetadataParams(BaseModel):
+    format: str
+    endpoint: str
+    protocol: str
 
 class HarvestParams(BaseModel):
     metadata_prefix: str
     set: Optional[list[str]]
-
+    additional_metadata_params: Optional[AdditionalMetadataParams]
 
 class EndpointConfig(BaseModel):
     name: str
@@ -152,7 +156,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
             from_date=new_harvest_run['from_date'],
             until_date=new_harvest_run['until_date'],
             endpoint_config=EndpointConfig(name=new_harvest_run['name'], harvest_url=new_harvest_run['harvest_url'], code=new_harvest_run['code'], protocol=new_harvest_run['protocol'],
-                                   harvest_params=HarvestParams(metadata_prefix=new_harvest_run['harvest_params'].get('metadata_prefix'), set=new_harvest_run['harvest_params'].get('set')))
+                                   harvest_params=HarvestParams(metadata_prefix=new_harvest_run['harvest_params'].get('metadata_prefix'), set=new_harvest_run['harvest_params'].get('set'), additional_metadata_params=new_harvest_run['harvest_params'].get('additional_metadata_params')))
         )
 
 
@@ -233,7 +237,7 @@ INNER JOIN repositories r ON e.repository_id = r.id
 
                 endpoints.append(
                     EndpointConfig(name=doc['name'], harvest_url=doc['harvest_url'], code=doc['code'], protocol=doc['protocol'],
-                                   harvest_params=HarvestParams(metadata_prefix=doc['harvest_params'].get('metadata_prefix'), set=doc['harvest_params'].get('set'))))
+                                   harvest_params=HarvestParams(metadata_prefix=doc['harvest_params'].get('metadata_prefix'), set=doc['harvest_params'].get('set'), additional_metadata_params=doc['harvest_params'].get('additional_metadata_params'))))
 
         return endpoints
     except JSONDecodeError as e:

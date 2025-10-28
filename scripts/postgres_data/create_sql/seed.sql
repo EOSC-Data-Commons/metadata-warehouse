@@ -20,7 +20,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite"}'
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://archaeology.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}'
 FROM repositories r
 WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
@@ -34,7 +34,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite"}'
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://ssh.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}'
 FROM repositories r
 WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
@@ -48,7 +48,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite"}'
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://lifesciences.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}'
 FROM repositories r
 WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
@@ -62,7 +62,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite"}'
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://phys-techsciences.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}'
 FROM repositories r
 WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
@@ -76,7 +76,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite"}'
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://dataverse.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}'
 FROM repositories r
 WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
@@ -104,7 +104,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "set": ["openaire_data"]}'
+    '{"metadata_prefix": "oai_datacite", "set": ["openaire_data"],  "additional_metadata_params": {"endpoint": "https://dabar.srce.hr/oai", "protocol": "OAI-PMH", "format": "mods"}}'
 FROM repositories r
 WHERE r.code = 'DABAR'
 ON CONFLICT (name) DO NOTHING;
