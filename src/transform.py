@@ -92,6 +92,9 @@ class HarvestRunBase(BaseModel):
 class HarvestRunCreateRequest(HarvestRunBase):
     harvest_url: str
 
+class HarvestRunGetResponse(BaseModel):
+    id: Optional[str]
+
 class HarvestRunCreateResponse(HarvestRunBase):
     id: str
     from_date: Optional[datetime]
@@ -106,6 +109,26 @@ class HarvestRunCloseRequest(HarvestRunBase):
 
 class HarvestRunCloseResponse(HarvestRunBase):
     pass
+
+def get_open_harvest_run(harvest_url: str) -> HarvestRunGetResponse:
+    with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT hr.id 
+     FROM harvest_runs hr
+     JOIN endpoints e ON hr.endpoint_id = e.id
+     WHERE e.harvest_url = %s AND hr.status = 'open' 
+     LIMIT 1
+        """, [harvest_url])
+
+        open_harvest_run = cur.fetchone()
+
+        if open_harvest_run is not None:
+            return HarvestRunGetResponse(id=str(open_harvest_run['id']))
+        else:
+            return HarvestRunGetResponse(id=None)
 
 def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
     """
@@ -353,6 +376,14 @@ def create_harvest_event(harvest_event: HarvestEvent) -> None:
     try:
         logger.debug(harvest_event)
         create_harvest_event_in_db(harvest_event)
+    except Exception as e:
+        logger.exception(f'An error occurred when creating harvest event: {e}')
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get('/harvest_run', tags=['harvest_run'])
+def get_harvest_run(harvest_url: str = Query(default=None, description='Name of the OpenSearch index')) -> HarvestRunGetResponse:
+    try:
+        return get_open_harvest_run(harvest_url)
     except Exception as e:
         logger.exception(f'An error occurred when creating harvest event: {e}')
         raise HTTPException(status_code=500, detail=str(e))
