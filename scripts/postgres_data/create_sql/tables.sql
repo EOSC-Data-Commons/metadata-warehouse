@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS harvest_events (
     raw_metadata XML NOT NULL,
     metadata_format content_format NOT NULL DEFAULT 'XML',
     metadata_protocol harvest_protocol NOT NULL,
-    additional_metadata JSONB,
+    additional_metadata TEXT,
     datestamp TIMESTAMP WITH TIME ZONE,
     harvested_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     processed_at TIMESTAMP WITH TIME ZONE,

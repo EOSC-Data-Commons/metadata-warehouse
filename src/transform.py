@@ -189,7 +189,8 @@ def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
         cur.execute("""
                         INSERT INTO harvest_events 
                             (record_identifier, 
-                            raw_metadata, 
+                            raw_metadata,
+                            additional_metadata,
                             repository_id, 
                             endpoint_id, 
                             action, 
@@ -200,6 +201,7 @@ def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
                         VALUES ( 
                             %s, 
                             XMLPARSE(DOCUMENT %s), 
+                            %s,
                             (SELECT id from repositories WHERE code=%s),
                             (SELECT id from endpoints WHERE harvest_url=%s), 
                             %s, 
@@ -207,7 +209,7 @@ def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
                             %s,
                             (SELECT id FROM harvest_runs WHERE id = %s and status = 'open')
                             );
-                        """, (harvest_event.record_identifier, harvest_event.raw_metadata, harvest_event.repo_code, harvest_event.harvest_url, 'create', 'OAI-PMH', 'XML', harvest_event.harvest_run_id))
+                        """, (harvest_event.record_identifier, harvest_event.raw_metadata, harvest_event.additional_metadata, harvest_event.repo_code, harvest_event.harvest_url, 'create', 'OAI-PMH', 'XML', harvest_event.harvest_run_id))
 
 
 def get_config_from_db() -> list[EndpointConfig]:
