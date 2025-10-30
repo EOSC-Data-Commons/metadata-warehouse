@@ -84,6 +84,7 @@ class HarvestEvent(BaseModel):
     harvest_url: str
     repo_code: str
     harvest_run_id: str
+    is_deleted: bool
 
 class HarvestRunBase(BaseModel):
     pass
@@ -196,7 +197,8 @@ def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
                             action, 
                             metadata_protocol,
                             metadata_format,
-                            harvest_run_id
+                            harvest_run_id,
+                            is_deleted
                             ) 
                         VALUES ( 
                             %s, 
@@ -207,9 +209,10 @@ def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
                             %s, 
                             %s,
                             %s,
-                            (SELECT id FROM harvest_runs WHERE id = %s and status = 'open')
+                            (SELECT id FROM harvest_runs WHERE id = %s and status = 'open'),
+                            %s
                             );
-                        """, (harvest_event.record_identifier, harvest_event.raw_metadata, harvest_event.additional_metadata, harvest_event.repo_code, harvest_event.harvest_url, 'create', 'OAI-PMH', 'XML', harvest_event.harvest_run_id))
+                        """, (harvest_event.record_identifier, harvest_event.raw_metadata, harvest_event.additional_metadata, harvest_event.repo_code, harvest_event.harvest_url, 'create', 'OAI-PMH', 'XML', harvest_event.harvest_run_id, harvest_event.is_deleted))
 
 
 def get_config_from_db() -> list[EndpointConfig]:

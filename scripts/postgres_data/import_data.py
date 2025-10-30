@@ -65,7 +65,8 @@ def import_data(repo_code: str, harvest_url: str, dir: Path, additional_dir: Opt
                 'additional_metadata': additional_metadata,
                 'harvest_url': harvest_url,
                 'repo_code': repo_code,
-                'harvest_run_id': harvest_run_id
+                'harvest_run_id': harvest_run_id,
+                'is_deleted': False
             }
 
             res = requests.post('http://127.0.0.1:8080/harvest_event', json=payload)

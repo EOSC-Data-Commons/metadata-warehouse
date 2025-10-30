@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS harvest_events (
     error_message TEXT,
     retry_count INTEGER NOT NULL DEFAULT 0,
     celery_task_id VARCHAR(255),
+    is_deleted BOOLEAN,
     CONSTRAINT harvest_events_pkey PRIMARY KEY (id),
     CONSTRAINT harvest_events_endpoint_id_harvest_run_record_identifier_key UNIQUE (endpoint_id, harvest_run_id, record_identifier),
     CONSTRAINT harvest_events_repository_id_fkey FOREIGN KEY (repository_id)
