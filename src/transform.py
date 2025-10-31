@@ -110,7 +110,7 @@ class HarvestRunCloseRequest(HarvestRunBase):
 class HarvestRunCloseResponse(HarvestRunBase):
     pass
 
-def get_open_harvest_run(harvest_url: str) -> HarvestRunGetResponse:
+def get_open_harvest_run_in_db(harvest_url: str) -> HarvestRunGetResponse:
     with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
 
         cur = conn.cursor()
@@ -276,11 +276,11 @@ INNER JOIN repositories r ON e.repository_id = r.id
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def create_jobs_in_queue(index_name: str) -> int:
+def create_jobs_in_queue(harvest_run_id: str) -> int:
     """
     Creates and enqueues transformation jobs from harvest_events table.
 
-    :param index_name: OpenSearch index to write resulting JSON files to.
+    :param harvest_run_id: ID of the harvest run the harvest events belong to..
     :return: Number of batches scheduled for processing.
     """
 
@@ -301,18 +301,20 @@ def create_jobs_in_queue(index_name: str) -> int:
         while fetch:
 
             cur.execute("""
-            SELECT ID, 
-            repository_id, 
-            endpoint_id, 
-            record_identifier, 
+            SELECT he.id, 
+            he.repository_id, 
+            he.endpoint_id, 
+            he.record_identifier, 
             (
-                xpath('/oai:record', raw_metadata, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}')
+                xpath('/oai:record', he.raw_metadata, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}')
             )[1] AS record
-        FROM harvest_events
-            ORDER BY ID
+        FROM harvest_events he
+        JOIN harvest_runs hr ON he.harvest_run_id = hr.id 
+            WHERE harvest_run_id = %s and hr.status = 'closed' 
+            ORDER BY he.id
             LIMIT %s
             OFFSET %s
-            """, (limit, offset))
+            """, (harvest_run_id, limit, offset))
 
             for doc in cur.fetchall():
 
@@ -330,7 +332,7 @@ def create_jobs_in_queue(index_name: str) -> int:
 
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')
-            transform_batch.delay(batch, index_name)
+            transform_batch.delay(batch, 'test_datacite')
             tasks += 1
 
             # increment offset by limit
@@ -343,11 +345,11 @@ def create_jobs_in_queue(index_name: str) -> int:
     return tasks
 
 @app.get('/index', tags=['index'])
-def init_index(index_name: str = Query(default='test_datacite', description='Name of the OpenSearch index')) -> Index:
+def init_index(harvest_run_id: str = Query(default=None, description='Id of the harvest run to be indexed')) -> Index:
     # this long-running method is synchronous and runs in an external threadpool, see https://fastapi.tiangolo.com/async/#path-operation-functions
     # this way, it does not block the server
     try:
-        results = create_jobs_in_queue(index_name)
+        results = create_jobs_in_queue(harvest_run_id)
     except Exception as e:
         logger.exception("Indexing failed")
         raise HTTPException(status_code=500, detail=str(e))
@@ -383,7 +385,7 @@ def create_harvest_event(harvest_event: HarvestEvent) -> None:
 @app.get('/harvest_run', tags=['harvest_run'])
 def get_harvest_run(harvest_url: str = Query(default=None, description='Name of the OpenSearch index')) -> HarvestRunGetResponse:
     try:
-        return get_open_harvest_run(harvest_url)
+        return get_open_harvest_run_in_db(harvest_url)
     except Exception as e:
         logger.exception(f'An error occurred when creating harvest event: {e}')
         raise HTTPException(status_code=500, detail=str(e))
