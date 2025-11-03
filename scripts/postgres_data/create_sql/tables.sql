@@ -164,7 +164,7 @@ CREATE TABLE IF NOT EXISTS records (
     metadata_format content_format NOT NULL DEFAULT 'XML',
     metadata_protocol harvest_protocol NOT NULL,
     datacite_json JSONB,
-    additional_metadata JSONB,
+    additional_metadata TEXT,
     embeddings FLOAT8[],
     embedding_model VARCHAR(100),
     datestamp TIMESTAMP WITH TIME ZONE,

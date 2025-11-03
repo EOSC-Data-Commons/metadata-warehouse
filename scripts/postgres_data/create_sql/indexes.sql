@@ -33,7 +33,6 @@ CREATE INDEX IF NOT EXISTS idx_records_opensearch_synced ON records(opensearch_s
 CREATE INDEX IF NOT EXISTS idx_records_created_at ON records USING brin(created_at);
 CREATE INDEX IF NOT EXISTS idx_records_updated_at ON records USING brin(updated_at);
 CREATE INDEX IF NOT EXISTS idx_records_datacite_json ON records USING gin(datacite_json);
-CREATE INDEX IF NOT EXISTS idx_records_additional_metadata ON records USING gin(additional_metadata);
 CREATE INDEX IF NOT EXISTS idx_records_title_fulltext ON records USING gin(to_tsvector('english', title));
 
 -- Harvest Runs Indexes

@@ -174,6 +174,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 embeddings = rec[0]['emb']
                 datacite_json = json.dumps({**rec[0], 'emb': None})
                 opensearch_synced = True
+                additional_metadata = rec[1].event.additional_metadata
 
                 # https://neon.com/postgresql/postgresql-tutorial/postgresql-upsert
                 cur.execute("""
@@ -192,13 +193,14 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                     embedding_model,
                     datacite_json,
                     opensearch_synced,
-                    opensearch_synced_at
+                    opensearch_synced_at,
+                    additional_metadata
                     ) 
                 VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     ON CONFLICT (endpoint_id, record_identifier)
-                    DO UPDATE SET resource_type = %s, title = %s, raw_metadata = %s, doi = %s, url = %s, embeddings = %s, embedding_model = %s, datacite_json = %s, opensearch_synced_at = %s      
+                    DO UPDATE SET resource_type = %s, title = %s, raw_metadata = %s, doi = %s, url = %s, embeddings = %s, embedding_model = %s, datacite_json = %s, opensearch_synced_at = %s, additional_metadata = %s      
                 """, (record_identifier, # Insert
                       repository_id,
                       endpoint_id,
@@ -213,6 +215,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                       datacite_json,
                       opensearch_synced,
                       opensearch_synced_at,
+                      additional_metadata,
                       resource_type, # Update
                       title,
                       xml,
@@ -221,7 +224,8 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                       embeddings,
                       EMBEDDING_MODEL,
                       datacite_json,
-                      opensearch_synced_at
+                      opensearch_synced_at,
+                      additional_metadata
                       )
                 )
 

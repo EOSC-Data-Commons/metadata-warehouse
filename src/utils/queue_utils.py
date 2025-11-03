@@ -9,3 +9,4 @@ class HarvestEventQueue(NamedTuple):
     record_identifier: str # 4
     code: str # 5
     harvest_url: str # 6
+    additional_metadata: Optional[str] # 7
