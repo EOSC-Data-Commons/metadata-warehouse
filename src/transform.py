@@ -259,7 +259,7 @@ SELECT
     e.protocol, 
     r.code
 FROM endpoints e
-INNER JOIN repositories r ON e.repository_id = r.id
+JOIN repositories r ON e.repository_id = r.id
             """)
             for doc in cur.fetchall():
 
@@ -302,14 +302,18 @@ def create_jobs_in_queue(harvest_run_id: str) -> int:
 
             cur.execute("""
             SELECT he.id, 
-            he.repository_id, 
+            he.repository_id,
+            r.code, 
             he.endpoint_id, 
+            e.harvest_url,
             he.record_identifier, 
             (
                 xpath('/oai:record', he.raw_metadata, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}')
             )[1] AS record
         FROM harvest_events he
         JOIN harvest_runs hr ON he.harvest_run_id = hr.id 
+        JOIN endpoints e ON he.endpoint_id = e.id
+        JOIN repositories r ON he.repository_id = r.id
             WHERE harvest_run_id = %s and hr.status = 'closed' 
             ORDER BY he.id
             LIMIT %s
@@ -323,7 +327,7 @@ def create_jobs_in_queue(harvest_run_id: str) -> int:
                 # str(uuid) returns a string in the form 12345678-1234-5678-1234-567812345678 where the 32 hexadecimal digits represent the UUID.
                 batch.append(
                     HarvestEventQueue(id=str(doc['id']), xml=doc['record'], repository_id=str(doc['repository_id']),
-                                 endpoint_id=str(doc['endpoint_id']), record_identifier=doc['record_identifier'])
+                                 endpoint_id=str(doc['endpoint_id']), record_identifier=doc['record_identifier'], code=doc['code'], harvest_url=doc['harvest_url'])
                 )
 
             if len(batch) == 0:

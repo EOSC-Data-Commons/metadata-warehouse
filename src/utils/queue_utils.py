@@ -7,3 +7,5 @@ class HarvestEventQueue(NamedTuple):
     repository_id: str # 2
     endpoint_id: str # 3
     record_identifier: str # 4
+    code: str # 5
+    harvest_url: str # 6

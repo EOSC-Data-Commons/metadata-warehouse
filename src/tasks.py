@@ -87,6 +87,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
         for ele in batch:
 
             harvest_event = HarvestEventQueue(*ele) # reconstruct HarvestEvent from serialized list
+            #logger.info(f'{harvest_event.record_identifier}, {harvest_event.code}, {harvest_event.harvest_url}')
 
             logger.debug(f'Processing {harvest_event}')
             converted = xmltodict.parse(harvest_event.xml, process_namespaces=True)  # named tuple serialized as list in broker
