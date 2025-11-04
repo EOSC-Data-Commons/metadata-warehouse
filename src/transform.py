@@ -310,7 +310,8 @@ def create_jobs_in_queue(harvest_run_id: str) -> int:
             (
                 xpath('/oai:record', he.raw_metadata, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}')
             )[1] AS record,
-            he.additional_metadata
+            he.additional_metadata,
+            he.is_deleted
         FROM harvest_events he
         JOIN harvest_runs hr ON he.harvest_run_id = hr.id 
         JOIN endpoints e ON he.endpoint_id = e.id
@@ -328,7 +329,7 @@ def create_jobs_in_queue(harvest_run_id: str) -> int:
                 # str(uuid) returns a string in the form 12345678-1234-5678-1234-567812345678 where the 32 hexadecimal digits represent the UUID.
                 batch.append(
                     HarvestEventQueue(id=str(doc['id']), xml=doc['record'], repository_id=str(doc['repository_id']),
-                                 endpoint_id=str(doc['endpoint_id']), record_identifier=doc['record_identifier'], code=doc['code'], harvest_url=doc['harvest_url'], additional_metadata=doc['additional_metadata'])
+                                 endpoint_id=str(doc['endpoint_id']), record_identifier=doc['record_identifier'], code=doc['code'], harvest_url=doc['harvest_url'], additional_metadata=doc['additional_metadata'], is_deleted=doc['is_deleted'])
                 )
 
             if len(batch) == 0:

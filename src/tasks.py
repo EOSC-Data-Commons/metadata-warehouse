@@ -88,6 +88,37 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
 
             harvest_event = HarvestEventQueue(*ele) # reconstruct HarvestEvent from serialized list
             #logger.info(f'{harvest_event.record_identifier}, {harvest_event.code}, {harvest_event.harvest_url}')
+            logger.info(f'is deleted: {harvest_event.is_deleted}')
+
+            if harvest_event.is_deleted:
+                # find record in DB
+                cur.execute("""
+                SELECT id, doi, url FROM records
+                WHERE endpoint_id = %s and record_identifier = %s
+                """, (harvest_event.endpoint_id, harvest_event.record_identifier))
+
+                record_to_delete = cur.fetchone()
+
+                if record_to_delete is not None:
+
+                    id = record_to_delete['id']
+                    doi = record_to_delete.get('doi')
+
+                    opensearch_id = doi if doi is not None else record_to_delete['url']
+
+                    # delete document from OpenSearch
+                    self.client.delete(
+                        index=index_name,
+                        id=opensearch_id
+                    )
+
+                    # delete record in DB
+                    cur.execute("""
+                    DELETE FROM records WHERE id = %s;
+                    """, [id])
+
+
+                continue
 
             logger.debug(f'Processing {harvest_event}')
             converted = xmltodict.parse(harvest_event.xml, process_namespaces=True)  # named tuple serialized as list in broker
