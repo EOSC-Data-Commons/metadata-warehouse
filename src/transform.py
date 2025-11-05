@@ -3,6 +3,7 @@ from json import JSONDecodeError
 from logging.config import dictConfig
 from typing import Optional
 import psycopg
+from psycopg import errors as psycopg_errors
 from psycopg.rows import dict_row
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
@@ -11,7 +12,7 @@ from tasks import transform_batch
 import os
 from fastapi import FastAPI, Query, HTTPException
 import logging
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ tags_metadata = [
     },
     {
         'name': 'index',
-        'description': 'Start transformation and index process'
+        'description': 'Start transformation and indexing process for a given harvest run'
     },
     {
         'name': 'config',
@@ -35,11 +36,11 @@ tags_metadata = [
     },
     {
         'name': 'harvest_run',
-        'description': 'Create a harvest run'
+        'description': 'Manage harvest runs'
     },
     {
         'name': 'harvest_event',
-        'description': 'Create a harvest event'
+        'description': 'Register a harvest event'
     }
 ]
 
@@ -47,13 +48,14 @@ app = FastAPI(openapi_tags=tags_metadata)
 postgres_config: PostgresConfig = PostgresConfig()
 
 
-class Health(BaseModel):
-    status: str
-    time: datetime
+class HealthGetResponse(BaseModel):
+    status: str = Field(description='Server status')
+    time: datetime = Field(description='Current daytime as UTC')
 
 
-class Index(BaseModel):
-    number_of_batches: int
+class IndexGetResponse(BaseModel):
+    number_of_batches: int = Field(description='Number of batches created in Celery queue.')
+
 
 class AdditionalMetadataParams(BaseModel):
     format: str
@@ -77,7 +79,7 @@ class Config(BaseModel):
     endpoints_configs: list[EndpointConfig]
 
 
-class HarvestEvent(BaseModel):
+class HarvestEventCreateRequest(BaseModel):
     record_identifier: str
     raw_metadata: str # XML
     additional_metadata: Optional[str] = None # XML or JSON (stringified)
@@ -86,49 +88,57 @@ class HarvestEvent(BaseModel):
     harvest_run_id: str
     is_deleted: bool
 
-class HarvestRunBase(BaseModel):
-    pass
 
-class HarvestRunCreateRequest(HarvestRunBase):
+class HarvestEventCreateResponse(BaseModel):
+    id: str
+
+
+class HarvestRunCreateRequest(BaseModel):
     harvest_url: str
 
 class HarvestRunGetResponse(BaseModel):
-    id: Optional[str]
+    id: Optional[str] = Field(None, description='ID of the harvest run')
+    status: Optional[str] = Field(None, description='Status of the harvest run: open|closed|failed')
 
-class HarvestRunCreateResponse(HarvestRunBase):
-    id: str
-    from_date: Optional[datetime]
-    until_date: datetime
-    endpoint_config: EndpointConfig
 
-class HarvestRunCloseRequest(HarvestRunBase):
-    id: str
-    success: bool
-    started_at: datetime
-    completed_at: datetime
+class HarvestRunCreateResponse(BaseModel):
+    id: str = Field(description='ID of the new harvest run')
+    from_date: Optional[datetime] = Field(None, description='From date for selective harvesting')
+    until_date: datetime = Field(description='Until date for selective harvesting')
+    endpoint_config: EndpointConfig = Field(description='Description of the endpoint used for harvesting')
 
-class HarvestRunCloseResponse(HarvestRunBase):
-    pass
 
-def get_open_harvest_run_in_db(harvest_url: str) -> HarvestRunGetResponse:
+class HarvestRunCloseRequest(BaseModel):
+    id: str = Field(description='ID of the harvest run to close')
+    success: bool = Field(description='Indicates if the harvest run was successful')
+    started_at: datetime = Field(description='Start date of the harvest')
+    completed_at: datetime = Field(description='End date of the harvest')
+
+
+class HarvestRunCloseResponse(BaseModel):
+    id: str = Field(description='ID of the closed harvest run')
+
+
+def get_latest_harvest_run_in_db(harvest_url: str) -> HarvestRunGetResponse:
     with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
 
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT hr.id 
+            SELECT hr.id, hr.status 
      FROM harvest_runs hr
      JOIN endpoints e ON hr.endpoint_id = e.id
-     WHERE e.harvest_url = %s AND hr.status = 'open' 
+     WHERE e.harvest_url = %s
+     ORDER BY hr.until_date DESC
      LIMIT 1
         """, [harvest_url])
 
         open_harvest_run = cur.fetchone()
 
         if open_harvest_run is not None:
-            return HarvestRunGetResponse(id=str(open_harvest_run['id']))
+            return HarvestRunGetResponse(id=str(open_harvest_run['id']), status=open_harvest_run['status'])
         else:
-            return HarvestRunGetResponse(id=None)
+            return HarvestRunGetResponse(id=None, status=None)
 
 def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
     """
@@ -167,7 +177,9 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                     FROM harvest_runs hr
                     JOIN endpoints e ON hr.endpoint_id = e.id
                     JOIN repositories r ON e.repository_id = r.id
-                    WHERE hr.status = 'open' and e.harvest_url = %s""", [harvest_url])
+                    WHERE hr.status = 'open' and e.harvest_url = %s
+                    LIMIT 1
+                    """, [harvest_url])
         new_harvest_run = cur.fetchone()
 
         if new_harvest_run is None:
@@ -184,7 +196,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
         )
 
 
-def close_harvest_run_in_db(harvest_run: HarvestRunCloseRequest) -> None:
+def close_harvest_run_in_db(harvest_run: HarvestRunCloseRequest) -> HarvestRunCloseResponse:
     with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address,
                          password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
 
@@ -198,8 +210,20 @@ def close_harvest_run_in_db(harvest_run: HarvestRunCloseRequest) -> None:
             WHERE id = %s and status = 'open'
         """, (state, harvest_run.started_at, harvest_run.completed_at, harvest_run.id))
 
+        cur.execute("""
+            SELECT id 
+            FROM harvest_runs
+            WHERE id = %s and status = 'closed'
+        """, [harvest_run.id])
 
-def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
+        closed_harvest_run = cur.fetchone()
+
+        if closed_harvest_run is None:
+            raise Exception(f'Harvest run could not be closed')
+
+        return HarvestRunCloseResponse(id=harvest_run.id)
+
+def create_harvest_event_in_db(harvest_event: HarvestEventCreateRequest) -> HarvestEventCreateResponse:
     """
     Creates a record in table harvest_events
 
@@ -236,6 +260,20 @@ def create_harvest_event_in_db(harvest_event: HarvestEvent) -> None:
                             %s
                             );
                         """, (harvest_event.record_identifier, harvest_event.raw_metadata, harvest_event.additional_metadata, harvest_event.repo_code, harvest_event.harvest_url, 'create', 'OAI-PMH', 'XML', harvest_event.harvest_run_id, harvest_event.is_deleted))
+
+
+        cur.execute("""
+        SELECT id 
+        FROM harvest_events
+        WHERE harvest_run_id = %s and record_identifier = %s and endpoint_id = (SELECT id from endpoints WHERE harvest_url=%s)
+        """, (harvest_event.harvest_run_id, harvest_event.record_identifier, harvest_event.harvest_url))
+
+        new_harvest_event = cur.fetchone()
+
+        if new_harvest_event is None:
+            raise Exception('Harvest event could not be registered')
+
+        return HarvestEventCreateResponse(id=str(new_harvest_event['id']))
 
 
 def get_config_from_db() -> list[EndpointConfig]:
@@ -351,7 +389,7 @@ def create_jobs_in_queue(harvest_run_id: str) -> int:
     return tasks
 
 @app.get('/index', tags=['index'])
-def init_index(harvest_run_id: str = Query(default=None, description='Id of the harvest run to be indexed')) -> Index:
+def init_index(harvest_run_id: str = Query(default=None, description='Id of the harvest run to be indexed')) -> IndexGetResponse:
     # this long-running method is synchronous and runs in an external threadpool, see https://fastapi.tiangolo.com/async/#path-operation-functions
     # this way, it does not block the server
     try:
@@ -361,16 +399,16 @@ def init_index(harvest_run_id: str = Query(default=None, description='Id of the 
         raise HTTPException(status_code=500, detail=str(e))
 
     logger.info(f'Got results: {results}')
-    return Index(number_of_batches=results)
+    return IndexGetResponse(number_of_batches=results)
 
 
-@app.get('/health', tags=['health'])
-def get_health() -> Health:
+@app.get('/health', tags=['health'], summary='Get health status')
+def get_health() -> HealthGetResponse:
     logger.info('health route called')
-    return Health(status='ok', time=datetime.now(timezone.utc))
+    return HealthGetResponse(status='ok', time=datetime.now(timezone.utc))
 
 
-@app.get('/config', tags=['config'])
+@app.get('/config', tags=['config'], summary='Get configs of available endpoints')
 def get_config() -> Config:
     try:
         return Config(endpoints_configs=get_config_from_db())
@@ -379,37 +417,43 @@ def get_config() -> Config:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post('/harvest_event', tags=['harvest_event'])
-def create_harvest_event(harvest_event: HarvestEvent) -> None:
+@app.post('/harvest_event', tags=['harvest_event'], summary='Register a new harvest event')
+def create_harvest_event(harvest_event: HarvestEventCreateRequest) -> HarvestEventCreateResponse:
     try:
         logger.debug(harvest_event)
-        create_harvest_event_in_db(harvest_event)
+        return create_harvest_event_in_db(harvest_event)
+    except psycopg_errors.UniqueViolation as e:
+        logger.exception(f'Harvest event could not be created for given harvest run')
+        raise HTTPException(status_code=400, detail='Harvest event could not be created for the given harvest run because the record identifier already exists.')
     except Exception as e:
         logger.exception(f'An error occurred when creating harvest event: {e}')
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get('/harvest_run', tags=['harvest_run'])
-def get_harvest_run(harvest_url: str = Query(default=None, description='Name of the OpenSearch index')) -> HarvestRunGetResponse:
+@app.get('/harvest_run', tags=['harvest_run'], summary='Get id and status of the latest harvest run for a given endpoint.', description='If no harvest run exists for the given endpoint, id and status will be null in the response.')
+def get_harvest_run(harvest_url: str = Query(default=None, description='harvest url of the endpoint')) -> HarvestRunGetResponse:
     try:
-        return get_open_harvest_run_in_db(harvest_url)
+        return get_latest_harvest_run_in_db(harvest_url)
     except Exception as e:
-        logger.exception(f'An error occurred when creating harvest event: {e}')
+        logger.exception(f'An error occurred when getting harvest run: {e}')
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post('/harvest_run', tags=['harvest_run'])
+@app.post('/harvest_run', tags=['harvest_run'], summary='Create a new havest run for a given endpoint.', description='A new harvest run can only be created if no other open harvest run exists for the same endpoint.')
 def create_harvest_run(harvest_run: HarvestRunCreateRequest) -> HarvestRunCreateResponse:
     try:
         logger.debug(harvest_run)
         return create_harvest_run_in_db(harvest_run.harvest_url)
+    except psycopg_errors.UniqueViolation as e:
+        logger.exception(f'An open harvest run already exists for the given endpoint.')
+        raise HTTPException(status_code=400, detail='An open harvest run already exists for the given endpoint.')
     except Exception as e:
         logger.exception(f'An error occurred when creating harvest event: {e}')
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.put('/harvest_run', tags=['harvest_run'])
-def close_harvest_run(harvest_run: HarvestRunCloseRequest) -> None:
+@app.put('/harvest_run', tags=['harvest_run'], summary='Close an open harvest run for a given endpoint.')
+def close_harvest_run(harvest_run: HarvestRunCloseRequest) -> HarvestRunCloseResponse:
     try:
         return close_harvest_run_in_db(harvest_run)
     except Exception as e:
-        logger.exception(f'An error occurred when creating harvest event: {e}')
+        logger.exception(f'An error occurred when closing harvest event: {e}')
         raise HTTPException(status_code=500, detail=str(e))
 
