@@ -7,15 +7,20 @@ import sys
 from datetime import datetime, timezone
 from typing import Optional
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 NS = {"oai": "http://www.openarchives.org/OAI/2.0/"}
+
+FASTAPI_ADDRESS = os.environ.get('FASTAPI_ADDRESS', '127.0.0.1')
 
 def import_data(repo_code: str, harvest_url: str, dir: Path, additional_dir: Optional[Path]) -> None:
     files: list[Path] = list(dir.rglob("*.xml"))
     harvest_run_id = None
 
     try:
-        harvest_run = requests.post('http://127.0.0.1:8080/harvest_run', json={
+        harvest_run = requests.post(f'http://{FASTAPI_ADDRESS}:8080/harvest_run', json={
             'harvest_url': harvest_url
         })
 
@@ -72,7 +77,7 @@ def import_data(repo_code: str, harvest_url: str, dir: Path, additional_dir: Opt
                 'is_deleted': False
             }
 
-            res = requests.post('http://127.0.0.1:8080/harvest_event', json=payload)
+            res = requests.post(f'http://{FASTAPI_ADDRESS}:8080/harvest_event', json=payload)
 
             res.raise_for_status()
 
@@ -85,7 +90,7 @@ def import_data(repo_code: str, harvest_url: str, dir: Path, additional_dir: Opt
 
     completed = datetime.now(timezone.utc)
 
-    res = requests.put('http://127.0.0.1:8080/harvest_run', json={
+    res = requests.put(f'http://{FASTAPI_ADDRESS}:8080/harvest_run', json={
         'id': harvest_run_id,
         'success': True,
         'started_at': started.strftime('%Y-%m-%d %H:%M:%S.%f%z'),
