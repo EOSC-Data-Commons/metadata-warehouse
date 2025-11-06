@@ -43,10 +43,12 @@ def import_data(repo_code: str, harvest_url: str, dir: Path, additional_dir: Opt
 
             # https://stackoverflow.com/questions/15830421/xml-unicode-strings-with-encoding-declaration-are-not-supported
             root = ET.fromstring(bytes(xml, encoding='utf-8'))
-            identifier = root.find("./oai:header/oai:identifier", namespaces=NS)
+            identifier = root.find('./oai:header/oai:identifier', namespaces=NS)
 
-            if identifier is None:
-                raise ValueError(f'XML OAI-PMH record {file} without identifier')
+            datestamp = root.find('./oai:header/oai:datestamp', namespaces=NS)
+
+            if identifier is None or datestamp is None:
+                raise ValueError(f'XML OAI-PMH record {file} without identifier or datestamp')
 
             additional_metadata = None
             if additional_dir:
@@ -61,6 +63,7 @@ def import_data(repo_code: str, harvest_url: str, dir: Path, additional_dir: Opt
 
             payload = {
                 'record_identifier': identifier.text,
+                'datestamp': datestamp.text,
                 'raw_metadata': xml,
                 'additional_metadata': additional_metadata,
                 'harvest_url': harvest_url,

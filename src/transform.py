@@ -81,6 +81,7 @@ class Config(BaseModel):
 
 class HarvestEventCreateRequest(BaseModel):
     record_identifier: str
+    datestamp: datetime
     raw_metadata: str # XML
     additional_metadata: Optional[str] = None # XML or JSON (stringified)
     harvest_url: str
@@ -236,30 +237,30 @@ def create_harvest_event_in_db(harvest_event: HarvestEventCreateRequest) -> Harv
 
         cur.execute("""
                         INSERT INTO harvest_events 
-                            (record_identifier, 
+                            (record_identifier,
+                            datestamp, 
                             raw_metadata,
                             additional_metadata,
                             repository_id, 
-                            endpoint_id, 
-                            action, 
+                            endpoint_id,  
                             metadata_protocol,
                             metadata_format,
                             harvest_run_id,
                             is_deleted
                             ) 
                         VALUES ( 
+                            %s,
                             %s, 
                             XMLPARSE(DOCUMENT %s), 
                             %s,
                             (SELECT id from repositories WHERE code=%s),
                             (SELECT id from endpoints WHERE harvest_url=%s), 
-                            %s, 
                             %s,
                             %s,
                             (SELECT id FROM harvest_runs WHERE id = %s and status = 'open'),
                             %s
                             );
-                        """, (harvest_event.record_identifier, harvest_event.raw_metadata, harvest_event.additional_metadata, harvest_event.repo_code, harvest_event.harvest_url, 'create', 'OAI-PMH', 'XML', harvest_event.harvest_run_id, harvest_event.is_deleted))
+                        """, (harvest_event.record_identifier, harvest_event.datestamp, harvest_event.raw_metadata, harvest_event.additional_metadata, harvest_event.repo_code, harvest_event.harvest_url, 'OAI-PMH', 'XML', harvest_event.harvest_run_id, harvest_event.is_deleted))
 
 
         cur.execute("""
@@ -349,7 +350,8 @@ def create_jobs_in_queue(harvest_run_id: str) -> int:
                 xpath('/oai:record', he.raw_metadata, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}')
             )[1] AS record,
             he.additional_metadata,
-            he.is_deleted
+            he.is_deleted,
+            he.datestamp
         FROM harvest_events he
         JOIN harvest_runs hr ON he.harvest_run_id = hr.id 
         JOIN endpoints e ON he.endpoint_id = e.id
@@ -367,7 +369,7 @@ def create_jobs_in_queue(harvest_run_id: str) -> int:
                 # str(uuid) returns a string in the form 12345678-1234-5678-1234-567812345678 where the 32 hexadecimal digits represent the UUID.
                 batch.append(
                     HarvestEventQueue(id=str(doc['id']), xml=doc['record'], repository_id=str(doc['repository_id']),
-                                 endpoint_id=str(doc['endpoint_id']), record_identifier=doc['record_identifier'], code=doc['code'], harvest_url=doc['harvest_url'], additional_metadata=doc['additional_metadata'], is_deleted=doc['is_deleted'])
+                                 endpoint_id=str(doc['endpoint_id']), record_identifier=doc['record_identifier'], code=doc['code'], harvest_url=doc['harvest_url'], additional_metadata=doc['additional_metadata'], is_deleted=doc['is_deleted'], datestamp=doc['datestamp'].strftime('%Y-%m-%d %H:%M:%S.%f%z'))
                 )
 
             if len(batch) == 0:
@@ -420,7 +422,7 @@ def get_config() -> Config:
 @app.post('/harvest_event', tags=['harvest_event'], summary='Register a new harvest event')
 def create_harvest_event(harvest_event: HarvestEventCreateRequest) -> HarvestEventCreateResponse:
     try:
-        logger.debug(harvest_event)
+        #logger.debug(harvest_event)
         return create_harvest_event_in_db(harvest_event)
     except psycopg_errors.UniqueViolation as e:
         logger.exception(f'Harvest event could not be created for given harvest run')

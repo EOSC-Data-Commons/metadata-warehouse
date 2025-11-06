@@ -11,3 +11,4 @@ class HarvestEventQueue(NamedTuple):
     harvest_url: str # 6
     additional_metadata: Optional[str] # 7
     is_deleted: bool # 8
+    datestamp: str # 9

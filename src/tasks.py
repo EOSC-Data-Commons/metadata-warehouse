@@ -77,6 +77,11 @@ class TransformTask(Task):  # type: ignore
 def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) -> Any:
     # transform to JSON and normalize
 
+    # Error handling: if an error is thrown, psycopg will roll back the whole transaction and the whole batch fails because the exception is re-raised,
+    # making sure that only the whole batch is synced with PostgreSQL. See https://www.psycopg.org/psycopg3/docs/basic/transactions.html:
+    # "Thankfully, if you use the connection context, Psycopg will commit the connection at the end of the block
+    # (or roll it back if the block is exited with an exception)"
+    # However, this is not true for OpenSearch since we use a different client to write or delete data in OpenSearch and this actions will take immediate effect.
     with psycopg.connect(dbname=self.postgres_config.user, user=self.postgres_config.user, host=self.postgres_config.address,
                                          password=self.postgres_config.password, port=self.postgres_config.port,
                                          row_factory=dict_row) as conn:
@@ -88,7 +93,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
 
             harvest_event = HarvestEventQueue(*ele) # reconstruct HarvestEvent from serialized list
             #logger.info(f'{harvest_event.record_identifier}, {harvest_event.code}, {harvest_event.harvest_url}')
-            logger.info(f'is deleted: {harvest_event.is_deleted}')
+            #logger.info(f'is deleted: {harvest_event.is_deleted}')
 
             if harvest_event.is_deleted:
                 # find record in DB
@@ -194,6 +199,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 #logger.info(rec[1].event.record_identifier)
 
                 record_identifier = rec[1].event.record_identifier
+                datestamp = rec[1].event.datestamp
                 repository_id = rec[1].event.repository_id
                 endpoint_id = rec[1].event.endpoint_id
                 resource_type = 'Dataset' # TODO: get this information from record
@@ -225,13 +231,14 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                     datacite_json,
                     opensearch_synced,
                     opensearch_synced_at,
-                    additional_metadata
+                    additional_metadata,
+                    datestamp
                     ) 
                 VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     ON CONFLICT (endpoint_id, record_identifier)
-                    DO UPDATE SET resource_type = %s, title = %s, raw_metadata = %s, doi = %s, url = %s, embeddings = %s, embedding_model = %s, datacite_json = %s, opensearch_synced_at = %s, additional_metadata = %s      
+                    DO UPDATE SET resource_type = %s, title = %s, raw_metadata = XMLPARSE(DOCUMENT %s), doi = %s, url = %s, embeddings = %s, embedding_model = %s, datacite_json = %s, opensearch_synced_at = %s, additional_metadata = %s, datestamp = %s      
                 """, (record_identifier, # Insert
                       repository_id,
                       endpoint_id,
@@ -247,6 +254,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                       opensearch_synced,
                       opensearch_synced_at,
                       additional_metadata,
+                      datestamp,
                       resource_type, # Update
                       title,
                       xml,
@@ -256,12 +264,13 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                       EMBEDDING_MODEL,
                       datacite_json,
                       opensearch_synced_at,
-                      additional_metadata
+                      additional_metadata,
+                      datestamp
                       )
                 )
 
         except BulkIndexError as e:
-            logger.error(f'Bulk failed: {e}')
+            logger.error(f'OpenSearch bulk indexing failed: {e}')
             raise e
         except Exception as e:
             logger.error(f'Writing batch failed: {e}')
