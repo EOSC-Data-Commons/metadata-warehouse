@@ -214,7 +214,7 @@ def close_harvest_run_in_db(harvest_run: HarvestRunCloseRequest) -> HarvestRunCl
         cur.execute("""
             SELECT id 
             FROM harvest_runs
-            WHERE id = %s and status = 'closed'
+            WHERE id = %s and status != 'open'
         """, [harvest_run.id])
 
         closed_harvest_run = cur.fetchone()
