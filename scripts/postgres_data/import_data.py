@@ -14,21 +14,23 @@ load_dotenv()
 NS = {"oai": "http://www.openarchives.org/OAI/2.0/"}
 
 FASTAPI_ADDRESS = os.environ.get('FASTAPI_ADDRESS', '127.0.0.1')
+FASTAPI_PORT = os.environ.get('FASTAPI_PORT', '8080')
+TIMEOUT_FASTAPI = 30
 
-def import_data(repo_code: str, harvest_url: str, dir: Path, additional_dir: Optional[Path]) -> None:
-    files: list[Path] = list(dir.rglob("*.xml"))
+TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S.%f%z'
+
+
+def import_data(repo_code: str, harvest_url: str, data_dir: Path, additional_dir: Optional[Path]) -> None:
     harvest_run_id = None
 
     try:
-        harvest_run = requests.post(f'http://{FASTAPI_ADDRESS}:8080/harvest_run', json={
+        harvest_run = requests.post(f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_run', json={
             'harvest_url': harvest_url
-        })
+        }, timeout=TIMEOUT_FASTAPI)
 
         harvest_run.raise_for_status()
 
         response = harvest_run.json()
-
-        print(response)
 
         harvest_run_id = response.get('id')
 
@@ -36,11 +38,13 @@ def import_data(repo_code: str, harvest_url: str, dir: Path, additional_dir: Opt
             raise ValueError('harvest_run_id not set')
 
     except Exception as e:
-        print(f'An error occurred when loading data in DB: {e}', file=sys.stderr)
+        print(f'An error occurred when creating a harvest run: {e}', file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
+        raise e
 
     started = datetime.now(timezone.utc)
 
+    files: list[Path] = list(data_dir.rglob("*.xml"))
     for file in files:
         try:
             with open(file) as f:
@@ -77,29 +81,34 @@ def import_data(repo_code: str, harvest_url: str, dir: Path, additional_dir: Opt
                 'is_deleted': False
             }
 
-            res = requests.post(f'http://{FASTAPI_ADDRESS}:8080/harvest_event', json=payload)
+            res = requests.post(f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_event', json=payload, timeout=TIMEOUT_FASTAPI)
 
             res.raise_for_status()
 
             print(identifier.text)
 
         except Exception as e:
-            print(f'An error occurred when loading data in DB: {e}', file=sys.stderr)
+            print(f'An error occurred when creating harvest event: {e}', file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
 
 
     completed = datetime.now(timezone.utc)
 
-    res = requests.put(f'http://{FASTAPI_ADDRESS}:8080/harvest_run', json={
-        'id': harvest_run_id,
-        'success': True,
-        'started_at': started.strftime('%Y-%m-%d %H:%M:%S.%f%z'),
-        'completed_at': completed.strftime('%Y-%m-%d %H:%M:%S.%f%z')
-    })
+    try:
+        res = requests.put(f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_run', json={
+            'id': harvest_run_id,
+            'success': True,
+            'started_at': started.strftime(TIMESTAMP_FORMAT),
+            'completed_at': completed.strftime(TIMESTAMP_FORMAT)
+        }, timeout=TIMEOUT_FASTAPI)
 
-    res.raise_for_status()
+        res.raise_for_status()
 
-    print(res.json())
+    except Exception as e:
+        print(f'An error occurred when closing the harvest run: {e}', file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        raise e
+
 
 HARVEST_ENDPOINTS = [
     ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/harvests_DANS_arch'), Path('data/harvests_DANS_arch_additional')),
@@ -112,5 +121,6 @@ HARVEST_ENDPOINTS = [
     ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/harvests_HAL_sample'), None)
 ]
 
-for repo, harvest_url, path, add in HARVEST_ENDPOINTS:
-    import_data(repo, harvest_url, path, add)
+if __name__ == "__main__":
+    for repo, harvest_url_repo, path, add in HARVEST_ENDPOINTS:
+        import_data(repo, harvest_url_repo, path, add)
