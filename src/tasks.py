@@ -111,11 +111,16 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
 
                     opensearch_id = doi if doi is not None else record_to_delete['url']
 
-                    # delete document from OpenSearch
-                    self.client.delete(
-                        index=index_name,
-                        id=opensearch_id
-                    )
+                    try:
+                        # delete document from OpenSearch
+                        self.client.delete(
+                            index=index_name,
+                            id=opensearch_id,
+                            ignore=404 # https://github.com/opensearch-project/opensearch-py/blob/4ef46e5c17234e3e9b09338c98a599e18d42f572/guides/document_lifecycle.md
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to delete {opensearch_id} from OpenSearch: {e}")
+                        raise e
 
                     # delete record in DB
                     cur.execute("""
