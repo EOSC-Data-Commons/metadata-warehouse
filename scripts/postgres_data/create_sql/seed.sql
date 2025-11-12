@@ -100,11 +100,11 @@ INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_di
 SELECT
     r.id,
     'DABAR',
-    'https://dabar.srce.hr/oai',
+    'https://dabar.srce.hr/oai/',
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "set": ["openaire"],  "additional_metadata_params": {"endpoint": "https://dabar.srce.hr/oai", "protocol": "OAI-PMH", "format": "mods"}}'
+    '{"metadata_prefix": "oai_datacite", "set": ["openaire"],  "additional_metadata_params": {"endpoint": "https://dabar.srce.hr/oai/", "protocol": "OAI-PMH", "format": "mods"}}'
 FROM repositories r
 WHERE r.code = 'DABAR'
 ON CONFLICT (name) DO NOTHING;

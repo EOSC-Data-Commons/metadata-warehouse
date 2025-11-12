@@ -107,6 +107,10 @@ class TestNormalizeDatacite(unittest.TestCase):
         res = normalize_datacite_json.normalize_date_precision('2019-7-9')
         self.assertEqual(res, '2019-07-09')
 
+    def test_normalize_date_precision_with_daytime(self):
+        res = normalize_datacite_json.normalize_date_precision('2022-12-07T15:16:24+01:00')
+        self.assertEqual(res, '2022-12-07')
+
     def test_normalize_date_string_with_single_date(self):
         res = normalize_datacite_json.normalize_date_string('2025-06-07')
         self.assertEqual(res, '2025-06-07')

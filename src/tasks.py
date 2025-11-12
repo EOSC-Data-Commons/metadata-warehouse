@@ -274,6 +274,14 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                       )
                 )
 
+                cur.execute(
+                    """
+                    UPDATE harvest_events 
+                    SET error_message = NULL
+                    WHERE id = %s  
+                    """, [rec[1].event.id]
+                )
+
         except BulkIndexError as e:
             logger.error(f'OpenSearch bulk indexing failed: {e}')
             raise e
