@@ -44,7 +44,7 @@ def import_data(repo_code: str, harvest_url: str, data_dir: Path, additional_dir
 
     started = datetime.now(timezone.utc)
 
-    files: list[Path] = list(data_dir.rglob("*.xml"))
+    files = data_dir.rglob("*.xml")
     for file in files:
         try:
             with open(file) as f:
