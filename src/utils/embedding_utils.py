@@ -7,8 +7,7 @@ from .queue_utils import HarvestEventQueue
 class SourceWithEmbeddingText(NamedTuple):
     src: dict[str, Any] # 0, source document
     textToEmbed: str # 1, text to be embedded
-    file: Path # 2, name of the original source file
-    event: Optional[HarvestEventQueue] # 3, original harvest event
+    event: HarvestEventQueue # 2, original harvest event
 
 def get_embedding_text_from_fields(source: dict[str, Any]) -> str:
     """
@@ -48,15 +47,12 @@ def create_opensearch_source(src: dict[str, Any], embedding: ndarray[Any], batch
     :param embedding_field_name: name to be used for embedding field
     """
 
-    if batch_ele.event is not None:
-        add_metadata = batch_ele.event.additional_metadata
-    else:
-        add_metadata = None
-
     return ({
         **src,
         embedding_field_name: embedding.tolist(),
-        '_additional_metadata': add_metadata
+        '_additional_metadata': batch_ele.event.additional_metadata,
+        '_repo': batch_ele.event.code,
+        '_harvest_url': batch_ele.event.harvest_url
     }, batch_ele)
 
 

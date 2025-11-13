@@ -161,7 +161,6 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 validate(instance=normalized_record, schema=self.schema)
                 normalized.append(SourceWithEmbeddingText(src=normalized_record,
                                                           textToEmbed=get_embedding_text_from_fields(normalized_record),
-                                                          file=Path(''),
                                                           event=harvest_event
                                                           ))
 
