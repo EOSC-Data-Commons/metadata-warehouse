@@ -5,14 +5,13 @@ from config.logging_config import LOGGING_CONFIG
 from logging.config import dictConfig
 from fastembed import TextEmbedding
 from celery import Celery, Task
-from jsonschema.exceptions import ValidationError
 from jsonschema.validators import validate
 from opensearchpy import OpenSearch
 from opensearchpy.helpers import bulk, BulkIndexError
 import xmltodict
 from config.postgres_config import PostgresConfig
 from config.opensearch_config import OpenSearchConfig
-from utils.queue_utils import HarvestEvent
+from utils.queue_utils import HarvestEventQueue
 from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
     get_embedding_text_from_fields
 from utils import normalize_datacite_json
@@ -21,7 +20,6 @@ from celery.utils.log import get_task_logger
 from celery.signals import after_setup_logger
 import datetime
 import psycopg
-from psycopg import Connection
 from psycopg.rows import dict_row
 
 @after_setup_logger.connect()  # type: ignore
@@ -56,7 +54,6 @@ class TransformTask(Task):  # type: ignore
     schema: dict[Any, Any]
     postgres_config: PostgresConfig
 
-
     def __init__(self) -> None:
         if EMBEDDING_MODEL:
             self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL)
@@ -77,21 +74,61 @@ class TransformTask(Task):  # type: ignore
 
 
 @celery_app.task(base=TransformTask, bind=True, ignore_result=True)
-def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> Any:
+def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) -> Any:
     # transform to JSON and normalize
 
+    # Error handling: if an error is thrown, psycopg will roll back the whole transaction and the whole batch fails because the exception is re-raised,
+    # making sure that only the whole batch is synced with PostgreSQL. See https://www.psycopg.org/psycopg3/docs/basic/transactions.html:
+    # "Thankfully, if you use the connection context, Psycopg will commit the connection at the end of the block
+    # (or roll it back if the block is exited with an exception)"
+    # However, this is not true for OpenSearch since we use a different client to write or delete data in OpenSearch and this actions will take immediate effect.
     with psycopg.connect(dbname=self.postgres_config.user, user=self.postgres_config.user, host=self.postgres_config.address,
                                          password=self.postgres_config.password, port=self.postgres_config.port,
                                          row_factory=dict_row) as conn:
 
         cur = conn.cursor()
 
-        logger.info(f'Starting processing batch of {len(batch)}')
-
         normalized: list[SourceWithEmbeddingText] = []
         for ele in batch:
 
-            harvest_event = HarvestEvent(*ele) # reconstruct HarvestEvent from serialized list
+            harvest_event = HarvestEventQueue(*ele) # reconstruct HarvestEvent from serialized list
+            #logger.info(f'{harvest_event.record_identifier}, {harvest_event.code}, {harvest_event.harvest_url}')
+            #logger.info(f'is deleted: {harvest_event.is_deleted}')
+
+            if harvest_event.is_deleted:
+                # find record in DB
+                cur.execute("""
+                SELECT id, doi, url FROM records
+                WHERE endpoint_id = %s and record_identifier = %s
+                """, (harvest_event.endpoint_id, harvest_event.record_identifier))
+
+                record_to_delete = cur.fetchone()
+
+                if record_to_delete is not None:
+
+                    id = record_to_delete['id']
+                    doi = record_to_delete.get('doi')
+
+                    opensearch_id = doi if doi is not None else record_to_delete['url']
+
+                    try:
+                        # delete document from OpenSearch
+                        self.client.delete(
+                            index=index_name,
+                            id=opensearch_id,
+                            ignore=404 # https://github.com/opensearch-project/opensearch-py/blob/4ef46e5c17234e3e9b09338c98a599e18d42f572/guides/document_lifecycle.md
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to delete {opensearch_id} from OpenSearch: {e}")
+                        raise e
+
+                    # delete record in DB
+                    cur.execute("""
+                    DELETE FROM records WHERE id = %s;
+                    """, [id])
+
+
+                continue
 
             logger.debug(f'Processing {harvest_event}')
             converted = xmltodict.parse(harvest_event.xml, process_namespaces=True)  # named tuple serialized as list in broker
@@ -167,6 +204,7 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                 #logger.info(rec[1].event.record_identifier)
 
                 record_identifier = rec[1].event.record_identifier
+                datestamp = rec[1].event.datestamp
                 repository_id = rec[1].event.repository_id
                 endpoint_id = rec[1].event.endpoint_id
                 resource_type = 'Dataset' # TODO: get this information from record
@@ -175,11 +213,12 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                 protocol = 'OAI-PMH'
                 doi = rec[0].get('doi')
                 url = rec[0].get('url')
-                #embedding = [rec[0]['emb']][0]
-                embedding = rec[0]['emb']
+                embeddings = rec[0]['emb']
                 datacite_json = json.dumps({**rec[0], 'emb': None})
                 opensearch_synced = True
+                additional_metadata = rec[1].event.additional_metadata
 
+                # https://neon.com/postgresql/postgresql-tutorial/postgresql-upsert
                 cur.execute("""
                 INSERT INTO records 
                 (   
@@ -196,12 +235,16 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                     embedding_model,
                     datacite_json,
                     opensearch_synced,
-                    opensearch_synced_at
+                    opensearch_synced_at,
+                    additional_metadata,
+                    datestamp
                     ) 
                 VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                    )     
-                """, (record_identifier,
+                    %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    )
+                    ON CONFLICT (endpoint_id, record_identifier)
+                    DO UPDATE SET resource_type = %s, title = %s, raw_metadata = XMLPARSE(DOCUMENT %s), doi = %s, url = %s, embeddings = %s, embedding_model = %s, datacite_json = %s, opensearch_synced_at = %s, additional_metadata = %s, datestamp = %s      
+                """, (record_identifier, # Insert
                       repository_id,
                       endpoint_id,
                       resource_type,
@@ -210,15 +253,37 @@ def transform_batch(self: Any, batch: list[HarvestEvent], index_name: str) -> An
                       protocol,
                       doi,
                       url,
-                      embedding,
+                      embeddings,
                       EMBEDDING_MODEL,
                       datacite_json,
                       opensearch_synced,
-                      opensearch_synced_at)
+                      opensearch_synced_at,
+                      additional_metadata,
+                      datestamp,
+                      resource_type, # Update
+                      title,
+                      xml,
+                      doi,
+                      url,
+                      embeddings,
+                      EMBEDDING_MODEL,
+                      datacite_json,
+                      opensearch_synced_at,
+                      additional_metadata,
+                      datestamp
+                      )
+                )
+
+                cur.execute(
+                    """
+                    UPDATE harvest_events 
+                    SET error_message = NULL
+                    WHERE id = %s  
+                    """, [rec[1].event.id]
                 )
 
         except BulkIndexError as e:
-            logger.error(f'Bulk failed: {e}')
+            logger.error(f'OpenSearch bulk indexing failed: {e}')
             raise e
         except Exception as e:
             logger.error(f'Writing batch failed: {e}')

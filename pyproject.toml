@@ -23,6 +23,7 @@ dev = [
     "celery-stubs",
     "mypy",
     "types-jsonschema",
+    "types-requests",
     "lxml-stubs"
 ]
 

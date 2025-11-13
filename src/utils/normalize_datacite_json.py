@@ -157,15 +157,15 @@ def normalize_date_precision(date_str: str) -> str:
     :param date_str: Given date string.
     :return: Date with normalized precision.
     """
-    if len(date_str) == 10:
+    if len(date_str) >= 10:
         # day precision
         try:
             # will raise an exception if the date str does not conform to the expected format
-            datetime.datetime.strptime(date_str, DATE_FORMAT)
+            datetime.datetime.strptime(date_str[0:10], DATE_FORMAT)
         except ValueError as e:
             print(f'Date {date_str} invalid: {e}', file=sys.stderr)
             raise e
-        return date_str
+        return date_str[0:10]
     elif len(date_str) == 7:
         # month precision
         return f'{date_str}-01'
@@ -233,7 +233,7 @@ def normalize_datacite_json(res: dict[str, Any]) -> dict[str, Any]:
     try:
         res = {
             'doi': get_identifier(res, 'DOI'),
-            'url': get_identifier(res, 'URL'),
+            'url': get_identifier(res, 'URN'),
             'titles': list(map(lambda el: harmonize_props(el, f'{DATACITE}:title',
                                                           {f'@{XML}:lang': 'lang', '@titleType': 'titleType'}, {f'@{XML}:lang': normalize_lang_string}),
                                make_array(res.get(f'{DATACITE}:titles'), f'{DATACITE}:title'))),

@@ -10,6 +10,7 @@ from pathlib import Path
 from multiprocessing import Pool, cpu_count
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
+import traceback
 
 # setting path
 sys.path.append("..")
@@ -20,7 +21,8 @@ from src.utils.normalize_datacite_json import normalize_datacite_json
 def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: Optional[dict[Any, Any]]) -> None:
     try:
         with open(filepath) as f:
-            converted = xmltodict.parse(f.read(), process_namespaces=True)
+            contents = f.read()
+            converted = xmltodict.parse(contents, process_namespaces=True)
 
         if normalize:
             metadata = converted['http://www.openarchives.org/OAI/2.0/:record'][
@@ -46,6 +48,7 @@ def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: 
         print(f'Validation failed for {filepath}: {e.message}', file=sys.stderr)
     except Exception as e:
         print(f'Transformation failed for {filepath}: {e}', file=sys.stderr)
+        traceback.print_exc()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
