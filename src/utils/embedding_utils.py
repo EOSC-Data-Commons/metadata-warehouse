@@ -69,9 +69,10 @@ def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_mod
     :param embedding_field_name: name of the embedding field in the source document.
     :return: a tuple of source documents with embeddings (0) and the original file name (1).
     """
-    embeddings = list(embedding_model.embed(list(map(lambda ele: ele[1], batch))))
+    embedding_texts = [ele.textToEmbed for ele in batch]
+    embeddings = list(embedding_model.embed(embedding_texts))
     src_emb = zip(
-        list(map(lambda ele: ele[0], batch)), # src
+        [ele.src for ele in batch], # src
         embeddings, # embeddings
         batch # original batch
     )
