@@ -10,8 +10,6 @@ SELECT
     e.harvest_url,
     e.protocol,
     e.scientific_discipline,
-    e.last_harvest_date,
-    e.next_scheduled_harvest,
     r.name as repository_name,
     r.code as repository_code,
     r.base_url as repository_url
@@ -24,14 +22,11 @@ CREATE OR REPLACE VIEW v_harvest_events_summary AS
 SELECT
     e.name as endpoint_name,
     r.name as repository_name,
-    he.status,
-    COUNT(*) as event_count,
-    MIN(he.harvested_at) as earliest_harvest,
-    MAX(he.harvested_at) as latest_harvest
+    COUNT(*) as event_count
 FROM harvest_events he
 JOIN endpoints e ON he.endpoint_id = e.id
 JOIN repositories r ON he.repository_id = r.id
-GROUP BY e.name, r.name, he.status;
+GROUP BY e.name, r.name;
 
 -- View for records statistics
 CREATE OR REPLACE VIEW v_records_statistics AS
@@ -46,5 +41,4 @@ SELECT
 FROM records rec
 JOIN endpoints e ON rec.endpoint_id = e.id
 JOIN repositories r ON rec.repository_id = r.id
-WHERE rec.deleted_at IS NULL
 GROUP BY r.name, e.name, rec.resource_type;

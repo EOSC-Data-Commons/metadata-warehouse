@@ -24,23 +24,16 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- Event Action Type
-DO $$ BEGIN
-    CREATE TYPE event_action AS ENUM ('create', 'update', 'delete');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
--- Event Status Type
-DO $$ BEGIN
-    CREATE TYPE event_status AS ENUM ('pending', 'processing', 'completed', 'failed', 'skipped');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
 -- Content Format Type
 DO $$ BEGIN
     CREATE TYPE content_format AS ENUM ('XML', 'JSON');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- Harvest Run State
+DO $$ BEGIN
+    CREATE TYPE harvest_run_state AS ENUM ('open', 'closed', 'failed');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;

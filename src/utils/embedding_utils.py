@@ -1,13 +1,13 @@
 from pathlib import Path
 from typing import Any, NamedTuple, Optional
 from fastembed import TextEmbedding
-from .queue_utils import HarvestEvent
+from .queue_utils import HarvestEventQueue
 
 class SourceWithEmbeddingText(NamedTuple):
     src: dict[str, Any] # 0, source document
     textToEmbed: str # 1, text to be embedded
     file: Path # 2, name of the original source file
-    event: Optional[HarvestEvent] # 3, original harvest event
+    event: Optional[HarvestEventQueue] # 3, original harvest event
 
 def get_embedding_text_from_fields(source: dict[str, Any]) -> str:
     """
@@ -50,7 +50,8 @@ def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_mod
         list(map(lambda ele: ele[0], batch)),
         embeddings, batch
     )
-    return list(map(lambda ele: ({**ele[0], embedding_field_name: ele[1].tolist()}, ele[2]), src_emb))
+    # TODO: improve this
+    return list(map(lambda ele: ({**ele[0], embedding_field_name: ele[1].tolist(), 'additional_metadata': ele[2][3][7] if ele[2][3] is not None else None}, ele[2]), src_emb))
 
 
 def preprocess_batch(batch: list[dict[str, Any]], index_name: str) -> list[dict[str, Any]]:

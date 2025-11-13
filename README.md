@@ -11,6 +11,7 @@ To run the containers:
   Optionally add the following env variables for postgres and/or OpenSearch (not needed for local dev):
     - `POSTGRES_ADDRESS` (default "postgres") and `POSTGRES_PORT` (default 5432)
     - `OPENSEARCH_ADDRESS` (default "opensearch") and `OPENSEARCH_PORT` (default 9200)
+    - `FASTAPI_ADDRESS` (default "127.0.0.1")
 - API keys for mcp server:
   ```sh
   cp keys.env.template keys.env
@@ -87,13 +88,24 @@ To run the containers:
 
 The transformer container provides an [API](http://127.0.0.1:8080/docs) to start the transformation and indexing process.
 
+A transformation requires a `harvest_run_id`. 
+When running the script `import_data.py` (scripts/postgres_data/data),
+for each endpoint a harves run is created, the single OAI-PMH records are registered as harvest events,
+and the harvest run is then closed. Note that a transformation can only be performed for a closed harvest run.
+
 - check if transformer container is up and running:
   ```sh
   http://127.0.0.1:8080/health
   ```
+
+- To obtain a harvest run id and status for a given endpoint (https://dabar.srce.hr/oai):
+```sh
+  http://127.0.0.1:8080/harvest_run?harvest_url=https%3A%2F%2Fdabar.srce.hr%2Foai 
+```
+
 - start transformation process:
   ```sh
-  http://127.0.0.1:8080/index?index_name=test_datacite
+  http://127.0.0.1:8080/index?harvest_run_id=xyz
   ```
 - see transformation task results in flower:
   ```sh
