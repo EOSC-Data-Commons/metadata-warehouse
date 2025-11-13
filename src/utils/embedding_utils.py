@@ -9,6 +9,12 @@ class SourceWithEmbeddingText(NamedTuple):
     textToEmbed: str # 1, text to be embedded
     event: HarvestEventQueue # 2, original harvest event
 
+
+class OpenSearchSourceWithEmbedding(NamedTuple):
+    src: dict[str, Any]
+    harvest_event: HarvestEventQueue
+
+
 def get_embedding_text_from_fields(source: dict[str, Any]) -> str:
     """
     Given a source document, extracts the text fields to be embedded and joins them to a single string.
@@ -37,7 +43,7 @@ def extract_fields_from_source(source: dict[str, Any], field_name: str, subfield
         return []
 
 def create_opensearch_source(src: dict[str, Any], embedding: ndarray[Any], batch_ele: SourceWithEmbeddingText,
-                             embedding_field_name: str) -> tuple[dict[str, Any], SourceWithEmbeddingText]:
+                             embedding_field_name: str) -> OpenSearchSourceWithEmbedding:
     """
 
 
@@ -47,23 +53,22 @@ def create_opensearch_source(src: dict[str, Any], embedding: ndarray[Any], batch
     :param embedding_field_name: name to be used for embedding field
     """
 
-    return ({
+    return OpenSearchSourceWithEmbedding(src={
         **src,
         embedding_field_name: embedding.tolist(),
         '_additional_metadata': batch_ele.event.additional_metadata,
         '_repo': batch_ele.event.code,
         '_harvest_url': batch_ele.event.harvest_url
-    }, batch_ele)
+    }, harvest_event=batch_ele.event)
 
 
-def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_model: TextEmbedding, embedding_field_name: str = 'emb') -> list[tuple[dict[str, Any], SourceWithEmbeddingText]]:
+def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_model: TextEmbedding, embedding_field_name: str = 'emb') -> list[OpenSearchSourceWithEmbedding]:
     """
     Given a batch of `SourceWithEmbeddingText`, calculates the embeddings and returns the documents with the embeddings (integrated).
 
     :param batch: a batch of source documents with their embedding texts.
     :param embedding_model: the model to be used for embedding.
     :param embedding_field_name: name of the embedding field in the source document.
-    :return: a tuple of source documents with embeddings (0) and the original file name (1).
     """
     embedding_texts = [ele.textToEmbed for ele in batch]
     embeddings = list(embedding_model.embed(embedding_texts))

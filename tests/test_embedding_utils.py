@@ -7,7 +7,7 @@ from src.utils import embedding_utils
 from fastembed import TextEmbedding
 import numpy as np
 
-from src.utils.embedding_utils import SourceWithEmbeddingText
+from src.utils.embedding_utils import SourceWithEmbeddingText, OpenSearchSourceWithEmbedding
 from src.utils.queue_utils import HarvestEventQueue
 
 
@@ -81,18 +81,18 @@ class TestEmbeddingsUtils(unittest.TestCase):
                 datestamp='2025-11-13T14:50:35.397Z'
             )
         )]
-        res = embedding_utils.add_embeddings_to_source(data, embedding_model)
+        res: list[OpenSearchSourceWithEmbedding] = embedding_utils.add_embeddings_to_source(data, embedding_model)
 
         self.assertEqual(len(res), 3)
 
-        self.assertEqual(res[0][0]['titles'][0], 'a title')
-        self.assertEqual(res[0][0]['emb'], [1,2,3])
-        self.assertEqual(res[0][1].event.id, '1')
+        self.assertEqual(res[0].src['titles'][0], 'a title')
+        self.assertEqual(res[0].src['emb'], [1,2,3])
+        self.assertEqual(res[0].harvest_event.id, '1')
 
-        self.assertEqual(res[1][0]['titles'][0], 'a title 1')
-        self.assertEqual(res[1][0]['emb'], [4, 5, 6])
-        self.assertEqual(res[1][1].event.id, '2')
+        self.assertEqual(res[1].src['titles'][0], 'a title 1')
+        self.assertEqual(res[1].src['emb'], [4, 5, 6])
+        self.assertEqual(res[1].harvest_event.id, '2')
 
-        self.assertEqual(res[2][0]['titles'][0], 'a title 2')
-        self.assertEqual(res[2][0]['emb'], [7, 8, 9])
-        self.assertEqual(res[2][1].event.id, '3')
+        self.assertEqual(res[2].src['titles'][0], 'a title 2')
+        self.assertEqual(res[2].src['emb'], [7, 8, 9])
+        self.assertEqual(res[2].harvest_event.id, '3')
