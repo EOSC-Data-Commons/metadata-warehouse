@@ -8,18 +8,20 @@ from psycopg.rows import dict_row
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
 from utils.queue_utils import HarvestEventQueue
+from dotenv import load_dotenv
 from tasks import transform_batch
 import os
 from fastapi import FastAPI, Query, HTTPException
 import logging
 from pydantic import BaseModel, Field
 
+load_dotenv()
 dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
-BATCH_SIZE = os.environ.get('CELERY_BATCH_SIZE')
-if not BATCH_SIZE or not BATCH_SIZE.isnumeric():
-    raise ValueError('Missing or invalid CELERY_BATCH_SIZE environment variable')
+BATCH_SIZE_DEFAULT = 125
+INDEX_NAME = os.environ.get('INDEX_NAME')
+BATCH_SIZE = int(os.environ.get('CELERY_BATCH_SIZE', BATCH_SIZE_DEFAULT))
 
 tags_metadata = [
     {
@@ -118,7 +120,6 @@ class HarvestRunCloseRequest(BaseModel):
 
 class HarvestRunCloseResponse(BaseModel):
     id: str = Field(description='ID of the closed harvest run')
-
 
 def get_latest_harvest_run_in_db(harvest_url: str) -> HarvestRunGetResponse:
     with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
@@ -315,28 +316,32 @@ JOIN repositories r ON e.repository_id = r.id
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def create_jobs_in_queue(harvest_run_id: str) -> int:
+def create_jobs_in_queue(
+    harvest_run_id: str,
+    index_name: Optional[str] = None
+) -> int:
     """
     Creates and enqueues transformation jobs from harvest_events table.
 
-    :param harvest_run_id: ID of the harvest run the harvest events belong to..
+    :param harvest_run_id: ID of the harvest run the harvest events belong to.
+    :param index_name: Name of the OpenSearch index to use. If None, uses INDEX_NAME from environment.
     :return: Number of batches scheduled for processing.
     """
 
     batch: list[HarvestEventQueue] = []
     tasks = 0
     offset = 0
-    limit = int(BATCH_SIZE) if BATCH_SIZE else 250
+    limit = BATCH_SIZE
     fetch = True
 
-    logger.info(f'Preparing jobs')
+    index_name = index_name or INDEX_NAME
+    if index_name is None:
+        raise ValueError("OpenSearch index_name is required (not provided and INDEX_NAME env var not set)")
+
+    logger.info(f'Preparing jobs for index: {index_name}')
 
     with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address, password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
-
         cur = conn.cursor()
-
-        # print(db)
-
         while fetch:
 
             cur.execute("""
@@ -363,7 +368,6 @@ def create_jobs_in_queue(harvest_run_id: str) -> int:
             """, (harvest_run_id, limit, offset))
 
             for doc in cur.fetchall():
-
                 # https://www.psycopg.org/psycopg3/docs/basic/adapt.html#uuid-adaptation
                 # https://docs.python.org/3/library/uuid.html#uuid.UUID
                 # str(uuid) returns a string in the form 12345678-1234-5678-1234-567812345678 where the 32 hexadecimal digits represent the UUID.
@@ -378,7 +382,7 @@ def create_jobs_in_queue(harvest_run_id: str) -> int:
 
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')
-            transform_batch.delay(batch, 'test_datacite')
+            transform_batch.delay(batch, index_name)
             tasks += 1
 
             # increment offset by limit
@@ -391,11 +395,14 @@ def create_jobs_in_queue(harvest_run_id: str) -> int:
     return tasks
 
 @app.get('/index', tags=['index'])
-def init_index(harvest_run_id: str = Query(default=None, description='Id of the harvest run to be indexed')) -> IndexGetResponse:
+def init_index(
+    harvest_run_id: str = Query(default=None, description='Id of the harvest run to be indexed'),
+    index_name: str = Query(default=INDEX_NAME, description='Name of the OpenSearch index to use for indexing')
+) -> IndexGetResponse:
     # this long-running method is synchronous and runs in an external threadpool, see https://fastapi.tiangolo.com/async/#path-operation-functions
     # this way, it does not block the server
     try:
-        results = create_jobs_in_queue(harvest_run_id)
+        results = create_jobs_in_queue(harvest_run_id, index_name)
     except Exception as e:
         logger.exception("Indexing failed")
         raise HTTPException(status_code=500, detail=str(e))
