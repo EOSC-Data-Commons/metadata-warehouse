@@ -20,7 +20,6 @@ dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE_DEFAULT = 125
-INDEX_NAME = os.environ.get('INDEX_NAME')
 BATCH_SIZE = int(os.environ.get('CELERY_BATCH_SIZE', BATCH_SIZE_DEFAULT))
 
 tags_metadata = [
@@ -318,13 +317,13 @@ JOIN repositories r ON e.repository_id = r.id
 
 def create_jobs_in_queue(
     harvest_run_id: str,
-    index_name: Optional[str] = None
+    index_name: str
 ) -> int:
     """
     Creates and enqueues transformation jobs from harvest_events table.
 
     :param harvest_run_id: ID of the harvest run the harvest events belong to.
-    :param index_name: Name of the OpenSearch index to use. If None, uses INDEX_NAME from environment.
+    :param index_name: Name of the OpenSearch index to use.
     :return: Number of batches scheduled for processing.
     """
 
@@ -333,10 +332,6 @@ def create_jobs_in_queue(
     offset = 0
     limit = BATCH_SIZE
     fetch = True
-
-    index_name = index_name or INDEX_NAME
-    if index_name is None:
-        raise ValueError("OpenSearch index_name is required (not provided and INDEX_NAME env var not set)")
 
     logger.info(f'Preparing jobs for index: {index_name}')
 
@@ -397,7 +392,7 @@ def create_jobs_in_queue(
 @app.get('/index', tags=['index'])
 def init_index(
     harvest_run_id: str = Query(default=None, description='Id of the harvest run to be indexed'),
-    index_name: str = Query(default=INDEX_NAME, description='Name of the OpenSearch index to use for indexing')
+    index_name: str = Query(default=None, description='Name of the OpenSearch index to use for indexing')
 ) -> IndexGetResponse:
     # this long-running method is synchronous and runs in an external threadpool, see https://fastapi.tiangolo.com/async/#path-operation-functions
     # this way, it does not block the server
