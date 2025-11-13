@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any, NamedTuple, Optional
 from fastembed import TextEmbedding
+from numpy import ndarray
 from .queue_utils import HarvestEventQueue
 
 class SourceWithEmbeddingText(NamedTuple):
@@ -36,6 +37,29 @@ def extract_fields_from_source(source: dict[str, Any], field_name: str, subfield
     else:
         return []
 
+def create_opensearch_source(src: dict[str, Any], embedding: ndarray[Any], batch_ele: SourceWithEmbeddingText,
+                             embedding_field_name: str) -> tuple[dict[str, Any], SourceWithEmbeddingText]:
+    """
+
+
+    :param src: document to be indexed
+    :param embedding: embeddings to be added to source
+    :param batch_ele: original element in batch
+    :param embedding_field_name: name to be used for embedding field
+    """
+
+    if batch_ele.event is not None:
+        add_metadata = batch_ele.event.additional_metadata
+    else:
+        add_metadata = None
+
+    return ({
+        **src,
+        embedding_field_name: embedding.tolist(),
+        '_additional_metadata': add_metadata
+    }, batch_ele)
+
+
 def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_model: TextEmbedding, embedding_field_name: str = 'emb') -> list[tuple[dict[str, Any], SourceWithEmbeddingText]]:
     """
     Given a batch of `SourceWithEmbeddingText`, calculates the embeddings and returns the documents with the embeddings (integrated).
@@ -47,11 +71,12 @@ def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_mod
     """
     embeddings = list(embedding_model.embed(list(map(lambda ele: ele[1], batch))))
     src_emb = zip(
-        list(map(lambda ele: ele[0], batch)),
-        embeddings, batch
+        list(map(lambda ele: ele[0], batch)), # src
+        embeddings, # embeddings
+        batch # original batch
     )
-    # TODO: improve this
-    return list(map(lambda ele: ({**ele[0], embedding_field_name: ele[1].tolist(), 'additional_metadata': ele[2][3][7] if ele[2][3] is not None else None}, ele[2]), src_emb))
+
+    return list(map(lambda ele: create_opensearch_source(ele[0], ele[1], ele[2], embedding_field_name), src_emb))
 
 
 def preprocess_batch(batch: list[dict[str, Any]], index_name: str) -> list[dict[str, Any]]:
