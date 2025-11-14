@@ -63,6 +63,21 @@
                     }
                 }
             },
+            "creators": {
+                "type": "nested",
+                "properties": {
+                    "creatorName": {
+                        "type": "text",
+                        "copy_to": [
+                            "_all_fields",
+                            "_creator"
+                        ]
+                    },
+                    "nameIdentifier": {
+                        "type": "keyword"
+                    }
+                }
+            },
             "subjects": {
                 "type": "nested",
                 "properties": {
@@ -127,6 +142,9 @@
                 "type": "text"
             },
             "_description": {
+                "type": "text"
+            },
+            "_creator": {
                 "type": "text"
             },
             "_subject": {
