@@ -89,4 +89,4 @@ def preprocess_batch(batch: list[dict[str, Any]], index_name: str) -> list[dict[
     :param index_name: name of the OpenSearch index.
     :return: a list of prepared documents for import.
     """
-    return list(map(lambda ele: {'_op_type': 'index', '_id': ele['id'], '_index': index_name, '_source': ele}, batch))
+    return [{'_op_type': 'index', '_id': ele['id'], '_index': index_name, '_source': ele} for ele in batch]

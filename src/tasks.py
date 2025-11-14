@@ -181,7 +181,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
             src_with_emb: list[OpenSearchSourceWithEmbedding] = add_embeddings_to_source(normalized,
                                                                                        self.embedding_transformer)
             logger.info(f'Calculated embeddings for {len(src_with_emb)}')
-            preprocessed = preprocess_batch(list(map(lambda el: el[0], src_with_emb)), index_name)
+            preprocessed = preprocess_batch([src_with_emb_ele.src for src_with_emb_ele in src_with_emb], index_name)
         except Exception as e:
             logger.error(f'Could not calculate embeddings: {e}')
             raise e
@@ -196,7 +196,6 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
 
             for rec in src_with_emb:
                 # write to records table
-                #logger.info(rec[1].event.record_identifier)
 
                 record_identifier = rec.harvest_event.record_identifier
                 datestamp = rec.harvest_event.datestamp
@@ -209,7 +208,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 doi = rec.src.get('doi')
                 url = rec.src.get('url')
                 embeddings = rec.src['emb']
-                datacite_json = json.dumps({**rec[0], 'emb': None})
+                datacite_json = json.dumps({**rec.src, 'emb': None})
                 opensearch_synced = True
                 additional_metadata = rec.harvest_event.additional_metadata
 
