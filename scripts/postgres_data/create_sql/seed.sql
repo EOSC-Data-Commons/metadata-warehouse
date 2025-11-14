@@ -9,7 +9,7 @@ VALUES
     ('Digital Academic Repository', 'DABAR', 'Croatian national repository', 'https://dabar.srce.hr', true),
     ('SwissUbase', 'SWISS', 'Swiss data repository', 'https://www.swissubase.ch', true),
     ('HAL Science', 'HAL', 'French open archive', 'https://hal.science', true),
-    ('Onedata', 'ONE', 'Onedata Demo repository', 'https://demo.onedata.org', true)
+    ('Onedata', 'ONE', 'Onedata demo repository', 'https://demo.onedata.org', true)
 ON CONFLICT (code) DO NOTHING;
 
 -- DANS Archaeology
