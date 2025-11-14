@@ -78,7 +78,7 @@ def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_mod
         batch # original batch
     )
 
-    return list(map(lambda ele: create_opensearch_source(ele[0], ele[1], ele[2], embedding_field_name), src_emb))
+    return [create_opensearch_source(src_ele, emb_ele, batch_ele, embedding_field_name) for src_ele, emb_ele, batch_ele in src_emb]
 
 
 def preprocess_batch(batch: list[dict[str, Any]], index_name: str) -> list[dict[str, Any]]:
