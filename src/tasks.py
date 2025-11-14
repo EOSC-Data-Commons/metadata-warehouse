@@ -36,6 +36,8 @@ OAI_RECORD = f'{OAI}:record'
 OAI_METADATA = f'{OAI}:metadata'
 DATACITE_RESOURCE = 'http://datacite.org/schema/kernel-4:resource'
 HAL_RESOURCE = f'{OAI}:resource'
+ONEDATA_WRAPPER = 'http://schema.datacite.org/oai/oai-1.1/:oai_datacite'
+ONEDATA_PAYLOAD = 'http://schema.datacite.org/oai/oai-1.1/:payload'
 
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
 if not EMBEDDING_MODEL:
@@ -92,8 +94,6 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
         for ele in batch:
 
             harvest_event = HarvestEventQueue(*ele) # reconstruct HarvestEvent from serialized list
-            #logger.info(f'{harvest_event.record_identifier}, {harvest_event.code}, {harvest_event.harvest_url}')
-            #logger.info(f'is deleted: {harvest_event.is_deleted}')
 
             if harvest_event.is_deleted:
                 # find record in DB
@@ -150,9 +150,12 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
             elif HAL_RESOURCE in metadata:
                 # HAL
                 resource = metadata[HAL_RESOURCE]
+            elif ONEDATA_WRAPPER in metadata and ONEDATA_PAYLOAD in metadata[ONEDATA_WRAPPER] and DATACITE_RESOURCE in metadata[ONEDATA_WRAPPER][ONEDATA_PAYLOAD]:
+                # extra layer structure from Onedata
+                resource = metadata[ONEDATA_WRAPPER][ONEDATA_PAYLOAD][DATACITE_RESOURCE]
             else:
                 # JSON cannot be processed, log this
-                logger.debug(f'Cannot access {DATACITE_RESOURCE} or {HAL_RESOURCE} in : {metadata}')
+                logger.debug(f'Cannot access resource element {DATACITE_RESOURCE} or {HAL_RESOURCE} or {ONEDATA_WRAPPER}{ONEDATA_PAYLOAD} in : {metadata}')
                 continue
 
             # Catch and log errors
