@@ -75,6 +75,9 @@ class TransformTask(Task):  # type: ignore
 
 @celery_app.task(base=TransformTask, bind=True, ignore_result=True)
 def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) -> Any:
+    if not self.client.indices.exists(index=index_name):
+        raise ValueError(f'Index {index_name} does not exist in OpenSearch')
+
     # transform to JSON and normalize
 
     # Error handling: if an error is thrown, psycopg will roll back the whole transaction and the whole batch fails because the exception is re-raised,

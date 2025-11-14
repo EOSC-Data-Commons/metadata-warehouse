@@ -8,14 +8,12 @@ from psycopg.rows import dict_row
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
 from utils.queue_utils import HarvestEventQueue
-from dotenv import load_dotenv
 from tasks import transform_batch
 import os
 from fastapi import FastAPI, Query, HTTPException
 import logging
 from pydantic import BaseModel, Field
 
-load_dotenv()
 dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
