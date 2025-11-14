@@ -254,6 +254,9 @@ def normalize_datacite_json(res: dict[str, Any]) -> dict[str, Any]:
                               make_array(res.get(f'{DATACITE}:dates'), f'{DATACITE}:date'))),
             'formats': list(map(lambda el: el['format'], map(lambda el: harmonize_props(el, f'{DATACITE}:format', {}, {}),
                               make_array(res.get(f'{DATACITE}:formats'), f'{DATACITE}:format')))),
+            'rightsList': list(map(lambda el: harmonize_props(el, f'{DATACITE}:rights', {'@rightsURI': 'rightsURI'},
+                                                         {}),
+                              make_array(res.get(f'{DATACITE}:rightsList'), f'{DATACITE}:rights'))),
             'types': get_resource_type(res)
         }
 
