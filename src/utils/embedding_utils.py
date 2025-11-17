@@ -72,13 +72,14 @@ def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_mod
     """
     embedding_texts = [ele.textToEmbed for ele in batch]
     embeddings = list(embedding_model.embed(embedding_texts))
-    src_emb = zip(
-        [ele.src for ele in batch], # src
-        embeddings, # embeddings
-        batch # original batch
-    )
 
-    return [create_opensearch_source(src_ele, emb_ele, batch_ele, embedding_field_name) for src_ele, emb_ele, batch_ele in src_emb]
+    if len(embeddings) != len(batch):
+        raise ValueError("Embedding model returned an unexpected number of vectors.")
+
+    return [create_opensearch_source(batch_ele.src, emb_ele, batch_ele, embedding_field_name) for batch_ele, emb_ele in zip(
+        batch, # original batch
+        embeddings  # embeddings
+    )]
 
 
 def preprocess_batch(batch: list[dict[str, Any]], index_name: str) -> list[dict[str, Any]]:
