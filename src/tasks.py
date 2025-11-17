@@ -13,7 +13,7 @@ from config.postgres_config import PostgresConfig
 from config.opensearch_config import OpenSearchConfig
 from utils.queue_utils import HarvestEventQueue
 from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
-    get_embedding_text_from_fields
+    get_embedding_text_from_fields, OpenSearchSourceWithEmbedding
 from utils import normalize_datacite_json
 from typing import Any
 from celery.utils.log import get_task_logger
@@ -164,7 +164,6 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 validate(instance=normalized_record, schema=self.schema)
                 normalized.append(SourceWithEmbeddingText(src=normalized_record,
                                                           textToEmbed=get_embedding_text_from_fields(normalized_record),
-                                                          file=Path(''),
                                                           event=harvest_event
                                                           ))
 
@@ -182,10 +181,10 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
 
         try:
             logger.info(f'About to Calculate embeddings for {len(normalized)}')
-            src_with_emb: list[tuple[dict[str, Any], SourceWithEmbeddingText]] = add_embeddings_to_source(normalized,
+            src_with_emb: list[OpenSearchSourceWithEmbedding] = add_embeddings_to_source(normalized,
                                                                                        self.embedding_transformer)
             logger.info(f'Calculated embeddings for {len(src_with_emb)}')
-            preprocessed = preprocess_batch(list(map(lambda el: el[0], src_with_emb)), index_name)
+            preprocessed = preprocess_batch([src_with_emb_ele.src for src_with_emb_ele in src_with_emb], index_name)
         except Exception as e:
             logger.error(f'Could not calculate embeddings: {e}')
             raise e
@@ -201,25 +200,20 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
             for rec in src_with_emb:
                 # write to records table
 
-                if rec[1].event is None:
-                    raise ValueError(f'Original HarvestEvent not found')
-
-                #logger.info(rec[1].event.record_identifier)
-
-                record_identifier = rec[1].event.record_identifier
-                datestamp = rec[1].event.datestamp
-                repository_id = rec[1].event.repository_id
-                endpoint_id = rec[1].event.endpoint_id
+                record_identifier = rec.harvest_event.record_identifier
+                datestamp = rec.harvest_event.datestamp
+                repository_id = rec.harvest_event.repository_id
+                endpoint_id = rec.harvest_event.endpoint_id
                 resource_type = 'Dataset' # TODO: get this information from record
-                title = rec[0]['titles'][0]['title']
-                xml = rec[1].event.xml
+                title = rec.src['titles'][0]['title']
+                xml = rec.harvest_event.xml
                 protocol = 'OAI-PMH'
-                doi = rec[0].get('doi')
-                url = rec[0].get('url')
-                embeddings = rec[0]['emb']
-                datacite_json = json.dumps({**rec[0], 'emb': None})
+                doi = rec.src.get('doi')
+                url = rec.src.get('url')
+                embeddings = rec.src['emb']
+                datacite_json = json.dumps({**rec.src, 'emb': None})
                 opensearch_synced = True
-                additional_metadata = rec[1].event.additional_metadata
+                additional_metadata = rec.harvest_event.additional_metadata
 
                 # https://neon.com/postgresql/postgresql-tutorial/postgresql-upsert
                 cur.execute("""
@@ -282,7 +276,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                     UPDATE harvest_events 
                     SET error_message = NULL
                     WHERE id = %s  
-                    """, [rec[1].event.id]
+                    """, [rec.harvest_event.id]
                 )
 
         except BulkIndexError as e:
