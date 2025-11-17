@@ -18,7 +18,12 @@ dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE_DEFAULT = 125
-BATCH_SIZE = int(os.environ.get('CELERY_BATCH_SIZE', BATCH_SIZE_DEFAULT))
+batch_size_raw = os.environ.get('CELERY_BATCH_SIZE', BATCH_SIZE_DEFAULT)
+
+try:
+    BATCH_SIZE = int(batch_size_raw)
+except (TypeError, ValueError):
+    raise ValueError('CELERY_BATCH_SIZE should be an integer')
 
 tags_metadata = [
     {
