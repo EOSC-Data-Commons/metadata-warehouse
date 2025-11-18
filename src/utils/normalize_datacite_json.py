@@ -31,12 +31,12 @@ def get_resource_type(entry: dict[str, Any]) -> Optional[dict[str, Any]]:
     return None
 
 def harmonize_creator(entry: dict[str, Any]) -> dict[str, Any]:
-    '''
+    """
     Given an entry of 'datacite_creators', harmonizes its structure.
 
     :param entry: Given entry from 'creators':
     :return: A harmonized entry.
-    '''
+    """
 
     cr = entry[f'{DATACITE}:creator']
 
@@ -50,7 +50,7 @@ def harmonize_creator(entry: dict[str, Any]) -> dict[str, Any]:
 
 def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, str],
                     normalization: dict[str, Callable[[Any], Any]]) -> dict[str, Any]:
-    '''
+    """
     Give a dict and a field_name, returns a dict with that field's value in a harmonized format.
 
     :param entry: given dict.
@@ -58,7 +58,7 @@ def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, 
     :param attr_map: key-value map or attribute names.
     :param normalization dict of field names to functions that normalize the value of the given field.
     :return: the specified field of the given dict in a harmonized format.
-    '''
+    """
     # print(type(entry), field_name, entry)
 
     # ignore non-existing fields
@@ -66,7 +66,6 @@ def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, 
         return {}
 
     name = field_name[len(DATACITE) + 1:]
-
     if isinstance(entry[field_name], str):
         if name in normalization:
             return {
@@ -87,7 +86,10 @@ def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, 
 
         for k, v in attr_map.items():
             if entry[field_name].get(k) is not None:
-                harmonized_entry[v] = entry[field_name][k]
+                if k in normalization:
+                    harmonized_entry[v] = normalization[k](entry[field_name][k])
+                else:
+                    harmonized_entry[v] = entry[field_name][k]
 
         return harmonized_entry
 
@@ -96,13 +98,13 @@ def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, 
 
 
 def make_object(subfield: list[dict[str, Any]] | dict[str, Any], subfield_name: str) -> list[dict[str, Any]]:
-    '''
+    """
     Given a subfield, turn it into a dict.
 
     :param subfield: subfield's value, could be a list of values or a single item.
     :param subfield_name: subfield's name, e.g., 'datacite:title' or 'datacite:subject'.
     :return: A dict for each subfield.
-    '''
+    """
     if isinstance(subfield, list):
         res = list(map(lambda fi: {subfield_name: fi}, subfield))
         return res
@@ -111,14 +113,14 @@ def make_object(subfield: list[dict[str, Any]] | dict[str, Any], subfield_name: 
 
 
 def make_array(field: dict[str, Any] | list[dict[str, Any]] | None, subfield_name: str) -> list[dict[str, Any]]:
-    '''
+    """
     Given a field value like 'datacite:titles' or 'datacite:subjects',
     returns an array of objects with the subfield name as an index.
 
     :param field: name of the field, e.g., 'datacite:titles' or 'datacite:subjects'.
     :param subfield_name: name og the subfield, e.g., 'datacite:title' or 'datacite:subject'.
     :return: a list of objects with the subfield name as an index.
-    '''
+    """
 
     if field is None:
         return []
@@ -135,6 +137,12 @@ def make_array(field: dict[str, Any] | list[dict[str, Any]] | None, subfield_nam
 
 
 def remove_empty_item(item: tuple[str, Any]) -> bool:
+    """
+    Removes an element if it is `None`,
+
+    :param item: Tuple of key, items.
+    :return: Items if not None.
+    """
     # only ignore None values and empty lists (do not rely on conversions to falsy/truthy)
     if isinstance(item[1], list):
         return len(item[1]) > 0
@@ -143,15 +151,21 @@ def remove_empty_item(item: tuple[str, Any]) -> bool:
 
 
 def normalize_date_precision(date_str: str) -> str:
-    if len(date_str) == 10:
+    """
+    Normalizes date precision to YYYY-MM-DD.
+
+    :param date_str: Given date string.
+    :return: Date with normalized precision.
+    """
+    if len(date_str) >= 10:
         # day precision
         try:
             # will raise an exception if the date str does not conform to the expected format
-            datetime.datetime.strptime(date_str, DATE_FORMAT)
+            datetime.datetime.strptime(date_str[0:10], DATE_FORMAT)
         except ValueError as e:
             print(f'Date {date_str} invalid: {e}', file=sys.stderr)
             raise e
-        return date_str
+        return date_str[0:10]
     elif len(date_str) == 7:
         # month precision
         return f'{date_str}-01'
@@ -175,6 +189,12 @@ def normalize_date_precision(date_str: str) -> str:
         return normalized_date
 
 def normalize_date_string(date_str: str) -> str:
+    """
+    Normalizes a date string to a single date YYYY-MM-DD.
+
+    :param date_str: Given date string.
+    :return: Normalized date string.
+    """
     if ' ' in date_str:
         # date contains date time: 2025-07-15 09:46:15
         return normalize_date_precision(date_str.split(' ')[0])
@@ -185,6 +205,18 @@ def normalize_date_string(date_str: str) -> str:
         # date may not have day precision
         return normalize_date_precision(date_str)
 
+def normalize_lang_string(lang: str) -> str:
+    """
+    Normalizes lang strings to 2-char strings.
+
+    :param lang: Given lang string.
+    :return: 2-char lang string
+    """
+    if len(lang) > 2:
+        # normalize 3-char lang string to a 2-char lang string, e.g., eng -> en
+        return lang[0:2]
+    else:
+        return lang
 
 def make_id(res: dict[Any, Any]) -> Optional[str]:
     """
@@ -199,23 +231,25 @@ def normalize_datacite_json(res: dict[str, Any]) -> dict[str, Any]:
     # print(json.dumps(input))
 
     try:
+        url = get_identifier(res, 'URL') # I originally wanted to go for the walrus operator here ...
+
         res = {
             'doi': get_identifier(res, 'DOI'),
-            'url': get_identifier(res, 'URL'),
+            'url': url if url is not None else get_identifier(res, 'URN'), # fall back to URN if URL is not present
             'titles': list(map(lambda el: harmonize_props(el, f'{DATACITE}:title',
-                                                          {f'@{XML}:lang': 'lang', '@titleType': 'titleType'}, {}),
+                                                          {f'@{XML}:lang': 'lang', '@titleType': 'titleType'}, {f'@{XML}:lang': normalize_lang_string}),
                                make_array(res.get(f'{DATACITE}:titles'), f'{DATACITE}:title'))),
             'subjects': list(map(lambda el: harmonize_props(el, f'{DATACITE}:subject',
                                                             {f'@{XML}:lang': 'lang', '@subjectScheme': 'subjectScheme',
                                                              '@schemeURI': 'schemaUri', '@valueURI': 'valueUri',
-                                                             '@classificationCode': 'classificationCode'}, {}),
+                                                             '@classificationCode': 'classificationCode'}, {f'@{XML}:lang': normalize_lang_string}),
                                  make_array(res.get(f'{DATACITE}:subjects'), f'{DATACITE}:subject'))),
             'creators': list(map(lambda cr: harmonize_creator(cr),
                                  make_array(res.get(f'{DATACITE}:creators'), f'{DATACITE}:creator'))),
             'publicationYear': res.get(f'{DATACITE}:publicationYear'),
             'descriptions': list(map(lambda el: harmonize_props(el, f'{DATACITE}:description',
                                                                 {'@descriptionType': 'descriptionType',
-                                                                 f'@{XML}:lang': 'lang'}, {}),
+                                                                 f'@{XML}:lang': 'lang'}, {f'@{XML}:lang': normalize_lang_string}),
                                      make_array(res.get(f'{DATACITE}:descriptions'), f'{DATACITE}:description'))),
             'dates': list(map(lambda el: harmonize_props(el, f'{DATACITE}:date', {'@dateType': 'dateType'},
                                                          {'date': normalize_date_string}),
