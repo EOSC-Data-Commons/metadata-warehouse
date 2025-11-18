@@ -214,3 +214,4 @@ docker-compose.override.yml
 scripts/opensearch_data/data*/*
 scripts/postgres_data/data/*
 data/results/*
+cache_*

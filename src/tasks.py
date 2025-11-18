@@ -40,6 +40,12 @@ ONEDATA_WRAPPER = 'http://schema.datacite.org/oai/oai-1.1/:oai_datacite'
 ONEDATA_PAYLOAD = 'http://schema.datacite.org/oai/oai-1.1/:payload'
 
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
+# determines value for local_files_only, defaults to false
+LOCAL_FILES_ONLY = os.getenv('FASTEMBED_LOCAL_MODEL', '0') == '1'
+
+print('local', LOCAL_FILES_ONLY, os.environ.get('FASTEMBED_LOCAL_MODEL'))
+
+
 if not EMBEDDING_MODEL:
     raise ValueError('Missing EMBEDDING_MODEL environment variable')
 
@@ -58,8 +64,8 @@ class TransformTask(Task):  # type: ignore
 
     def __init__(self) -> None:
         if EMBEDDING_MODEL:
-            self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL)
-            logger.info(f'Setting up embedding transformer with model {EMBEDDING_MODEL}')
+            self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL, local_files_only=LOCAL_FILES_ONLY)
+            logger.info(f'Setting up embedding transformer with model {EMBEDDING_MODEL} and local_files_only {LOCAL_FILES_ONLY}')
 
         opensearch_config = OpenSearchConfig()
         self.client = OpenSearch(
