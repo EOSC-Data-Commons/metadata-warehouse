@@ -231,9 +231,11 @@ def normalize_datacite_json(res: dict[str, Any]) -> dict[str, Any]:
     # print(json.dumps(input))
 
     try:
+        url = get_identifier(res, 'URL') # I originally wanted to go for the walrus operator here ...
+
         res = {
             'doi': get_identifier(res, 'DOI'),
-            'url': get_identifier(res, 'URN'),
+            'url': url if url is not None else get_identifier(res, 'URN'), # fall back to URN if URL is not present
             'titles': list(map(lambda el: harmonize_props(el, f'{DATACITE}:title',
                                                           {f'@{XML}:lang': 'lang', '@titleType': 'titleType'}, {f'@{XML}:lang': normalize_lang_string}),
                                make_array(res.get(f'{DATACITE}:titles'), f'{DATACITE}:title'))),

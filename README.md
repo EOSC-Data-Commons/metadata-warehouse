@@ -11,7 +11,7 @@ To run the containers:
   Optionally add the following env variables for postgres and/or OpenSearch (not needed for local dev):
     - `POSTGRES_ADDRESS` (default "postgres") and `POSTGRES_PORT` (default 5432)
     - `OPENSEARCH_ADDRESS` (default "opensearch") and `OPENSEARCH_PORT` (default 9200)
-    - `FASTAPI_ADDRESS` (default "127.0.0.1")
+    - `FASTAPI_ADDRESS` (default "127.0.0.1") and `FASTAPI_PORT` (default 8080)
 - API keys for mcp server:
   ```sh
   cp keys.env.template keys.env
