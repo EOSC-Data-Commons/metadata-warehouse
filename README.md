@@ -114,7 +114,13 @@ and the harvest run is then closed. Note that a transformation can only be perfo
 
 ## Development
 
-Run linters:
+Install pre-commit hooks to run all checks automatically on commit:
+
+```sh
+uv run pre-commit install
+```
+
+Run linters manually:
 
 ```sh
 uvx ruff format
