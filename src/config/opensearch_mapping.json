@@ -120,6 +120,12 @@
                     }
                 }
             },
+            "_repo": {
+                "type": "keyword"
+            },
+            "_harvest_url": {
+                "type": "keyword"
+            },
             "_all_fields": {
                 "type": "text"
             },
