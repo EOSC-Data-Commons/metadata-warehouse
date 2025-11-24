@@ -206,10 +206,10 @@ services:
         volumes:
             - frontend-data:/frontend-volume
 
-    # https://github.com/EOSC-Data-Commons/data-commons-mcp/pkgs/container/data-commons-mcp
-    mcp:
+    # https://github.com/EOSC-Data-Commons/data-commons-search/pkgs/container/data-commons-search
+    search-api:
         restart: unless-stopped
-        image: ghcr.io/eosc-data-commons/data-commons-mcp:latest
+        image: ghcr.io/eosc-data-commons/data-commons-search:latest
         depends_on:
             opensearch:
                 condition: service_healthy
