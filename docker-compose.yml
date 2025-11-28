@@ -217,6 +217,7 @@ services:
                 condition: service_completed_successfully
         volumes:
             - frontend-data:/src/webapp
+            - search-api-data:/app/data
         env_file: [ keys.env ]
         environment:
             - RUST_LOG=info
@@ -231,6 +232,7 @@ volumes:
     opensearch-dashboards-data:
     broker-data:
     flower-data:
+    search-api-data:
     frontend-data:
 
 networks:
