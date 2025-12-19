@@ -225,6 +225,17 @@ services:
         networks:
             - warehouse-backend
 
+    # https://github.com/EOSC-Data-Commons/metadata-crawlers/pkgs/container/metadata-crawlers
+    harvester:
+        image: ghcr.io/eosc-data-commons/metadata-crawlers:latest
+        env_file:
+            - .env
+        volumes:
+            - harvester-logs:/app/logs
+        entrypoint: ["python", "-m", "harvester"]
+        networks:
+            - warehouse-backend
+
 volumes:
     postgres-data:
     pgadmin-data:
@@ -234,6 +245,7 @@ volumes:
     flower-data:
     search-api-data:
     frontend-data:
+    harvester-logs:
 
 networks:
     warehouse-backend:
