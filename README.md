@@ -112,3 +112,6 @@ and the harvest run is then closed. Note that a transformation can only be perfo
   http://127.0.0.1:5555/tasks
   ```
 
+## Dependencies
+
+Dependencies are mentioned in [DEPENDENCIES.md](DEPENDENCIES.md).
