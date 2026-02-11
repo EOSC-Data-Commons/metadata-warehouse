@@ -79,7 +79,10 @@ class EndpointConfig(BaseModel):
     harvest_params: HarvestParams
     code: str
     protocol: str
-
+    from_date: Optional[datetime]
+    until_date: Optional[datetime]
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
 
 class Config(BaseModel):
     endpoints_configs: list[EndpointConfig]
@@ -310,9 +313,22 @@ SELECT
     e.harvest_url, 
     e.harvest_params, 
     e.protocol, 
-    r.code
+    r.code,
+    hr_latest.from_date,
+    hr_latest.until_date,
+    hr_latest.started_at,
+    hr_latest.completed_at
 FROM endpoints e
 JOIN repositories r ON e.repository_id = r.id
+JOIN harvest_runs hr ON hr.endpoint_id = e.id
+LEFT JOIN LATERAL (
+    SELECT until_date, from_date, started_at, completed_at
+    FROM harvest_runs
+    WHERE endpoint_id = e.id 
+      AND status = 'closed'
+    ORDER BY started_at DESC
+    LIMIT 1
+) hr_latest ON true
             """)
             for doc in cur.fetchall():
                 endpoints.append(
@@ -322,7 +338,7 @@ JOIN repositories r ON e.repository_id = r.id
                                        metadata_prefix=doc['harvest_params'].get('metadata_prefix'),
                                        set=doc['harvest_params'].get('set'),
                                        additional_metadata_params=doc['harvest_params'].get(
-                                           'additional_metadata_params'))))
+                                           'additional_metadata_params')), from_date=doc['from_date'], until_date=doc['until_date'], started_at=doc['started_at'], completed_at=doc['completed_at']))
 
         return endpoints
     except JSONDecodeError as e:
