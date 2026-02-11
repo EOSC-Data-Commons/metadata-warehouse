@@ -57,7 +57,7 @@ To run the containers:
 - load XML data from `scripts/postgres_data/data` (populates table `harvest_events`):
   ```sh
    uv run import_data.py
-   ```
+  ```
 
 - transform data from `scripts/postgres_data/data` to a local dir
   (to test transformation, alternative to using the Celery process):
@@ -99,9 +99,9 @@ and the harvest run is then closed. Note that a transformation can only be perfo
   ```
 
 - To obtain a harvest run id and status for a given endpoint (https://dabar.srce.hr/oai):
-```sh
+  ```sh
   http://127.0.0.1:8080/harvest_run?harvest_url=https%3A%2F%2Fdabar.srce.hr%2Foai
-```
+  ```
 
 - start transformation process:
   ```sh
@@ -111,4 +111,10 @@ and the harvest run is then closed. Note that a transformation can only be perfo
   ```sh
   http://127.0.0.1:5555/tasks
   ```
+
+After starting the stack with `docker compose up`, you can run the harvester for a given repository URL, e.g.:
+
+```sh
+docker compose run harvester https://lifesciences.datastations.nl/oai
+```
 

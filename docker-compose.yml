@@ -228,6 +228,7 @@ services:
     # https://github.com/EOSC-Data-Commons/metadata-crawlers/pkgs/container/metadata-crawlers
     harvester:
         image: ghcr.io/eosc-data-commons/metadata-crawlers:latest
+        profiles: ["manual"]
         env_file:
             - .env
         volumes:
