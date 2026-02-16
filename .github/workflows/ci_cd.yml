@@ -37,7 +37,7 @@ jobs:
 
             -   name: Config
                 run: |
-                    cp docker-compose.override.template.yml docker-compose.override.yml
+                    cp docker-compose.override.yml.template docker-compose.override.yml
                     cp env.template .env
 
             -   name: Start services
