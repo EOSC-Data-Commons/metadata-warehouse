@@ -17,14 +17,46 @@ jobs:
             -   name: Install the project
                 run: uv sync --all-extras --dev # https://docs.astral.sh/uv/guides/integration/github/#syncing-and-running
             -   name: Test with pytest
-                run: uv run pytest
+                run: uv run pytest tests
             -   name: Check with mypy
                 run: |
                     uv run mypy --strict src
                     uv run mypy --strict scripts
     test-docker-build:
         runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                python-version: [ "3.12", "3.13" ]
+        env:
+            UV_PYTHON: ${{ matrix.python-version }}
         steps:
             -   uses: actions/checkout@v4
+
             -   name: Docker Build
                 run: docker compose build
+
+            -   name: Config
+                run: |
+                    cp docker-compose.override.template.yml docker-compose.override.yml
+                    cp env.template .env
+
+            -   name: Start services
+                run: docker compose up -d
+
+            -   name: Wait for services to be ready
+                run: |
+                    echo "Waiting for API to be ready..."
+                    timeout 60 bash -c 'until curl -f http://localhost:8080/health || curl -f http://localhost:8080; do sleep 2; done'
+                    echo "Waiting for database to be ready..."
+                    timeout 60 bash -c 'until docker compose exec -T admin pg_isready -U admin; do sleep 2; done'
+
+            -   name: Install uv
+                uses: astral-sh/setup-uv@v6
+
+            -   name: Install the project
+                run: uv sync --all-extras --dev
+
+            -   name: Test with pytest
+                run: uv run pytest e2e/e2e
+
+
