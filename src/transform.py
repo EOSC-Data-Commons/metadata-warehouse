@@ -209,7 +209,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                                                metadata_prefix=new_harvest_run['harvest_params'].get('metadata_prefix'),
                                                set=new_harvest_run['harvest_params'].get('set'),
                                                additional_metadata_params=new_harvest_run['harvest_params'].get(
-                                                   'additional_metadata_params')))
+                                                   'additional_metadata_params')), from_date=new_harvest_run['from_date'], until_date=new_harvest_run['until_date'], started_at=None, completed_at=None)
         )
 
 
