@@ -320,7 +320,7 @@ SELECT
     hr_latest.completed_at
 FROM endpoints e
 JOIN repositories r ON e.repository_id = r.id
-JOIN harvest_runs hr ON hr.endpoint_id = e.id
+LEFT JOIN harvest_runs hr ON hr.endpoint_id = e.id
 LEFT JOIN LATERAL (
     SELECT until_date, from_date, started_at, completed_at
     FROM harvest_runs
