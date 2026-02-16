@@ -48,4 +48,4 @@ def test_get_config(api_client, reset_db):
     response = api_client.get("/config")
 
     assert response.status_code == 200
-    assert len(response.json()['endpoints_configs']) == 9
+    assert len(response.json()['endpoints_configs']) == 8
