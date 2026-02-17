@@ -13,6 +13,7 @@ dependencies = [
     "fastapi[standard]",
     "psycopg[binary]",
     # "flower", # only needed when not using mher/flower
+    "celery-types>=0.23.0",
 ]
 
 
