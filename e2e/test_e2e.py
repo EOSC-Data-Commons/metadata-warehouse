@@ -58,3 +58,26 @@ def test_get_config(api_client, reset_db):
 
     assert response.status_code == 200
     assert len(response.json()['endpoints_configs']) == 9
+
+def test_create_and_close_harvest_run(api_client, reset_db):
+
+    # create a new harvest run
+    res_create = api_client.post('/harvest_run', json={
+        "harvest_url": "https://demo.onedata.org/oai_pmh"
+    })
+
+    assert res_create.status_code == 200
+
+    response = res_create.json()
+
+    # close harvest_run
+    res_close = api_client.put('/harvest_run', json={
+        "id": f"{response['id']}",
+        "success": True,
+        "started_at": "2026-02-17T15:36:05.544Z",
+        "completed_at": "2026-02-17T15:36:05.544Z"
+    })
+
+    assert res_close.status_code == 200
+
+
