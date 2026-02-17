@@ -10,7 +10,7 @@ USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
 ADDRESS = os.environ.get('POSTGRES_ADDRESS')
 PORT = os.environ.get('POSTGRES_PORT')
-TEST_DB = 'test'
+TEST_DB = 'testdb'
 
 API_BASE_URL = "http://localhost:8080"
 
