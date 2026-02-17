@@ -28,7 +28,7 @@ def reset_db():
 
     # Connect to default 'postgres' db to create the test db if needed
     with psycopg.connect(dbname='postgres', user=USER, host=ADDRESS if ADDRESS else '127.0.0.1', password=PW,
-                         port=int(PORT) if PORT else 5432) as conn:
+                         port=int(PORT) if PORT else 5432, autocommit=True) as conn:
         with conn.cursor() as cursor:
             cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (TEST_DB,))
             if not cursor.fetchone():
