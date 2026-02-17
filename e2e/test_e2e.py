@@ -14,6 +14,7 @@ TEST_DB = 'testdb'
 
 API_BASE_URL = "http://localhost:8080"
 
+
 @pytest.fixture
 def api_client():
     """HTTP client for API requests."""
@@ -46,21 +47,21 @@ def reset_db():
                     sql_statements = f.read()
                 cursor.execute(sql_statements)
 
-def test_health(api_client, reset_db):
 
+def test_health(api_client, reset_db):
     resource = api_client.get("/health")
     assert resource.status_code == 200
     assert resource.json()['status'] == "ok"
 
-def test_get_config(api_client, reset_db):
 
+def test_get_config(api_client, reset_db):
     response = api_client.get("/config")
 
     assert response.status_code == 200
     assert len(response.json()['endpoints_configs']) == 9
 
-def test_create_and_close_harvest_run(api_client, reset_db):
 
+def test_create_and_close_harvest_run(api_client, reset_db):
     # create a new harvest run
     res_create = api_client.post('/harvest_run', json={
         "harvest_url": "https://demo.onedata.org/oai_pmh"
@@ -68,16 +69,30 @@ def test_create_and_close_harvest_run(api_client, reset_db):
 
     assert res_create.status_code == 200
 
-    response = res_create.json()
+    create_response = res_create.json()
+
+    with open('e2e/test_data/dans.xml') as f:
+        xml = f.read()
+
+    # write a harvest event
+    post_he = api_client.post('/harvest_event', json={
+        "record_identifier": "xyz",
+        "datestamp": "2026-02-17T15:43:03.326Z",
+        "raw_metadata": f"{xml}",
+        "harvest_url": "https://demo.onedata.org/oai_pmh",
+        "repo_code": "DANS",
+        "harvest_run_id": create_response['id'],
+        "is_deleted": False
+    })
+
+    assert post_he.status_code == 200
 
     # close harvest_run
     res_close = api_client.put('/harvest_run', json={
-        "id": f"{response['id']}",
+        "id": create_response['id'],
         "success": True,
         "started_at": "2026-02-17T15:36:05.544Z",
         "completed_at": "2026-02-17T15:36:05.544Z"
     })
 
     assert res_close.status_code == 200
-
-
