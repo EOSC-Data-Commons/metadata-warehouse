@@ -190,11 +190,13 @@ services:
     frontend:
         image: ghcr.io/eosc-data-commons/matchmaker-frontend:latest
         restart: unless-stopped
-        ports:
-            - "3000:3000"
+        depends_on:
+            opensearch:
+                condition: service_healthy
+        command: npm run cluster
         environment:
             - NODE_ENV=production
-            - SEARCH_API_URL=http://host.docker.internal:8000
+            - SEARCH_API_URL=http://search-api:8000
             - PLAYER_API_URL=https://dev1.player.eosc-data-commons.eu
         networks:
             - warehouse-backend
@@ -210,7 +212,6 @@ services:
             - search-api-data:/app/data
         env_file: [ keys.env ]
         environment:
-            - RUST_LOG=info
             - OPENSEARCH_URL=http://opensearch:9200
         networks:
             - warehouse-backend
