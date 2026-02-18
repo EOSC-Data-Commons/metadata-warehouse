@@ -3,6 +3,9 @@ import pytest
 import psycopg
 import os
 from dotenv import load_dotenv
+import json
+from opensearchpy import OpenSearch
+import time
 
 load_dotenv('.env')
 
@@ -11,6 +14,8 @@ PW = os.environ.get('POSTGRES_PASSWORD')
 ADDRESS = os.environ.get('POSTGRES_ADDRESS')
 PORT = os.environ.get('POSTGRES_PORT')
 TEST_DB = 'testdb'
+TEST_INDEX = 'test_index'
+EMBEDDING_DIMS = os.environ.get('EMBEDDING_DIMS')
 
 API_BASE_URL = "http://localhost:8080"
 
@@ -28,15 +33,15 @@ def reset_db():
                  'verify.sql']
 
     # Connect to default 'postgres' db to create the test db if needed
-    with psycopg.connect(dbname='postgres', user=USER, host=ADDRESS if ADDRESS else '127.0.0.1', password=PW,
-                         port=int(PORT) if PORT else 5432, autocommit=True) as conn:
+    with psycopg.connect(dbname='postgres', user=USER, host='127.0.0.1', password=PW,
+                         port=5432, autocommit=True) as conn:
         with conn.cursor() as cursor:
             cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (TEST_DB,))
             if not cursor.fetchone():
                 cursor.execute(f"CREATE DATABASE {TEST_DB}")
 
-    with psycopg.connect(dbname=TEST_DB, user=USER, host=ADDRESS if ADDRESS else '127.0.0.1', password=PW,
-                         port=int(PORT) if PORT else 5432) as conn:
+    with psycopg.connect(dbname=TEST_DB, user=USER, host='127.0.0.1', password=PW,
+                         port=5432) as conn:
         with conn.cursor() as cursor:
             # Drop and recreate schema
             cursor.execute("DROP SCHEMA IF EXISTS public CASCADE")
@@ -46,6 +51,28 @@ def reset_db():
                 with open(f'scripts/postgres_data/create_sql/{sql_f}') as f:
                     sql_statements = f.read()
                 cursor.execute(sql_statements)
+
+@pytest.fixture
+def reset_index():
+    client = OpenSearch(
+        hosts=[{'host': ADDRESS if ADDRESS else '127.0.0.1', 'port': int(PORT) if PORT else 9200}],
+        http_auth=None,
+        use_ssl=False
+    )
+
+    try:
+        if client.indices.exists(index=TEST_INDEX):
+            client.indices.delete(index=TEST_INDEX)
+
+        with open('src/config/opensearch_mapping.json') as f:
+            os_mapping = json.load(f)
+            # dynamically set embeddings dims
+            os_mapping['mappings']['properties']['emb']['dimension'] = EMBEDDING_DIMS
+            client.indices.create(index=TEST_INDEX, body=os_mapping)
+    except Exception as e:
+        pytest.fail(e)
+
+    yield client
 
 
 def test_health(api_client, reset_db):
@@ -61,7 +88,7 @@ def test_get_config(api_client, reset_db):
     assert len(response.json()['endpoints_configs']) == 9
 
 
-def test_create_and_close_harvest_run(api_client, reset_db):
+def test_create_and_close_harvest_run(api_client, reset_db, reset_index):
     # create a new harvest run
     res_create = api_client.post('/harvest_run', json={
         "harvest_url": "https://demo.onedata.org/oai_pmh"
@@ -96,3 +123,30 @@ def test_create_and_close_harvest_run(api_client, reset_db):
     })
 
     assert res_close.status_code == 200
+
+    # run a transformation
+    res_index = api_client.get('/index', params={
+        "harvest_run_id": create_response['id'],
+        "index_name": TEST_INDEX,
+    })
+
+    # note this does not check for a successful transformation
+    assert res_index.status_code == 200
+
+    timeout = 45  # seconds
+    start_time = time.time()
+    result = None
+
+    while time.time() - start_time < timeout:
+        try:
+            result = reset_index.get(index=TEST_INDEX, id='https://doi.org/10.17026/AR/0AKDPK')
+            break
+        except Exception as e:
+            # Document not found yet or other error
+            time.sleep(1)
+
+
+    assert result is not None
+
+    assert result['_id'] == 'https://doi.org/10.17026/AR/0AKDPK'
+
