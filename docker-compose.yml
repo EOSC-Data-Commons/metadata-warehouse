@@ -193,7 +193,7 @@ services:
         depends_on:
             opensearch:
                 condition: service_healthy
-        command: npm run cluster
+        command: npm run prod
         environment:
             - NODE_ENV=production
             - SEARCH_API_URL=http://search-api:8000
