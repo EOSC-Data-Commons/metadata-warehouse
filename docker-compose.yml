@@ -191,7 +191,7 @@ services:
 
     #https://github.com/EOSC-Data-Commons/matchmaker/pkgs/container/matchmaker-frontend
     frontend:
-        image: ghcr.io/eosc-data-commons/matchmaker-frontend:latest
+        image: ghcr.io/eosc-data-commons/matchmaker-frontend:0.4.2 # temporary fallback
         # Removes only targeted frontend artifacts before refreshing them from /webapp.
         command: >
             sh -c 'set -eu
