@@ -50,7 +50,7 @@ tags_metadata = [
 
 app = FastAPI(openapi_tags=tags_metadata)
 postgres_config: PostgresConfig = PostgresConfig()
-
+connection_params = postgres_config.connection_params
 
 class HealthGetResponse(BaseModel):
     status: str = Field(description='Server status')
@@ -130,8 +130,7 @@ class HarvestRunCloseResponse(BaseModel):
     id: str = Field(description='ID of the closed harvest run')
 
 def get_latest_harvest_run_in_db(harvest_url: str) -> HarvestRunGetResponse:
-    with psycopg.connect(dbname=postgres_config.db, user=postgres_config.user, host=postgres_config.address,
-                         password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+    with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
 
         cur = conn.cursor()
 
@@ -159,8 +158,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
     :param harvest_url: The new entry to be created.
     """
 
-    with psycopg.connect(dbname=postgres_config.db, user=postgres_config.user, host=postgres_config.address,
-                         password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+    with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
         # TODO: only allow one open harvest run per endpoint
         # TODO check (in one transaction):
@@ -214,8 +212,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
 
 
 def close_harvest_run_in_db(harvest_run: HarvestRunCloseRequest) -> HarvestRunCloseResponse:
-    with psycopg.connect(dbname=postgres_config.db, user=postgres_config.user, host=postgres_config.address,
-                         password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+    with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
         state = 'closed' if harvest_run.success else 'failed'
@@ -247,8 +244,7 @@ def create_harvest_event_in_db(harvest_event: HarvestEventCreateRequest) -> Harv
     :param harvest_event: The new record to be created.
     """
 
-    with psycopg.connect(dbname=postgres_config.db, user=postgres_config.user, host=postgres_config.address,
-                         password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+    with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
         cur.execute("""
@@ -301,9 +297,7 @@ def get_config_from_db() -> list[EndpointConfig]:
     endpoints: list[EndpointConfig] = []
 
     try:
-        with psycopg.connect(dbname=postgres_config.db, user=postgres_config.user, host=postgres_config.address,
-                             password=postgres_config.password, port=postgres_config.port,
-                             row_factory=dict_row) as conn:
+        with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
 
             cur = conn.cursor()
 
@@ -370,8 +364,7 @@ def create_jobs_in_queue(
     logger.info(f'Preparing jobs for index: {index_name}')
 
 
-    with psycopg.connect(dbname=postgres_config.db, user=postgres_config.user, host=postgres_config.address,
-                         password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+    with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
 
 
         cur = conn.cursor()
