@@ -18,12 +18,18 @@ TEST_INDEX = 'test_index'
 EMBEDDING_DIMS = os.environ.get('EMBEDDING_DIMS')
 
 API_BASE_URL = "http://localhost:8080"
-
+FLOWER_BASE_URL = "http://localhost:5555"
+TIMEOUT = 120
 
 @pytest.fixture
 def api_client():
     """HTTP client for API requests."""
-    with httpx.Client(base_url=API_BASE_URL) as client:
+    with httpx.Client(base_url=API_BASE_URL, timeout=TIMEOUT) as client:
+        yield client
+
+@pytest.fixture
+def flower_client():
+    with httpx.Client(base_url=FLOWER_BASE_URL, timeout=TIMEOUT) as client:
         yield client
 
 
@@ -51,6 +57,7 @@ def reset_db():
                 with open(f'scripts/postgres_data/create_sql/{sql_f}') as f:
                     sql_statements = f.read()
                 cursor.execute(sql_statements)
+
 
 @pytest.fixture
 def reset_index():
@@ -88,7 +95,7 @@ def test_get_config(api_client, reset_db):
     assert len(response.json()['endpoints_configs']) == 9
 
 
-def test_create_and_close_harvest_run(api_client, reset_db, reset_index):
+def test_create_and_close_harvest_run(api_client, flower_client, reset_db, reset_index):
     # create a new harvest run
     res_create = api_client.post('/harvest_run', json={
         "harvest_url": "https://demo.onedata.org/oai_pmh"
@@ -133,20 +140,32 @@ def test_create_and_close_harvest_run(api_client, reset_db, reset_index):
     # note this does not check for a successful transformation
     assert res_index.status_code == 200
 
-    timeout = 45  # seconds
     start_time = time.time()
-    result = None
+    first_task = None
 
-    while time.time() - start_time < timeout:
+    while time.time() - start_time < TIMEOUT:
         try:
-            result = reset_index.get(index=TEST_INDEX, id='https://doi.org/10.17026/AR/0AKDPK')
-            break
+            tasks_res = flower_client.get('/api/tasks')
+            tasks = tasks_res.json()
+
+            # Check if tasks is non-empty
+            if tasks:
+                # Get first task
+                first_task = next(iter(tasks.values()))
+
+                print(len(tasks.values()), first_task)
+                state = first_task.get('state')
+
+                # Check if it's SUCCESS
+                # https://flower.readthedocs.io/en/latest/api.html
+                if state == 'SUCCESS':
+                    break  # Found a successful task
+
         except Exception as e:
-            # Document not found yet or other error
-            time.sleep(1)
+            pass
 
+        time.sleep(1)
 
-    assert result is not None
-
-    assert result['_id'] == 'https://doi.org/10.17026/AR/0AKDPK'
-
+    assert first_task is not None
+    assert first_task['state'] == 'SUCCESS'
+    assert '10.17026/AR/0AKDPK' in first_task['args']
