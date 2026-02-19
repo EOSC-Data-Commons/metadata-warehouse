@@ -22,7 +22,7 @@ jobs:
                 run: |
                     uv run mypy --strict src
                     uv run mypy --strict scripts
-    test-docker-build:
+    test-e2e:
         runs-on: ubuntu-latest
         strategy:
             matrix:

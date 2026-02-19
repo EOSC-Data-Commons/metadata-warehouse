@@ -110,7 +110,7 @@ def test_create_and_close_harvest_run(api_client, flower_client, reset_db, reset
 
     # write a harvest event
     post_he = api_client.post('/harvest_event', json={
-        "record_identifier": "xyz",
+        "record_identifier": "10.34894/G8PZKV",
         "datestamp": "2026-02-17T15:43:03.326Z",
         "raw_metadata": f"{xml}",
         "harvest_url": "https://demo.onedata.org/oai_pmh",
@@ -145,7 +145,9 @@ def test_create_and_close_harvest_run(api_client, flower_client, reset_db, reset
 
     while time.time() - start_time < TIMEOUT:
         try:
-            tasks_res = flower_client.get('/api/tasks')
+            tasks_res = flower_client.get('/api/tasks', params={
+                'taskname': 'tasks.transform_batch'
+            })
             tasks = tasks_res.json()
 
             # Check if tasks is non-empty
@@ -169,3 +171,8 @@ def test_create_and_close_harvest_run(api_client, flower_client, reset_db, reset
     assert first_task is not None
     assert first_task['state'] == 'SUCCESS'
     assert '10.17026/AR/0AKDPK' in first_task['args']
+
+    response_config = api_client.get("/config")
+
+    assert response_config.status_code == 200
+    assert len(response_config.json()['endpoints_configs']) == 9
