@@ -302,7 +302,7 @@ def get_config_from_db() -> list[EndpointConfig]:
             cur = conn.cursor()
 
             cur.execute("""
-SELECT 
+SELECT DISTINCT
     e.name, 
     e.harvest_url, 
     e.harvest_params, 
