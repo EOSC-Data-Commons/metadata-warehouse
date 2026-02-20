@@ -79,10 +79,6 @@ class EndpointConfig(BaseModel):
     harvest_params: HarvestParams
     code: str
     protocol: str
-    from_date: Optional[datetime]
-    until_date: Optional[datetime]
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
 
 class Config(BaseModel):
     endpoints_configs: list[EndpointConfig]
@@ -107,9 +103,18 @@ class HarvestRunCreateRequest(BaseModel):
     harvest_url: str
 
 
+class HarvestRun(BaseModel):
+    id: str = Field(description='ID of the harvest run')
+    status: str = Field(description='Status of the harvest run: open|closed|failed')
+    harvest_url: str
+    from_date: Optional[datetime]
+    until_date: Optional[datetime]
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+
+
 class HarvestRunGetResponse(BaseModel):
-    id: Optional[str] = Field(None, description='ID of the harvest run')
-    status: Optional[str] = Field(None, description='Status of the harvest run: open|closed|failed')
+    harvest_runs: Optional[list[HarvestRun]]
 
 
 class HarvestRunCreateResponse(BaseModel):
@@ -135,7 +140,7 @@ def get_latest_harvest_run_in_db(harvest_url: str) -> HarvestRunGetResponse:
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT hr.id, hr.status 
+            SELECT hr.id, hr.status, hr.from_date, hr.until_date, hr.started_at, hr.completed_at 
      FROM harvest_runs hr
      JOIN endpoints e ON hr.endpoint_id = e.id
      WHERE e.harvest_url = %s
@@ -143,12 +148,21 @@ def get_latest_harvest_run_in_db(harvest_url: str) -> HarvestRunGetResponse:
      LIMIT 1
         """, [harvest_url])
 
-        open_harvest_run = cur.fetchone()
+        harvest_run = cur.fetchone()
 
-        if open_harvest_run is not None:
-            return HarvestRunGetResponse(id=str(open_harvest_run['id']), status=open_harvest_run['status'])
+        if harvest_run is not None:
+
+            return HarvestRunGetResponse(harvest_runs=[HarvestRun(
+                id=str(harvest_run['id']),
+                status=harvest_run['status'],
+                started_at=harvest_run['started_at'],
+                completed_at=harvest_run['completed_at'],
+                from_date=harvest_run['from_date'],
+                until_date=harvest_run['until_date'],
+                harvest_url=harvest_url
+            )])
         else:
-            return HarvestRunGetResponse(id=None, status=None)
+            return HarvestRunGetResponse(harvest_runs=None)
 
 
 def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
@@ -177,7 +191,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
      JOIN endpoints e ON hr.endpoint_id = e.id
      WHERE e.harvest_url = %s 
        AND hr.status = 'closed' 
-     ORDER BY hr.started_at DESC 
+     ORDER BY hr.until_date DESC 
      LIMIT 1)
             """, (harvest_url, harvest_url))
 
@@ -207,7 +221,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                                                metadata_prefix=new_harvest_run['harvest_params'].get('metadata_prefix'),
                                                set=new_harvest_run['harvest_params'].get('set'),
                                                additional_metadata_params=new_harvest_run['harvest_params'].get(
-                                                   'additional_metadata_params')), from_date=new_harvest_run['from_date'], until_date=new_harvest_run['until_date'], started_at=None, completed_at=None)
+                                                   'additional_metadata_params')))
         )
 
 
@@ -307,21 +321,9 @@ SELECT
     e.harvest_url, 
     e.harvest_params, 
     e.protocol, 
-    r.code,
-    hr_latest.from_date,
-    hr_latest.until_date,
-    hr_latest.started_at,
-    hr_latest.completed_at
+    r.code
 FROM endpoints e
 JOIN repositories r ON e.repository_id = r.id
-LEFT JOIN LATERAL (
-    SELECT until_date, from_date, started_at, completed_at
-    FROM harvest_runs
-    WHERE endpoint_id = e.id 
-      AND status = 'closed'
-    ORDER BY started_at DESC
-    LIMIT 1
-) hr_latest ON true
             """)
             for doc in cur.fetchall():
                 endpoints.append(
@@ -331,7 +333,7 @@ LEFT JOIN LATERAL (
                                        metadata_prefix=doc['harvest_params'].get('metadata_prefix'),
                                        set=doc['harvest_params'].get('set'),
                                        additional_metadata_params=doc['harvest_params'].get(
-                                           'additional_metadata_params')), from_date=doc['from_date'], until_date=doc['until_date'], started_at=doc['started_at'], completed_at=doc['completed_at']))
+                                           'additional_metadata_params'))))
 
         return endpoints
     except JSONDecodeError as e:
