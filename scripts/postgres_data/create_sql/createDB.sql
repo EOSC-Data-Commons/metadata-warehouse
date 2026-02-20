@@ -1,24 +1,24 @@
 -- database to store metadata about datasets
 CREATE DATABASE datasetdb
-  WITH OWNER = postgres
+  WITH OWNER = admin
        ENCODING = 'UTF8'
        TEMPLATE = template0;
 
 -- database to store metadata about file registry from datasets
 CREATE DATABASE filedb
-  WITH OWNER = postgres
+  WITH OWNER = admin
        ENCODING = 'UTF8'
        TEMPLATE = template0;
 
 -- database to store metadata about tool registry
 CREATE DATABASE tooldb
-  WITH OWNER = postgres
+  WITH OWNER = admin
        ENCODING = 'UTF8'
        TEMPLATE = template0;
 
 -- database to store metadata about user usage and query
 CREATE DATABASE appdb
-  WITH OWNER = postgres
+  WITH OWNER = admin
        ENCODING = 'UTF8'
        TEMPLATE = template0;
 

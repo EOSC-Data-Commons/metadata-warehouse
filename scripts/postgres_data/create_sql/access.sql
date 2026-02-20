@@ -1,27 +1,19 @@
--- Read
-GRANT datasetDB_read TO reggie, jusong, ritwik;
--- Read/Write, script cannot delete important
-GRANT datasetDB_readwrite TO script;
--- Admin
-GRANT datasetDB_admin TO tobias, josip, michal, ping, vincent;
+-- DATASET
+GRANT datasetdb_read      TO reggie, jusong, ritwik;
+GRANT datasetdb_readwrite TO script;
+GRANT datasetdb_admin     TO tobias, josip, michal, ping, vincent;
 
--- Read
-GRANT toolDB_read TO tobias, josip, ping, vincent, ritwik;
--- Read/Write, script cannot delete important
-GRANT toolDB_readwrite TO script;
--- Admin
-GRANT toolDB_admin TO michal, jusong, reggie, eko;
+-- TOOL
+GRANT tooldb_read         TO tobias, josip, ping, vincent, ritwik;
+GRANT tooldb_readwrite    TO script;
+GRANT tooldb_admin        TO michal, jusong, reggie, eko;
 
--- Read
-GRANT fileDB_read TO tobias, josip, ping, vincent, ritwik;
--- Read/Write, script cannot delete important
-GRANT fileDB_readwrite TO script;
--- Admin
-GRANT fileDB_admin TO michal, reggie, jusong, eko;
+-- FILE
+GRANT filedb_read         TO tobias, josip, ping, vincent, ritwik;
+GRANT filedb_readwrite    TO script;
+GRANT filedb_admin        TO michal, reggie, jusong, eko;
 
--- Read
-GRANT appDB_read TO jusong, reggie, josip, tobias;
--- Read/Write, script cannot delete important
-GRANT appDB_readwrite TO script;
--- Admin
-GRANT appDB_admin TO michal, vincent, ritwik, ping;
+-- APP
+GRANT appdb_read          TO jusong, reggie, josip, tobias;
+GRANT appdb_readwrite     TO script;
+GRANT appdb_admin         TO michal, vincent, ritwik, ping;
