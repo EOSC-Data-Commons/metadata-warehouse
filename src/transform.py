@@ -134,36 +134,81 @@ class HarvestRunCloseRequest(BaseModel):
 class HarvestRunCloseResponse(BaseModel):
     id: str = Field(description='ID of the closed harvest run')
 
-def get_latest_harvest_run_in_db(harvest_url: str) -> HarvestRunGetResponse:
+def get_latest_harvest_run_in_db(harvest_url: Optional[str]) -> HarvestRunGetResponse:
+
     with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
 
         cur = conn.cursor()
 
-        cur.execute("""
-            SELECT hr.id, hr.status, hr.from_date, hr.until_date, hr.started_at, hr.completed_at 
-     FROM harvest_runs hr
-     JOIN endpoints e ON hr.endpoint_id = e.id
-     WHERE e.harvest_url = %s
-     ORDER BY hr.until_date DESC
-     LIMIT 1
-        """, [harvest_url])
+        if harvest_url is not None:
 
-        harvest_run = cur.fetchone()
+            cur.execute("""
+                SELECT hr.id, hr.status, hr.from_date, hr.until_date, hr.started_at, hr.completed_at 
+         FROM harvest_runs hr
+         JOIN endpoints e ON hr.endpoint_id = e.id
+         WHERE e.harvest_url = %s
+         ORDER BY hr.until_date DESC
+         LIMIT 1
+            """, [harvest_url])
 
-        if harvest_run is not None:
+            latest_harvest_run = cur.fetchone()
 
-            return HarvestRunGetResponse(harvest_runs=[HarvestRun(
-                id=str(harvest_run['id']),
-                status=harvest_run['status'],
-                started_at=harvest_run['started_at'],
-                completed_at=harvest_run['completed_at'],
-                from_date=harvest_run['from_date'],
-                until_date=harvest_run['until_date'],
-                harvest_url=harvest_url
-            )])
+            if latest_harvest_run is not None:
+
+                return HarvestRunGetResponse(harvest_runs=[HarvestRun(
+                    id=str(latest_harvest_run['id']),
+                    status=latest_harvest_run['status'],
+                    started_at=latest_harvest_run['started_at'],
+                    completed_at=latest_harvest_run['completed_at'],
+                    from_date=latest_harvest_run['from_date'],
+                    until_date=latest_harvest_run['until_date'],
+                    harvest_url=harvest_url
+                )])
+            else:
+                return HarvestRunGetResponse(harvest_runs=None)
+
         else:
-            return HarvestRunGetResponse(harvest_runs=None)
 
+            # query the latest harvest run for every endpoint
+            # TODO: maybe this query can also handle the case where harvest_url is given (WHERE clause)
+            cur.execute("""
+        SELECT 
+            e.harvest_url,  
+            hr.id,
+            hr.status,
+            hr.from_date,
+            hr.until_date,
+            hr.started_at,
+            hr.completed_at
+        FROM endpoints e
+        JOIN LATERAL (
+            SELECT id, status, until_date, from_date, started_at, completed_at
+            FROM harvest_runs
+            WHERE endpoint_id = e.id 
+            ORDER BY until_date DESC
+            LIMIT 1
+        ) hr ON true
+          """)
+
+            latest_harvest_runs = cur.fetchall()
+
+            # check for empty response
+            if not latest_harvest_runs:
+                return HarvestRunGetResponse(harvest_runs=None)
+
+            harvest_runs = []
+            for latest_harvest_run in latest_harvest_runs:
+                harvest_runs.append(HarvestRun(
+                    id=str(latest_harvest_run['id']),
+                    status=latest_harvest_run['status'],
+                    started_at=latest_harvest_run['started_at'],
+                    completed_at=latest_harvest_run['completed_at'],
+                    from_date=latest_harvest_run['from_date'],
+                    until_date=latest_harvest_run['until_date'],
+                    harvest_url=latest_harvest_run['harvest_url']
+                ))
+
+            return HarvestRunGetResponse(harvest_runs=harvest_runs)
 
 def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
     """
@@ -475,7 +520,7 @@ def create_harvest_event(harvest_event: HarvestEventCreateRequest) -> HarvestEve
          summary='Get id and status of the latest harvest run for a given endpoint.',
          description='If no harvest run exists for the given endpoint, id and status will be null in the response.')
 def get_harvest_run(
-    harvest_url: str = Query(default=None, description='harvest url of the endpoint')) -> HarvestRunGetResponse:
+    harvest_url: Optional[str] = Query(default=None, description='harvest url of the endpoint')) -> HarvestRunGetResponse:
     try:
         return get_latest_harvest_run_in_db(harvest_url)
     except Exception as e:

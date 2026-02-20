@@ -94,6 +94,98 @@ def test_get_config(api_client, reset_db):
     assert response.status_code == 200
     assert len(response.json()['endpoints_configs']) == 9
 
+def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, reset_db, reset_index):
+    res_get = api_client.get('/harvest_run', params={
+        'harvest_url': 'https://demo.onedata.org/oai_pmh'
+    })
+
+    assert res_get.status_code == 200
+    assert res_get.json()['harvest_runs'] is None
+
+    # create a new harvest run
+    res_create = api_client.post('/harvest_run', json={
+        "harvest_url": "https://demo.onedata.org/oai_pmh"
+    })
+
+    assert res_create.status_code == 200
+
+    create_response = res_create.json()
+
+    res_get2 = api_client.get('/harvest_run', params={
+        'harvest_url': 'https://demo.onedata.org/oai_pmh'
+    })
+
+    res_get2_response = res_get2.json()
+
+    assert res_get2.status_code == 200
+    assert len(res_get2_response['harvest_runs']) == 1
+    assert res_get2_response['harvest_runs'][0]['status'] == 'open'
+
+    # close harvest_run
+    res_close = api_client.put('/harvest_run', json={
+        "id": create_response['id'],
+        "success": True,
+        "started_at": "2026-02-17T15:36:05.544Z",
+        "completed_at": "2026-02-17T15:36:05.544Z"
+    })
+
+    assert res_close.status_code == 200
+
+    res_get3 = api_client.get('/harvest_run', params={
+        'harvest_url': 'https://demo.onedata.org/oai_pmh'
+    })
+
+    res_get3_response = res_get3.json()
+
+    assert res_get3.status_code == 200
+    assert len(res_get3_response['harvest_runs']) == 1
+    assert res_get3_response['harvest_runs'][0]['status'] == 'closed'
+
+
+def test_get_latest_harvest_run_without_harvest_url(api_client, flower_client, reset_db, reset_index):
+    res_get = api_client.get('/harvest_run')
+
+    assert res_get.status_code == 200
+    assert res_get.json()['harvest_runs'] is None
+
+    # create a new harvest run
+    res_create = api_client.post('/harvest_run', json={
+        "harvest_url": "https://demo.onedata.org/oai_pmh"
+    })
+
+    assert res_create.status_code == 200
+
+    create_response = res_create.json()
+
+    res_get2 = api_client.get('/harvest_run', params={
+        'harvest_url': 'https://demo.onedata.org/oai_pmh'
+    })
+
+    res_get2_response = res_get2.json()
+
+    assert res_get2.status_code == 200
+    assert len(res_get2_response['harvest_runs']) == 1
+    assert res_get2_response['harvest_runs'][0]['status'] == 'open'
+
+    # close harvest_run
+    res_close = api_client.put('/harvest_run', json={
+        "id": create_response['id'],
+        "success": True,
+        "started_at": "2026-02-17T15:36:05.544Z",
+        "completed_at": "2026-02-17T15:36:05.544Z"
+    })
+
+    assert res_close.status_code == 200
+
+    res_get3 = api_client.get('/harvest_run', params={
+        'harvest_url': 'https://demo.onedata.org/oai_pmh'
+    })
+
+    res_get3_response = res_get3.json()
+
+    assert res_get3.status_code == 200
+    assert len(res_get3_response['harvest_runs']) == 1
+    assert res_get3_response['harvest_runs'][0]['status'] == 'closed'
 
 def test_create_and_close_harvest_run(api_client, flower_client, reset_db, reset_index):
     # create a new harvest run
