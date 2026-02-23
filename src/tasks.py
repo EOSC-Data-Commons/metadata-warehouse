@@ -87,9 +87,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
     # "Thankfully, if you use the connection context, Psycopg will commit the connection at the end of the block
     # (or roll it back if the block is exited with an exception)"
     # However, this is not true for OpenSearch since we use a different client to write or delete data in OpenSearch and this actions will take immediate effect.
-    with psycopg.connect(dbname=self.postgres_config.user, user=self.postgres_config.user, host=self.postgres_config.address,
-                                         password=self.postgres_config.password, port=self.postgres_config.port,
-                                         row_factory=dict_row) as conn:
+    with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
 
         cur = conn.cursor()
 

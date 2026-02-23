@@ -50,7 +50,7 @@ tags_metadata = [
 
 app = FastAPI(openapi_tags=tags_metadata)
 postgres_config: PostgresConfig = PostgresConfig()
-
+connection_params = postgres_config.connection_params
 
 class HealthGetResponse(BaseModel):
     status: str = Field(description='Server status')
@@ -80,7 +80,6 @@ class EndpointConfig(BaseModel):
     code: str
     protocol: str
 
-
 class Config(BaseModel):
     endpoints_configs: list[EndpointConfig]
 
@@ -104,9 +103,18 @@ class HarvestRunCreateRequest(BaseModel):
     harvest_url: str
 
 
+class HarvestRun(BaseModel):
+    id: str = Field(description='ID of the harvest run')
+    status: str = Field(description='Status of the harvest run: open|closed|failed')
+    harvest_url: str
+    from_date: Optional[datetime]
+    until_date: Optional[datetime]
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+
+
 class HarvestRunGetResponse(BaseModel):
-    id: Optional[str] = Field(None, description='ID of the harvest run')
-    status: Optional[str] = Field(None, description='Status of the harvest run: open|closed|failed')
+    harvest_runs: Optional[list[HarvestRun]]
 
 
 class HarvestRunCreateResponse(BaseModel):
@@ -126,28 +134,81 @@ class HarvestRunCloseRequest(BaseModel):
 class HarvestRunCloseResponse(BaseModel):
     id: str = Field(description='ID of the closed harvest run')
 
-def get_latest_harvest_run_in_db(harvest_url: str) -> HarvestRunGetResponse:
-    with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address,
-                         password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+def get_latest_harvest_run_in_db(harvest_url: Optional[str]) -> HarvestRunGetResponse:
+
+    with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
 
         cur = conn.cursor()
 
-        cur.execute("""
-            SELECT hr.id, hr.status 
-     FROM harvest_runs hr
-     JOIN endpoints e ON hr.endpoint_id = e.id
-     WHERE e.harvest_url = %s
-     ORDER BY hr.until_date DESC
-     LIMIT 1
-        """, [harvest_url])
+        if harvest_url is not None:
 
-        open_harvest_run = cur.fetchone()
+            cur.execute("""
+                SELECT hr.id, hr.status, hr.from_date, hr.until_date, hr.started_at, hr.completed_at 
+         FROM harvest_runs hr
+         JOIN endpoints e ON hr.endpoint_id = e.id
+         WHERE e.harvest_url = %s
+         ORDER BY hr.until_date DESC
+         LIMIT 1
+            """, [harvest_url])
 
-        if open_harvest_run is not None:
-            return HarvestRunGetResponse(id=str(open_harvest_run['id']), status=open_harvest_run['status'])
+            latest_harvest_run = cur.fetchone()
+
+            if latest_harvest_run is not None:
+
+                return HarvestRunGetResponse(harvest_runs=[HarvestRun(
+                    id=str(latest_harvest_run['id']),
+                    status=latest_harvest_run['status'],
+                    started_at=latest_harvest_run['started_at'],
+                    completed_at=latest_harvest_run['completed_at'],
+                    from_date=latest_harvest_run['from_date'],
+                    until_date=latest_harvest_run['until_date'],
+                    harvest_url=harvest_url
+                )])
+            else:
+                return HarvestRunGetResponse(harvest_runs=None)
+
         else:
-            return HarvestRunGetResponse(id=None, status=None)
 
+            # query the latest harvest run for every endpoint
+            # TODO: maybe this query can also handle the case where harvest_url is given (WHERE clause)
+            cur.execute("""
+        SELECT 
+            e.harvest_url,  
+            hr.id,
+            hr.status,
+            hr.from_date,
+            hr.until_date,
+            hr.started_at,
+            hr.completed_at
+        FROM endpoints e
+        JOIN LATERAL (
+            SELECT id, status, until_date, from_date, started_at, completed_at
+            FROM harvest_runs
+            WHERE endpoint_id = e.id 
+            ORDER BY until_date DESC
+            LIMIT 1
+        ) hr ON true
+          """)
+
+            latest_harvest_runs = cur.fetchall()
+
+            # check for empty response
+            if not latest_harvest_runs:
+                return HarvestRunGetResponse(harvest_runs=None)
+
+            harvest_runs = []
+            for latest_harvest_run in latest_harvest_runs:
+                harvest_runs.append(HarvestRun(
+                    id=str(latest_harvest_run['id']),
+                    status=latest_harvest_run['status'],
+                    started_at=latest_harvest_run['started_at'],
+                    completed_at=latest_harvest_run['completed_at'],
+                    from_date=latest_harvest_run['from_date'],
+                    until_date=latest_harvest_run['until_date'],
+                    harvest_url=latest_harvest_run['harvest_url']
+                ))
+
+            return HarvestRunGetResponse(harvest_runs=harvest_runs)
 
 def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
     """
@@ -156,8 +217,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
     :param harvest_url: The new entry to be created.
     """
 
-    with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address,
-                         password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+    with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
         # TODO: only allow one open harvest run per endpoint
         # TODO check (in one transaction):
@@ -176,7 +236,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
      JOIN endpoints e ON hr.endpoint_id = e.id
      WHERE e.harvest_url = %s 
        AND hr.status = 'closed' 
-     ORDER BY hr.started_at DESC 
+     ORDER BY hr.until_date DESC 
      LIMIT 1)
             """, (harvest_url, harvest_url))
 
@@ -211,8 +271,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
 
 
 def close_harvest_run_in_db(harvest_run: HarvestRunCloseRequest) -> HarvestRunCloseResponse:
-    with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address,
-                         password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+    with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
         state = 'closed' if harvest_run.success else 'failed'
@@ -244,8 +303,7 @@ def create_harvest_event_in_db(harvest_event: HarvestEventCreateRequest) -> Harv
     :param harvest_event: The new record to be created.
     """
 
-    with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address,
-                         password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+    with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
         cur.execute("""
@@ -298,9 +356,7 @@ def get_config_from_db() -> list[EndpointConfig]:
     endpoints: list[EndpointConfig] = []
 
     try:
-        with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address,
-                             password=postgres_config.password, port=postgres_config.port,
-                             row_factory=dict_row) as conn:
+        with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
 
             cur = conn.cursor()
 
@@ -354,8 +410,7 @@ def create_jobs_in_queue(
     logger.info(f'Preparing jobs for index: {index_name}')
 
 
-    with psycopg.connect(dbname=postgres_config.user, user=postgres_config.user, host=postgres_config.address,
-                         password=postgres_config.password, port=postgres_config.port, row_factory=dict_row) as conn:
+    with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
 
 
         cur = conn.cursor()
@@ -465,7 +520,7 @@ def create_harvest_event(harvest_event: HarvestEventCreateRequest) -> HarvestEve
          summary='Get id and status of the latest harvest run for a given endpoint.',
          description='If no harvest run exists for the given endpoint, id and status will be null in the response.')
 def get_harvest_run(
-    harvest_url: str = Query(default=None, description='harvest url of the endpoint')) -> HarvestRunGetResponse:
+    harvest_url: Optional[str] = Query(default=None, description='harvest url of the endpoint')) -> HarvestRunGetResponse:
     try:
         return get_latest_harvest_run_in_db(harvest_url)
     except Exception as e:
