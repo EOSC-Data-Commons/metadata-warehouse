@@ -7,8 +7,8 @@ from psycopg import errors as psycopg_errors
 from psycopg.rows import dict_row
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
-from utils.queue_utils import HarvestEventQueue
-from tasks import transform_batch
+from utils.queue_utils import HarvestEventQueue #, IdentifierType
+from tasks import transform_batch, add_file_metadata
 import os
 from fastapi import FastAPI, Query, HTTPException
 import logging
@@ -428,7 +428,8 @@ def create_jobs_in_queue(
             )[1] AS record,
             he.additional_metadata,
             he.is_deleted,
-            he.datestamp
+            he.datestamp,
+            e.harvest_params
         FROM harvest_events he
         JOIN harvest_runs hr ON he.harvest_run_id = hr.id 
         JOIN endpoints e ON he.endpoint_id = e.id
@@ -443,11 +444,20 @@ def create_jobs_in_queue(
                 # https://www.psycopg.org/psycopg3/docs/basic/adapt.html#uuid-adaptation
                 # https://docs.python.org/3/library/uuid.html#uuid.UUID
                 # str(uuid) returns a string in the form 12345678-1234-5678-1234-567812345678 where the 32 hexadecimal digits represent the UUID.
+
+                additional_metadata_API = (
+                    doc
+                    .get('harvest_params', {})
+                    .get('additional_metadata_params', {})
+                    .get('endpoint')
+                )
+
                 batch.append(
                     HarvestEventQueue(id=str(doc['id']), xml=doc['record'], repository_id=str(doc['repository_id']),
                                       endpoint_id=str(doc['endpoint_id']), record_identifier=doc['record_identifier'],
+                                      identifier_type='doi' if doc['record_identifier'].startswith('10.') else 'url',
                                       code=doc['code'], harvest_url=doc['harvest_url'],
-                                      additional_metadata=doc['additional_metadata'], is_deleted=doc['is_deleted'],
+                                      additional_metadata=doc['additional_metadata'], additional_metadata_API=additional_metadata_API, is_deleted=doc['is_deleted'],
                                       datestamp=doc['datestamp'].strftime('%Y-%m-%d %H:%M:%S.%f%z'))
                 )
 
@@ -458,13 +468,14 @@ def create_jobs_in_queue(
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')
             transform_batch.delay(batch, index_name)
+            add_file_metadata.delay(batch)
             tasks += 1
 
             # increment offset by limit
             offset += limit
             # will be false if query returned fewer results than limit
-            fetch = len(batch) == limit
-            # fetch = False
+            #fetch = len(batch) == limit
+            fetch = False
             batch = []
 
     return tasks

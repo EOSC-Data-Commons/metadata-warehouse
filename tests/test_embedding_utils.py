@@ -40,9 +40,11 @@ class TestEmbeddingsUtils(unittest.TestCase):
                 repository_id='1',
                 endpoint_id='2',
                 record_identifier='xyz',
+                identifier_type='doi',
                 code='DANS',
                 harvest_url='https://oai.org',
                 additional_metadata='{}',
+                additional_metadata_API=None,
                 is_deleted=False,
                 datestamp='2025-11-13T14:50:35.397Z'
             )
@@ -57,9 +59,11 @@ class TestEmbeddingsUtils(unittest.TestCase):
                 repository_id='1',
                 endpoint_id='2',
                 record_identifier='xyz',
+                identifier_type='doi',
                 code='DANS',
                 harvest_url='https://oai.org',
                 additional_metadata='{}',
+                additional_metadata_API=None,
                 is_deleted=False,
                 datestamp='2025-11-13T14:50:35.397Z'
             )
@@ -74,9 +78,11 @@ class TestEmbeddingsUtils(unittest.TestCase):
                 repository_id='1',
                 endpoint_id='2',
                 record_identifier='xyz',
+                identifier_type='doi',
                 code='DANS',
                 harvest_url='https://oai.org',
                 additional_metadata='{}',
+                additional_metadata_API=None,
                 is_deleted=False,
                 datestamp='2025-11-13T14:50:35.397Z'
             )

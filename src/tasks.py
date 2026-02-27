@@ -1,6 +1,5 @@
 import json
 import os
-from pathlib import Path
 from config.logging_config import LOGGING_CONFIG
 from logging.config import dictConfig
 from fastembed import TextEmbedding
@@ -48,6 +47,52 @@ celery_app = Celery('tasks')
 
 # celery_app.task_serializer = 'json'
 # celery_app.ignore_result = False
+
+class FileMetadataTask(Task): # type: ignore
+    # basic setup like clients etc.
+    pass
+
+
+@celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
+def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
+    for ele in batch:
+        harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
+
+        logger.debug(harvest_event.code)
+
+        if harvest_event.additional_metadata and harvest_event.code == 'DANS':
+            # this only covers dataverse for now
+
+            metadata = json.loads(harvest_event.additional_metadata)
+            files = metadata['datasetVersion']['files']
+
+            files = [{
+                'FileType': file['dataFile']['contentType'],
+                'FileSize': file['dataFile']['filesize'],
+                'CheckSum': file['dataFile']['checksum'],
+                'FileName': file['dataFile']['filename'],
+                'FileVersion': file['version'],
+                'FileIdentifier': file['dataFile']['id'],
+                'DownloadURL': harvest_event.additional_metadata_API,
+                'FileCreateDateTime': file['dataFile']['creationDate'],
+            } for file in files]
+
+            #logger.debug(metadata['datasetVersion']['files'])
+
+            logger.debug(json.dumps(
+                {
+                    'RepositoryEndpoint': harvest_event.harvest_url,
+                    'Identifier': harvest_event.record_identifier,
+                    'IdentifierType': harvest_event.identifier_type,
+                    'IdentifierGranularity': 'Dataset',
+                    'Files': files
+                }, indent=4)
+            )
+
+        break
+
+
+    return len(batch)
 
 class TransformTask(Task):  # type: ignore
 
