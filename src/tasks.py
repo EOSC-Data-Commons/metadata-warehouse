@@ -48,7 +48,7 @@ celery_app = Celery('tasks')
 # celery_app.task_serializer = 'json'
 # celery_app.ignore_result = False
 
-class FileMetadataTask(Task):
+class FileMetadataTask(Task): # type: ignore
     # basic setup like clients etc.
     pass
 
