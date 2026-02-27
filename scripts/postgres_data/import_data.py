@@ -71,7 +71,7 @@ def import_data(repo_code: str, harvest_url: str, data_dir: Path, additional_dir
 
 
             payload = {
-                'record_identifier': identifier.text,
+                'record_identifier': identifier.text.replace('doi:', '').replace('oai:', ''),
                 'datestamp': datestamp.text,
                 'raw_metadata': xml,
                 'additional_metadata': additional_metadata,
@@ -117,7 +117,7 @@ HARVEST_ENDPOINTS = [
     ('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/harvests_DANS_phystech'), Path('data/harvests_DANS_phystech_additional')),
     ('DANS', 'https://dataverse.nl/oai', Path('data/harvests_DANS_gen'), Path('data/harvests_DANS_gen_additional')),
     ('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('data/harvests_SWISS_dc_datacite'), None),
-    ('DABAR', 'https://dabar.srce.hr/oai', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
+    ('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
     ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/harvests_HAL_sample'), None)
 ]
 
