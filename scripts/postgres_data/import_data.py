@@ -69,6 +69,8 @@ def import_data(repo_code: str, harvest_url: str, data_dir: Path, additional_dir
                     with open(additional_file[0]) as f2:
                         additional_metadata = f2.read()
 
+            if identifier.text is None:
+                raise Exception(f'No identifier found in XML: {file}')
 
             payload = {
                 'record_identifier': identifier.text.replace('doi:', '').replace('oai:', ''),
