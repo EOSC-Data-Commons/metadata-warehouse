@@ -49,8 +49,11 @@ celery_app = Celery('tasks')
 # celery_app.ignore_result = False
 
 class FileMetadataTask(Task): # type: ignore
-    # basic setup like clients etc.
-    pass
+
+    postgres_config: PostgresConfig
+
+    def __init__(self) -> None:
+        self.postgres_config = PostgresConfig()
 
 
 @celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
@@ -66,19 +69,30 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
             metadata = json.loads(harvest_event.additional_metadata)
             files = metadata['datasetVersion']['files']
 
-            files = [{
-                'FileType': file['dataFile']['contentType'],
-                'FileSize': file['dataFile']['filesize'],
-                'CheckSum': file['dataFile']['checksum'],
-                'FileName': file['dataFile']['filename'],
-                'FileVersion': file['version'],
-                'FileIdentifier': file['dataFile']['id'],
-                'DownloadURL': harvest_event.additional_metadata_API,
-                'FileCreateDateTime': file['dataFile']['creationDate'],
-            } for file in files]
+            rows = [
+                (
+                    harvest_event.harvest_url,  # harvest_url
+                    harvest_event.record_identifier,  # record_identifier
+                    str(file['dataFile']['id']),  # file_identifier
+                    file['dataFile']['filename'],  # file_name
+                    harvest_event.identifier_type,  # identifier_type
+                    'Dataset',  # identifier_granularity
+                    file['dataFile']['contentType'],  # file_type
+                    file['dataFile']['filesize'],  # file_size
+                    file['dataFile']['checksum']['type'].upper(),  # checksum_type
+                    file['dataFile']['checksum']['value'],  # checksum_value
+                    str(file['version']),  # file_version
+                    harvest_event.additional_metadata_API,  # download_url
+                    file['dataFile']['creationDate'],  # file_created_at
+                )
+                for file in files
+            ]
+
+            logger.debug(rows)
 
             #logger.debug(metadata['datasetVersion']['files'])
 
+            '''
             logger.debug(json.dumps(
                 {
                     'RepositoryEndpoint': harvest_event.harvest_url,
@@ -88,8 +102,51 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                     'Files': files
                 }, indent=4)
             )
+            '''
 
-        break
+            with psycopg.connect(dbname='recordfiles', user=self.postgres_config.user, host=self.postgres_config.address, password=self.postgres_config.password, port=self.postgres_config.port, row_factory=dict_row) as conn:
+                cur = conn.cursor()
+
+                sql = """
+                        INSERT INTO record_files (
+                            harvest_url,
+                            record_identifier,
+                            file_identifier,
+                            file_name,
+                            identifier_type,
+                            identifier_granularity,
+                            file_type,
+                            file_size,
+                            checksum_type,
+                            checksum_value,
+                            file_version,
+                            download_url,
+                            file_created_at
+                        ) VALUES (
+                            %s, %s, %s, %s,
+                            %s::file_identifier_type,
+                            %s::identifier_granularity_level,
+                            %s, %s,
+                            %s::checksum_algorithm,
+                            %s, %s, %s,
+                            %s::timestamp with time zone
+                        )
+                        ON CONFLICT (harvest_url, record_identifier, file_identifier)
+                        DO UPDATE SET
+                            file_name = EXCLUDED.file_name,
+                            file_type = EXCLUDED.file_type,
+                            file_size = EXCLUDED.file_size,
+                            checksum_type = EXCLUDED.checksum_type,
+                            checksum_value = EXCLUDED.checksum_value,
+                            file_version = EXCLUDED.file_version,
+                            download_url = EXCLUDED.download_url,
+                            file_created_at = EXCLUDED.file_created_at,
+                            updated_at = CURRENT_TIMESTAMP
+                    """
+
+                cur.executemany(sql, rows)
+
+        #break
 
 
     return len(batch)

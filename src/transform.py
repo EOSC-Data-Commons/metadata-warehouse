@@ -455,7 +455,7 @@ def create_jobs_in_queue(
                 batch.append(
                     HarvestEventQueue(id=str(doc['id']), xml=doc['record'], repository_id=str(doc['repository_id']),
                                       endpoint_id=str(doc['endpoint_id']), record_identifier=doc['record_identifier'],
-                                      identifier_type='doi' if doc['record_identifier'].startswith('10.') else 'url',
+                                      identifier_type='DOI' if doc['record_identifier'].startswith('10.') else 'URL',
                                       code=doc['code'], harvest_url=doc['harvest_url'],
                                       additional_metadata=doc['additional_metadata'], additional_metadata_API=additional_metadata_API, is_deleted=doc['is_deleted'],
                                       datestamp=doc['datestamp'].strftime('%Y-%m-%d %H:%M:%S.%f%z'))
