@@ -25,7 +25,8 @@ dev = [
     "types-jsonschema",
     "types-requests",
     "lxml-stubs",
-    "python-dotenv"
+    "python-dotenv",
+    "celery-types>=0.24.0",
 ]
 
 [tool.pytest.ini_options]

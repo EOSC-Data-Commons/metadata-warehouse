@@ -21,7 +21,7 @@ import datetime
 import psycopg
 from psycopg.rows import dict_row
 
-@after_setup_logger.connect()  # type: ignore
+@after_setup_logger.connect()
 def configurate_celery_task_logger(**kwargs: Any) -> None:
     # https://docs.celeryq.dev/en/latest/userguide/signals.html#after-setup-logger
     dictConfig(LOGGING_CONFIG)
@@ -53,7 +53,8 @@ class FileMetadataTask(Task): # type: ignore
     postgres_config: PostgresConfig
 
     def __init__(self) -> None:
-        self.postgres_config = PostgresConfig()
+        # TODO: how to configure DB and not hard code?
+        self.postgres_config = PostgresConfig(db='recordfiles')
 
 
 @celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
@@ -90,21 +91,9 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
             logger.debug(rows)
 
-            #logger.debug(metadata['datasetVersion']['files'])
+            self.postgres_config.user
 
-            '''
-            logger.debug(json.dumps(
-                {
-                    'RepositoryEndpoint': harvest_event.harvest_url,
-                    'Identifier': harvest_event.record_identifier,
-                    'IdentifierType': harvest_event.identifier_type,
-                    'IdentifierGranularity': 'Dataset',
-                    'Files': files
-                }, indent=4)
-            )
-            '''
-
-            with psycopg.connect(dbname='recordfiles', user=self.postgres_config.user, host=self.postgres_config.address, password=self.postgres_config.password, port=self.postgres_config.port, row_factory=dict_row) as conn:
+            with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
                 cur = conn.cursor()
 
                 sql = """
