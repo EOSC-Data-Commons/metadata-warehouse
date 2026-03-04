@@ -3,6 +3,12 @@ from typing import Any, Optional
 
 class PostgresConfig:
 
+    user: str
+    db: str
+    password: str
+    address: str
+    port: int
+
     def __init__(self, db: Optional[str] = None) -> None:
         user = os.environ.get('POSTGRES_USER')
         resolved_db = db if db else os.environ.get('POSTGRES_DB')

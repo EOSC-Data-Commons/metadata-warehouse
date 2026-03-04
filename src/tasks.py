@@ -91,10 +91,18 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
             logger.debug(rows)
 
-            self.postgres_config.user
-
             with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
                 cur = conn.cursor()
+
+                # Delete existing file entries for this endpoint and endpoint
+                # A new version could provide fewer files
+                cur.execute(
+                    """
+                    DELETE FROM record_files
+                    WHERE harvest_url = %s AND record_identifier = %s
+                    """,
+                    (harvest_event.harvest_url, harvest_event.record_identifier)
+                )
 
                 sql = """
                         INSERT INTO record_files (
@@ -120,23 +128,9 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                             %s, %s, %s,
                             %s::timestamp with time zone
                         )
-                        ON CONFLICT (harvest_url, record_identifier, file_identifier)
-                        DO UPDATE SET
-                            file_name = EXCLUDED.file_name,
-                            file_type = EXCLUDED.file_type,
-                            file_size = EXCLUDED.file_size,
-                            checksum_type = EXCLUDED.checksum_type,
-                            checksum_value = EXCLUDED.checksum_value,
-                            file_version = EXCLUDED.file_version,
-                            download_url = EXCLUDED.download_url,
-                            file_created_at = EXCLUDED.file_created_at,
-                            updated_at = CURRENT_TIMESTAMP
                     """
 
                 cur.executemany(sql, rows)
-
-        #break
-
 
     return len(batch)
 
