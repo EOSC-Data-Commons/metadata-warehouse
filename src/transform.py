@@ -474,8 +474,8 @@ def create_jobs_in_queue(
             # increment offset by limit
             offset += limit
             # will be false if query returned fewer results than limit
-            #fetch = len(batch) == limit
-            fetch = False
+            fetch = len(batch) == limit
+            #fetch = False
             batch = []
 
     return tasks
