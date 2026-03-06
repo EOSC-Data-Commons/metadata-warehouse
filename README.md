@@ -118,3 +118,14 @@ After starting the stack with `docker compose up`, you can run the harvester for
 docker compose run harvester https://lifesciences.datastations.nl/oai
 ```
 
+## Run E2E Tests
+
+Before running the e2e tests locally, the env var `POSTGRES_DB` needs to be set to "testdb" 
+since the e2e tests and the API have to use the same DB in order for the tests to work. 
+Note that the e2e tests reinit "testdb" on each run. Since "testdb" is hardcoded in the e2e tests, 
+the productive db "dataset" won't be overwritten by running the e2e tests. 
+
+To run the e2e tests:
+```sh
+uv run pytest -s e2e
+```

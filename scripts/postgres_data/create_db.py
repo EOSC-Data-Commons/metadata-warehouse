@@ -9,6 +9,7 @@ load_dotenv()
 
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
+DB = os.environ.get('POSTGRES_DB')
 ADDRESS = os.environ.get('POSTGRES_ADDRESS')
 PORT = os.environ.get('POSTGRES_PORT')
 
@@ -19,7 +20,7 @@ sql_files = ['types.sql', 'tables.sql', 'indexes.sql', 'triggers.sql', 'seed.sql
              'verify.sql']
 
 try:
-    with psycopg.connect(dbname=USER, user=USER, host=ADDRESS if ADDRESS else '127.0.0.1', password=PW,
+    with psycopg.connect(dbname=DB, user=USER, host=ADDRESS if ADDRESS else '127.0.0.1', password=PW,
                          port=int(PORT) if PORT else 5432) as conn:
         cur = conn.cursor()
         for sql_f in sql_files:
