@@ -24,7 +24,8 @@ dev = [
     "mypy",
     "types-jsonschema",
     "types-requests",
-    "lxml-stubs"
+    "lxml-stubs",
+    "python-dotenv"
 ]
 
 [tool.pytest.ini_options]
