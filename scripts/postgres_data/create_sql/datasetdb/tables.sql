@@ -98,8 +98,9 @@ CREATE TABLE IF NOT EXISTS harvest_events (
     endpoint_id UUID NOT NULL,
     harvest_run_id UUID NOT NULL,
     record_identifier VARCHAR(255) NOT NULL,
-    raw_metadata XML NOT NULL,
-    metadata_format content_format NOT NULL DEFAULT 'XML',
+    raw_metadata_xml XML,
+    raw_metadata_json JSONB,
+    metadata_format content_format NOT NULL,
     metadata_protocol harvest_protocol NOT NULL,
     additional_metadata TEXT,
     datestamp TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -115,9 +116,16 @@ CREATE TABLE IF NOT EXISTS harvest_events (
         REFERENCES harvest_runs(id) ON DELETE CASCADE
 );
 
+ALTER TABLE harvest_events
+ADD CONSTRAINT harvest_events_raw_metadata_check CHECK (
+    (raw_metadata_xml IS NOT NULL AND raw_metadata_json IS NULL) OR
+    (raw_metadata_xml IS NULL AND raw_metadata_json IS NOT NULL)
+);
+
 COMMENT ON TABLE harvest_events IS 'Queue of harvested metadata events awaiting transformation';
 COMMENT ON COLUMN harvest_events.record_identifier IS 'OAI-PMH identifier or unique record ID';
-COMMENT ON COLUMN harvest_events.raw_metadata IS 'Original harvested metadata (XML, JSON, etc.)';
+COMMENT ON COLUMN harvest_events.raw_metadata_xml IS 'Original harvested metadata (XML)';
+COMMENT ON COLUMN harvest_events.raw_metadata_json IS 'Original harvested metadata (JSON)';
 COMMENT ON COLUMN harvest_events.metadata_format IS 'Format of the raw metadata';
 COMMENT ON COLUMN harvest_events.metadata_protocol IS 'Protocol used to harvest this event';
 COMMENT ON COLUMN harvest_events.additional_metadata IS 'Additional metadata from REST APIs etc., includes source protocol';

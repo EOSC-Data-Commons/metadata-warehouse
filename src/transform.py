@@ -87,7 +87,8 @@ class Config(BaseModel):
 class HarvestEventCreateRequest(BaseModel):
     record_identifier: str
     datestamp: datetime
-    raw_metadata: str  # XML
+    raw_metadata: str  # XML or JSON
+    metadata_format: str # XML or JSON
     additional_metadata: Optional[str] = None  # XML or JSON (stringified)
     harvest_url: str
     repo_code: str
@@ -297,6 +298,9 @@ def close_harvest_run_in_db(harvest_run: HarvestRunCloseRequest) -> HarvestRunCl
 
 
 def create_harvest_event_in_db(harvest_event: HarvestEventCreateRequest) -> HarvestEventCreateResponse:
+
+    logger.debug(f'{harvest_event}')
+
     """
     Creates a record in table harvest_events
 
@@ -306,34 +310,40 @@ def create_harvest_event_in_db(harvest_event: HarvestEventCreateRequest) -> Harv
     with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
+        raw_xml = harvest_event.raw_metadata if harvest_event.metadata_format == 'XML' else None
+        raw_json = harvest_event.raw_metadata if harvest_event.metadata_format == 'JSON' else None
+
         cur.execute("""
                         INSERT INTO harvest_events 
                             (record_identifier,
                             datestamp, 
-                            raw_metadata,
+                            raw_metadata_xml,
+                            raw_metadata_json,
+                            metadata_format,
                             additional_metadata,
                             repository_id, 
                             endpoint_id,  
                             metadata_protocol,
-                            metadata_format,
                             harvest_run_id,
                             is_deleted
                             ) 
                         VALUES ( 
                             %s,
                             %s, 
-                            XMLPARSE(DOCUMENT %s), 
+                            %s::XML,
+                            %s::JSONB,
+                            %s,
                             %s,
                             (SELECT id from repositories WHERE code=%s),
                             (SELECT id from endpoints WHERE harvest_url=%s), 
                             %s,
-                            %s,
                             (SELECT id FROM harvest_runs WHERE id = %s and status = 'open'),
                             %s
                             );
-                        """, (harvest_event.record_identifier, harvest_event.datestamp, harvest_event.raw_metadata,
+                        """, (harvest_event.record_identifier, harvest_event.datestamp, raw_xml, raw_json,
+                              harvest_event.metadata_format,
                               harvest_event.additional_metadata, harvest_event.repo_code, harvest_event.harvest_url,
-                              'OAI-PMH', 'XML', harvest_event.harvest_run_id, harvest_event.is_deleted))
+                              'OAI-PMH', harvest_event.harvest_run_id, harvest_event.is_deleted))
 
         cur.execute("""
         SELECT id 

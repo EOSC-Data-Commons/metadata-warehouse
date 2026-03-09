@@ -204,7 +204,8 @@ def test_create_and_close_harvest_run(api_client, flower_client, reset_db, reset
     post_he = api_client.post('/harvest_event', json={
         "record_identifier": "10.34894/G8PZKV",
         "datestamp": "2026-02-17T15:43:03.326Z",
-        "raw_metadata": f"{xml}",
+        "raw_metadata": '{"id": "hahuhi"}',
+        "metadata_format": "JSON",
         "harvest_url": "https://demo.onedata.org/oai_pmh",
         "repo_code": "DANS",
         "harvest_run_id": create_response['id'],
