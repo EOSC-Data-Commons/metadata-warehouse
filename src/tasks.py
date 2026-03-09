@@ -54,7 +54,7 @@ class FileMetadataTask(Task): # type: ignore
 
     def __init__(self) -> None:
         # TODO: how to configure DB and not hard code?
-        self.postgres_config = PostgresConfig(db='recordfiles')
+        self.postgres_config = PostgresConfig(db='filedb')
 
 
 @celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
@@ -68,7 +68,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
             # this only covers dataverse for now
 
             metadata = json.loads(harvest_event.additional_metadata)
-            files = metadata['datasetVersion']['files']
+            files = metadata['data']['files']
 
             rows = [
                 (
