@@ -1,0 +1,78 @@
+# Harvest Report
+
+Generated at: **{{ generated_at }}**
+
+---
+
+## Summary Statistics
+
+- **Total Records Harvested:** {{ total_records | default(0) }}
+- **Total Endpoints:** {{ summary | length }}
+- **Harvest Events:** {{ total_events | default(0) }}
+- **Errors:** {{ errors | length }}
+- **Duplicates:** {{ duplicates | length }}
+
+---
+
+## Records per Endpoint
+
+| Endpoint | Records | % of Total |
+|----------|---------|-----------|
+{% for row in count_records_per_endpoint -%}
+| {{ row.endpoint_name }} | {{ row.record_count | default(0) }} | {{ ((row.record_count / total_records * 100) | round(1)) if total_records else 0 }}% |
+{% endfor %}
+
+---
+
+## Harvest Summary
+
+| Endpoint | Total Events | Successful | Failed | Success Rate |
+|----------|--------------|-----------|--------|--------------|
+{% for row in summary -%}
+| {{ row.endpoint_name }} | {{ row.total_harvest_events }} | {{ row.without_error }} | {{ row.with_error }} | {% if row.total_harvest_events > 0 %}{{ ((row.without_error / row.total_harvest_events * 100) | round(2)) }}%{% else %}—{% endif %} |
+{% endfor %}
+
+---
+
+## Data Quality Issues
+
+### Errors ({{ errors | length }})
+
+{% if errors %}
+The following validation errors were detected during harvest:
+
+{% for row in errors %}
+**{{ row.endpoint_name }}** (ID: `{{ row.id }}` | Identifier: `{{ row.record_identifier }}`)
+
+```
+{{ row.error_message }}
+```
+{% endfor %}
+{% else %}
+✓ _No errors detected._
+{% endif %}
+
+### Duplicates ({{ duplicates | length }})
+
+{% if duplicates %}
+The following record identifiers appear in multiple endpoints:
+{% set current_doi = '' %}
+{% for row in duplicates %}
+{% if row.record_identifier != current_doi %}
+
+**{{ row.record_identifier }}**
+{% set current_doi = row.record_identifier %}
+{% endif %}
+- `{{ row.endpoint_name }}` (ID: `{{ row.record_id }}`)
+{% endfor %}
+{% else %}
+✓ _No duplicates detected._
+{% endif %}
+
+---
+
+## Report Metadata
+
+- **Generated:** {{ generated_at }}
+- **Database:** {{ database_name | default('N/A') }}
+- **Report Period:** {{ report_period | default('Latest harvest run') }}
