@@ -21,7 +21,7 @@ import datetime
 import psycopg
 from psycopg.rows import dict_row
 
-@after_setup_logger.connect()
+@after_setup_logger.connect() # type: ignore[misc, unused-ignore]
 def configurate_celery_task_logger(**kwargs: Any) -> None:
     # https://docs.celeryq.dev/en/latest/userguide/signals.html#after-setup-logger
     dictConfig(LOGGING_CONFIG)
