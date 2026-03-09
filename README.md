@@ -48,11 +48,13 @@ To run the containers:
   cd scripts/postgres_data
   ```
 
-- create table structure and repo config as defined in `scripts/postgres_data/create_sql`
-  (to start from scratch, you have to remove the tables first with [DROP](https://www.postgresql.org/docs/current/sql-droptable.html)):
+- create table structure and repo config as defined in `scripts/postgres_data/create_sql/$dbname`
   ```sh
-  uv run create_db.py
+  uv run create_db.py --db $dbname [--reset]
   ```
+  This will create and init the specified DB if it does not exist yet.
+  If it already exists and should be **dropped and reinitialized**, 
+  additionally provide the flag --reset. 
 
 - load XML data from `scripts/postgres_data/data` (populates table `harvest_events`):
   ```sh
