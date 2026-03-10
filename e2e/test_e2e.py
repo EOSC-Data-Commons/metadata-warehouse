@@ -92,7 +92,7 @@ def test_get_config(api_client, reset_db):
     response = api_client.get("/config")
 
     assert response.status_code == 200
-    assert len(response.json()['endpoints_configs']) == 9
+    assert len(response.json()['endpoints_configs']) == 10
 
 def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, reset_db, reset_index):
     res_get = api_client.get('/harvest_run', params={
@@ -267,4 +267,4 @@ def test_create_and_close_harvest_run(api_client, flower_client, reset_db, reset
     response_config = api_client.get("/config")
 
     assert response_config.status_code == 200
-    assert len(response_config.json()['endpoints_configs']) == 9
+    assert len(response_config.json()['endpoints_configs']) == 10
