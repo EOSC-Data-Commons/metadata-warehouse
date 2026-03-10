@@ -4,7 +4,7 @@
 
 -- Harvest Protocol Type
 DO $$ BEGIN
-    CREATE TYPE harvest_protocol AS ENUM ('OAI-PMH', 'REST_API');
+    CREATE TYPE harvest_protocol AS ENUM ('OAI-PMH', 'REST_API', 'FINBIF_API');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
