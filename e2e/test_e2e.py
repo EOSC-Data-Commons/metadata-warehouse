@@ -54,7 +54,7 @@ def reset_db():
             cursor.execute("CREATE SCHEMA public")
 
             for sql_f in sql_files:
-                with open(f'scripts/postgres_data/create_sql/{sql_f}') as f:
+                with open(f'scripts/postgres_data/create_sql/datasetdb/{sql_f}') as f:
                     sql_statements = f.read()
                 cursor.execute(sql_statements)
 
