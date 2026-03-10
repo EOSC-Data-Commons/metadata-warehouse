@@ -6,7 +6,7 @@
   "custom_types": {
     "harvest_protocol": {
       "type": "enum",
-      "values": ["OAI-PMH", "REST_API"]
+      "values": ["OAI-PMH", "REST_API", "FINBIF_API"]
     },
     "resource_type": {
       "type": "enum",
@@ -535,7 +535,7 @@
       {"fields": ["updated_at"], "type": "brin"},
       {"fields": ["datacite_json"], "type": "gin"},
       {"fields": ["additional_metadata"], "type": "gin"},
-      {"fields": ["title"], "type": "gin", "function": "to_tsvector('english', title)"},
+      {"fields": ["title"], "type": "gin", "function": "to_tsvector('english', title)"}
 
     ],
     "harvest_runs": [

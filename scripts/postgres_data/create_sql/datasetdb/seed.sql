@@ -9,7 +9,8 @@ VALUES
     ('Digital Academic Repository', 'DABAR', 'Croatian national repository', 'https://dabar.srce.hr', true),
     ('SwissUbase', 'SWISS', 'Swiss data repository', 'https://www.swissubase.ch', true),
     ('HAL Science', 'HAL', 'French open archive', 'https://hal.science', true),
-    ('Onedata', 'ONE', 'Onedata demo repository', 'https://demo.onedata.org', true)
+    ('Onedata', 'ONE', 'Onedata demo repository', 'https://demo.onedata.org', true),
+    ('FinBIF', 'FINBIF', 'Finnish Biodiversity Information Facility', 'https://laji.fi', true)
 ON CONFLICT (code) DO NOTHING;
 
 -- DANS Archaeology
@@ -136,4 +137,18 @@ SELECT
     '{"metadata_prefix": "oai_datacite", "set": ["a842ea97ec1855a54bf77a90e915cac7cha3ab"]}'
 FROM repositories r
 WHERE r.code = 'ONE'
+ON CONFLICT (name) DO NOTHING;
+
+-- FinBIF
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+SELECT
+    r.id,
+    'FinBIF',
+    'https://api.laji.fi',
+    'FINBIF_API',
+    'Biology',
+    true,
+    '{"metadata_prefix": "oai_datacite"}'
+FROM repositories r
+WHERE r.code = 'FINBIF'
 ON CONFLICT (name) DO NOTHING;
