@@ -4,6 +4,7 @@
 
 This repo contains a `docker-compose.yml` file which configures the containers and their interaction.
 To run the containers:
+
 - users and passwords (adjust env variables as needed and set new passwords):
   ```sh
   cp env.template .env
@@ -44,6 +45,14 @@ To run the containers:
 
 ## Create Postgres DB and Load and Transform Data
 
+Initialize all databases and permissions in the running postgres container:
+
+```sh
+docker compose exec postgres sh -c "cd /scripts && ./init_all.sh"
+```
+
+### Older docs to load data in the db
+
 - ```sh
   cd scripts/postgres_data
   ```
@@ -57,7 +66,7 @@ To run the containers:
 - load XML data from `scripts/postgres_data/data` (populates table `harvest_events`):
   ```sh
    uv run import_data.py
-   ```
+  ```
 
 - transform data from `scripts/postgres_data/data` to a local dir
   (to test transformation, alternative to using the Celery process):
