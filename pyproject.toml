@@ -12,6 +12,7 @@ dependencies = [
     "watchdog",
     "fastapi[standard]",
     "psycopg[binary]",
+    "datahugger-ng"
     # "flower", # only needed when not using mher/flower
 ]
 

@@ -13,7 +13,8 @@ USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
 ADDRESS = os.environ.get('POSTGRES_ADDRESS')
 PORT = os.environ.get('POSTGRES_PORT')
-TEST_DB = 'testdb'
+TEST_DATASET_DB = 'testdatasetdb'
+TEST_FILE_DB = 'testfiledb'
 TEST_INDEX = 'test_index'
 EMBEDDING_DIMS = os.environ.get('EMBEDDING_DIMS')
 
@@ -33,8 +34,7 @@ def flower_client():
         yield client
 
 
-@pytest.fixture
-def reset_db():
+def reset_db(name: str, path: str):
     sql_files = ['types.sql', 'tables.sql', 'indexes.sql', 'triggers.sql', 'seed.sql', 'views.sql', 'permissions.sql',
                  'verify.sql']
 
@@ -42,11 +42,11 @@ def reset_db():
     with psycopg.connect(dbname='postgres', user=USER, host='127.0.0.1', password=PW,
                          port=5432, autocommit=True) as conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (TEST_DB,))
+            cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,))
             if not cursor.fetchone():
-                cursor.execute(f"CREATE DATABASE {TEST_DB}")
+                cursor.execute(f"CREATE DATABASE {name}")
 
-    with psycopg.connect(dbname=TEST_DB, user=USER, host='127.0.0.1', password=PW,
+    with psycopg.connect(dbname=name, user=USER, host='127.0.0.1', password=PW,
                          port=5432) as conn:
         with conn.cursor() as cursor:
             # Drop and recreate schema
@@ -54,9 +54,23 @@ def reset_db():
             cursor.execute("CREATE SCHEMA public")
 
             for sql_f in sql_files:
-                with open(f'scripts/postgres_data/create_sql/datasetdb/{sql_f}') as f:
+                filepath = f'scripts/postgres_data/create_sql/{path}/{sql_f}'
+                if not os.path.exists(filepath):
+                    #print(f'Skipping {filepath} (not found)')
+                    continue
+
+                with open(filepath) as f:
                     sql_statements = f.read()
                 cursor.execute(sql_statements)
+
+@pytest.fixture
+def reset_dataset_db():
+    reset_db(TEST_DATASET_DB, 'datasetdb')
+
+
+@pytest.fixture
+def reset_file_db():
+    reset_db(TEST_FILE_DB, 'filedb')
 
 
 @pytest.fixture
@@ -82,19 +96,19 @@ def reset_index():
     yield client
 
 
-def test_health(api_client, reset_db):
+def test_health(api_client, reset_dataset_db, reset_file_db):
     resource = api_client.get("/health")
     assert resource.status_code == 200
     assert resource.json()['status'] == "ok"
 
 
-def test_get_config(api_client, reset_db):
+def test_get_config(api_client, reset_dataset_db, reset_file_db):
     response = api_client.get("/config")
 
     assert response.status_code == 200
     assert len(response.json()['endpoints_configs']) == 9
 
-def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, reset_db, reset_index):
+def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, reset_dataset_db, reset_file_db, reset_index):
     res_get = api_client.get('/harvest_run', params={
         'harvest_url': 'https://demo.onedata.org/oai_pmh'
     })
@@ -142,7 +156,7 @@ def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, rese
     assert res_get3_response['harvest_runs'][0]['status'] == 'closed'
 
 
-def test_get_latest_harvest_run_without_harvest_url(api_client, flower_client, reset_db, reset_index):
+def test_get_latest_harvest_run_without_harvest_url(api_client, flower_client, reset_dataset_db, reset_file_db, reset_index):
     res_get = api_client.get('/harvest_run')
 
     assert res_get.status_code == 200
@@ -187,10 +201,10 @@ def test_get_latest_harvest_run_without_harvest_url(api_client, flower_client, r
     assert len(res_get3_response['harvest_runs']) == 1
     assert res_get3_response['harvest_runs'][0]['status'] == 'closed'
 
-def test_create_and_close_harvest_run(api_client, flower_client, reset_db, reset_index):
+def test_create_and_close_harvest_run(api_client, flower_client, reset_dataset_db, reset_file_db, reset_index):
     # create a new harvest run
     res_create = api_client.post('/harvest_run', json={
-        "harvest_url": "https://demo.onedata.org/oai_pmh"
+        "harvest_url": "https://archaeology.datastations.nl/oai"
     })
 
     assert res_create.status_code == 200
@@ -200,12 +214,16 @@ def test_create_and_close_harvest_run(api_client, flower_client, reset_db, reset
     with open('e2e/test_data/dans.xml') as f:
         xml = f.read()
 
+    with open('e2e/test_data/dans_additional.json') as f:
+        additional_meta = f.read()
+
     # write a harvest event
     post_he = api_client.post('/harvest_event', json={
         "record_identifier": "10.34894/G8PZKV",
         "datestamp": "2026-02-17T15:43:03.326Z",
         "raw_metadata": f"{xml}",
-        "harvest_url": "https://demo.onedata.org/oai_pmh",
+        "additional_metadata": additional_meta,
+        "harvest_url": "https://archaeology.datastations.nl/oai",
         "repo_code": "DANS",
         "harvest_run_id": create_response['id'],
         "is_deleted": False

@@ -21,6 +21,7 @@ import datetime
 import psycopg
 from psycopg.rows import dict_row
 from datahugger import DataverseJsonSrcDataset
+import os
 
 @after_setup_logger.connect() # type: ignore[untyped-decorator, unused-ignore]
 def configurate_celery_task_logger(**kwargs: Any) -> None:
@@ -55,7 +56,7 @@ class FileMetadataTask(Task): # type: ignore
 
     def __init__(self) -> None:
         # TODO: how to configure DB and not hard code?
-        self.postgres_config = PostgresConfig(db='filedb')
+        self.postgres_config = PostgresConfig(db=os.environ.get('FILE_DB'))
 
 
 @celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
@@ -66,9 +67,10 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
         for ele in batch:
             harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
 
-            #logger.debug(harvest_event.code)
+            #logger.debug(harvest_event)
 
-            if harvest_event.additional_metadata and harvest_event.code == 'DANS':
+
+            if harvest_event.additional_metadata_API and harvest_event.additional_metadata and harvest_event.code == 'DANS':
                 # this only covers dataverse for now
 
                 # TODO: adapt in DB config
