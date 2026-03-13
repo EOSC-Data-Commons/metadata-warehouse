@@ -20,6 +20,7 @@ from celery.signals import after_setup_logger
 import datetime
 import psycopg
 from psycopg.rows import dict_row
+from datahugger import DataverseJsonSrcDataset
 
 @after_setup_logger.connect() # type: ignore[untyped-decorator, unused-ignore]
 def configurate_celery_task_logger(**kwargs: Any) -> None:
@@ -59,40 +60,44 @@ class FileMetadataTask(Task): # type: ignore
 
 @celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
 def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
-    for ele in batch:
-        harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
+    with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
+        cur = conn.cursor()
 
-        logger.debug(harvest_event.code)
+        for ele in batch:
+            harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
 
-        if harvest_event.additional_metadata and harvest_event.code == 'DANS':
-            # this only covers dataverse for now
+            #logger.debug(harvest_event.code)
 
-            metadata = json.loads(harvest_event.additional_metadata)
-            files = metadata['data']['files']
+            if harvest_event.additional_metadata and harvest_event.code == 'DANS':
+                # this only covers dataverse for now
 
-            rows = [
-                (
-                    harvest_event.harvest_url,  # harvest_url
-                    harvest_event.record_identifier,  # record_identifier
-                    str(file['dataFile']['id']),  # file_identifier
-                    file['dataFile']['filename'],  # file_name
-                    harvest_event.identifier_type,  # identifier_type
-                    'Dataset',  # identifier_granularity
-                    file['dataFile']['contentType'],  # file_type
-                    file['dataFile']['filesize'],  # file_size
-                    file['dataFile']['checksum']['type'].upper(),  # checksum_type
-                    file['dataFile']['checksum']['value'],  # checksum_value
-                    str(file['version']),  # file_version
-                    harvest_event.additional_metadata_API,  # download_url
-                    file['dataFile']['creationDate'],  # file_created_at
-                )
-                for file in files
-            ]
+                # TODO: adapt in DB config
+                url = harvest_event.additional_metadata_API.replace('/api/datasets/export', f'/dataset.xhtml?persistentId=doi:{harvest_event.record_identifier}')
 
-            logger.debug(rows)
+                ds = DataverseJsonSrcDataset(url, harvest_event.additional_metadata)
 
-            with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
-                cur = conn.cursor()
+                files = []
+                for file in ds.crawl_file():
+                    files.append(
+                        (
+                        harvest_event.harvest_url,  # harvest_url
+                        harvest_event.record_identifier,
+                        file.file_identifier,
+                        file.filename,
+                        harvest_event.identifier_type,
+                        'Dataset',
+                        file.mimetype,
+                        file.size,
+                        file.checksum[0][0].replace('sha1', 'sha-1').upper(),
+                        file.checksum[0][1],
+                        file.version,
+                        file.download_url,
+                        file.creation_date
+                         )
+                    )
+
+                #logger.debug(files)
+
 
                 # Delete existing file entries for this endpoint and endpoint
                 # A new version could provide fewer files
@@ -130,7 +135,8 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                         )
                     """
 
-                cur.executemany(sql, rows)
+                cur.executemany(sql, files)
+
 
     return len(batch)
 
