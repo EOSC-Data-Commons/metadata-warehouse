@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS record_files (
     file_version VARCHAR(50),
     download_url VARCHAR(2048) NOT NULL,
     file_created_at TIMESTAMP WITH TIME ZONE,
+    file_last_modified_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT record_files_pkey PRIMARY KEY (id),
@@ -39,3 +40,4 @@ COMMENT ON COLUMN record_files.checksum_value IS 'Checksum hash value';
 COMMENT ON COLUMN record_files.file_version IS 'Version indicator for the file';
 COMMENT ON COLUMN record_files.download_url IS 'URL for downloading the file';
 COMMENT ON COLUMN record_files.file_created_at IS 'Timestamp when the file was originally created at the source';
+COMMENT ON COLUMN record_files.file_last_modified_at IS 'Timestamp when the file was last modified at the source';

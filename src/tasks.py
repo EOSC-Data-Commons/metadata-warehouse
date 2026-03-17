@@ -94,7 +94,8 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                         file.checksum[0][1],
                         file.version,
                         file.download_url,
-                        file.creation_date
+                        file.creation_date,
+                        file.last_modification_date
                          )
                     )
 
@@ -125,7 +126,8 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                             checksum_value,
                             file_version,
                             download_url,
-                            file_created_at
+                            file_created_at,
+                            file_last_modified_at
                         ) VALUES (
                             %s, %s, %s, %s,
                             %s::file_identifier_type,
@@ -133,6 +135,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                             %s, %s,
                             %s::checksum_algorithm,
                             %s, %s, %s,
+                            %s::timestamp with time zone,
                             %s::timestamp with time zone
                         )
                     """
