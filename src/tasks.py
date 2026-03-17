@@ -86,6 +86,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                         harvest_event.record_identifier,
                         file.file_identifier,
                         file.filename,
+                        'datahugger',
                         harvest_event.identifier_type,
                         'Dataset',
                         file.mimetype,
@@ -118,6 +119,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                             record_identifier,
                             file_identifier,
                             file_name,
+                            file_information_method,
                             identifier_type,
                             identifier_granularity,
                             file_type,
@@ -129,7 +131,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                             file_created_at,
                             file_last_modified_at
                         ) VALUES (
-                            %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s,
                             %s::file_identifier_type,
                             %s::identifier_granularity_level,
                             %s, %s,

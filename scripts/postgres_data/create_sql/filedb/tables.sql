@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS record_files (
     record_identifier VARCHAR(255) NOT NULL,
     file_identifier VARCHAR(255) NOT NULL,
     file_name VARCHAR(255) NOT NULL,
+    file_information_method VARCHAR(255),
     identifier_type file_identifier_type NOT NULL,
     identifier_granularity identifier_granularity_level NOT NULL DEFAULT 'Dataset',
     file_type VARCHAR(255),
@@ -31,6 +32,7 @@ COMMENT ON COLUMN record_files.harvest_url IS 'References endpoints.harvest_url 
 COMMENT ON COLUMN record_files.record_identifier IS 'OAI-PMH identifier or unique record ID of the parent record';
 COMMENT ON COLUMN record_files.file_identifier IS 'Source-assigned identifier for the file';
 COMMENT ON COLUMN record_files.file_name IS 'Name of the file';
+COMMENT ON COLUMN record_files.file_information_method IS 'Method used to get file information';
 COMMENT ON COLUMN record_files.identifier_type IS 'Type of identifier for this file: DOI, URL, URN, etc.';
 COMMENT ON COLUMN record_files.identifier_granularity IS 'Granularity level of the identifier (e.g., Dataset)';
 COMMENT ON COLUMN record_files.file_type IS 'MIME type of the file (e.g., application/pdf)';
