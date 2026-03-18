@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-NS = {"oai": "http://www.openarchives.org/OAI/2.0/"}
+NS = {"oai": "http://www.openarchives.org/OAI/2.0/", "datacite": "http://datacite.org/schema/kernel-4"}
 
 FASTAPI_ADDRESS = os.environ.get('FASTAPI_ADDRESS', '127.0.0.1')
 FASTAPI_PORT = os.environ.get('FASTAPI_PORT', '8080')
@@ -52,8 +52,12 @@ def import_data(repo_code: str, harvest_url: str, data_dir: Path, additional_dir
 
             # https://stackoverflow.com/questions/15830421/xml-unicode-strings-with-encoding-declaration-are-not-supported
             root = ET.fromstring(bytes(xml, encoding='utf-8'))
-            identifier = root.find('./oai:header/oai:identifier', namespaces=NS)
 
+            prefix = 'datacite' if repo_code != 'HAL' else 'oai'
+
+            identifier = root.find(f'./oai:metadata/{prefix}:resource/datacite:identifier[@identifierType="DOI"]', namespaces=NS)
+            if identifier is None:
+                identifier = root.find(f'./oai:metadata/{prefix}:resource/datacite:identifier[@identifierType="URL"]', namespaces=NS)
             datestamp = root.find('./oai:header/oai:datestamp', namespaces=NS)
 
             if identifier is None or datestamp is None:
@@ -73,7 +77,7 @@ def import_data(repo_code: str, harvest_url: str, data_dir: Path, additional_dir
                 raise Exception(f'No identifier found in XML: {file}')
 
             payload = {
-                'record_identifier': identifier.text.replace('doi:', '').replace('oai:', ''),
+                'record_identifier': identifier.text,
                 'datestamp': datestamp.text,
                 'raw_metadata': xml,
                 'additional_metadata': additional_metadata,
@@ -120,7 +124,8 @@ HARVEST_ENDPOINTS = [
     ('DANS', 'https://dataverse.nl/oai', Path('data/harvests_DANS_gen'), Path('data/harvests_DANS_gen_additional')),
     ('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('data/harvests_SWISS_dc_datacite'), None),
     ('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
-    ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/harvests_HAL_sample'), None)
+    ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/harvests_HAL_sample'), None),
+    ('ZENODO', 'https://zenodo.org/oai2d', Path('data/harvests_zenodo'), None)
 ]
 
 if __name__ == "__main__":
