@@ -9,7 +9,8 @@ VALUES
     ('Digital Academic Repository', 'DABAR', 'Croatian national repository', 'https://dabar.srce.hr', true),
     ('SwissUbase', 'SWISS', 'Swiss data repository', 'https://www.swissubase.ch', true),
     ('HAL Science', 'HAL', 'French open archive', 'https://hal.science', true),
-    ('Onedata', 'ONE', 'Onedata demo repository', 'https://demo.onedata.org', true)
+    ('Onedata', 'ONE', 'Onedata demo repository', 'https://demo.onedata.org', true),
+    ('Zenodo', 'ZENODO', 'Zenodo repository', 'https://zenodo.org', true)
 ON CONFLICT (code) DO NOTHING;
 
 -- DANS Archaeology
@@ -136,4 +137,18 @@ SELECT
     '{"metadata_prefix": "oai_datacite", "set": ["a842ea97ec1855a54bf77a90e915cac7cha3ab"]}'
 FROM repositories r
 WHERE r.code = 'ONE'
+ON CONFLICT (name) DO NOTHING;
+
+-- Zenodo
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+SELECT
+    r.id,
+    'Zenodo',
+    'https://zenodo.org/oai2d',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "datacite"}'
+FROM repositories r
+WHERE r.code = 'ZENODO'
 ON CONFLICT (name) DO NOTHING;
