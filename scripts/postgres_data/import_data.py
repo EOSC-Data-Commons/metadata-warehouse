@@ -117,12 +117,12 @@ def import_data(repo_code: str, harvest_url: str, data_dir: Path, additional_dir
 
 
 HARVEST_ENDPOINTS = [
-    ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/harvests_DANS_arch'), Path('data/harvests_DANS_arch_additional')),
-    ('DANS', 'https://ssh.datastations.nl/oai', Path('data/harvests_DANS_soc'), Path('data/harvests_DANS_soc_additional')),
-    ('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/harvests_DANS_life'), Path('data/harvests_DANS_life_additional')),
-    ('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/harvests_DANS_phystech'), Path('data/harvests_DANS_phystech_additional')),
-    ('DANS', 'https://dataverse.nl/oai', Path('data/harvests_DANS_gen'), Path('data/harvests_DANS_gen_additional')),
-    ('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('data/harvests_SWISS_dc_datacite'), None),
+    ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/harvests_DANS_arch'), Path('doi_dataverse')),
+    ('DANS', 'https://ssh.datastations.nl/oai', Path('data/harvests_DANS_soc'), Path('doi_dataverse')),
+    ('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/harvests_DANS_life'), Path('doi_dataverse')),
+    ('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/harvests_DANS_phystech'), Path('doi_dataverse')),
+    ('DANS', 'https://dataverse.nl/oai', Path('data/harvests_DANS_gen'), Path('doi_dataverse')),
+    ('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('doi_dataverse'), None),
     ('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
     ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/harvests_HAL_sample'), None),
     ('ZENODO', 'https://zenodo.org/oai2d', Path('data/harvests_zenodo'), None)
