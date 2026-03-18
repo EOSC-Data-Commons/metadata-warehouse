@@ -59,7 +59,8 @@ class FileMetadataTask(Task):  # type: ignore
         # TODO: how to configure DB and not hard code?
         self.postgres_config = PostgresConfig(db=os.environ.get('FILE_DB'))
 
-    def make_file_entry(self, harvest_event: HarvestEventQueue, file: FileEntry):
+    def make_file_entry(self, harvest_event: HarvestEventQueue,
+                        file: FileEntry) -> Any:
         return (
             harvest_event.harvest_url,  # harvest_url
             harvest_event.record_identifier,
@@ -96,9 +97,9 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                 url = harvest_event.additional_metadata_API.replace('/api/datasets/export',
                                                                     f'/dataset.xhtml?persistentId=doi:{harvest_event.record_identifier}')
 
-                ds = DataverseJsonSrcDataset(url, harvest_event.additional_metadata)
+                ds_dv = DataverseJsonSrcDataset(url, harvest_event.additional_metadata)
 
-                for file in ds.crawl_file():
+                for file in ds_dv.crawl_file():
                     files.append(
                         self.make_file_entry(harvest_event, file)
                     )
