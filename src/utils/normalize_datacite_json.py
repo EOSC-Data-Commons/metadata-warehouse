@@ -62,7 +62,7 @@ def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, 
     # print(type(entry), field_name, entry)
 
     # ignore non-existing fields
-    if field_name not in entry:
+    if field_name not in entry or entry[field_name] is None:
         return {}
 
     name = field_name[len(DATACITE) + 1:]
