@@ -71,7 +71,7 @@ class TransformTask(Task):  # type: ignore
 
         self.postgres_config = PostgresConfig()
 
-        with open('config/schema.json') as f:
+        with open("../config/schema.json") as f:
             self.schema = json.load(f)
 
 

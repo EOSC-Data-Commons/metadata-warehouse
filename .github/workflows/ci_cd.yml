@@ -18,10 +18,8 @@ jobs:
                 run: uv sync --all-extras --dev # https://docs.astral.sh/uv/guides/integration/github/#syncing-and-running
             -   name: Test with pytest
                 run: uv run pytest tests
-            -   name: Check with mypy
-                run: |
-                    uv run mypy --strict src
-                    uv run mypy --strict scripts
+            -   name: Check mypy
+                run: uv run mypy --strict
     test-e2e:
         runs-on: ubuntu-latest
         strategy:
