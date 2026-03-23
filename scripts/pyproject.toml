@@ -4,13 +4,13 @@ version = "0.0.1"
 description = "Prepare and import DataCite OAI-PMH XML metadata into PostgreSQL and OpenSearch"
 requires-python = ">=3.12"
 dependencies = [
-    "opensearch-py",
-    "python-dotenv",
-    "xmltodict",
-    "jsonschema",
-    "fastembed",
-    "lxml",
-    "psycopg[binary]"
+    "opensearch-py>=3.1.0",
+    "python-dotenv>=1.2.2",
+    "xmltodict>=1.0.4",
+    "jsonschema>=4.26.0",
+    "fastembed>=0.7.4",
+    "lxml>=6.0.2",
+    "psycopg[binary]>=3.3.3"
 ]
 
 [build-system]
