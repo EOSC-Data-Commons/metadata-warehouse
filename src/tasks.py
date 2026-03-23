@@ -20,7 +20,7 @@ from celery.signals import after_setup_logger
 import datetime
 import psycopg
 from psycopg.rows import dict_row
-from datahugger import DataverseJsonSrcDataset, resolve, FileEntry
+from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, resolve, FileEntry
 import os
 
 
@@ -83,6 +83,8 @@ class FileMetadataTask(Task):  # type: ignore
 @celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
 def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
+    success = 0
+
     with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
@@ -106,21 +108,29 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
                 # logger.debug(files)
 
-            elif harvest_event.harvest_url == 'https://zenodo.org/oai2d':
-                logger.debug(f'doi: {harvest_event.record_identifier}')
+            elif harvest_event.additional_metadata and harvest_event.harvest_url == 'https://zenodo.org/oai2d':
+                #logger.debug(f'doi: {harvest_event.record_identifier}')
                 # logger.debug(f'https://zenodo.org/records/{harvest_event.record_identifier.split('.')[-1]}')
 
                 # get id from DOI: 10.5281/zenodo.570959 -> 570959
-                ds = resolve(f'https://zenodo.org/records/{harvest_event.record_identifier.split('.')[-1]}')
+                ds = ZenodoJsonSrcDataset(harvest_event.record_identifier.split('.')[-1],harvest_event.additional_metadata)
 
-                for file in ds.crawl_file():
-                    #logger.debug(f'file: {f}')
-                    files.append(
-                        self.make_file_entry(harvest_event, file)
-                    )
+                try:
+                    for file in ds.crawl_file():
+                        #logger.debug(f'file: {f}')
+                        files.append(
+                            self.make_file_entry(harvest_event, file)
+                        )
 
-                logger.debug(f'{files}')
+                    #logger.debug(f'{files}')
+                except Exception as e:
+                    logger.error(f'Failed to add file metadata: {harvest_event.record_identifier}: {e}')
+                    continue
 
+            if len(files) == 0:
+                logger.debug(f'no files for {harvest_event.record_identifier}')
+                continue
+            success += 1
 
             # Delete existing file entries for this endpoint and endpoint
             # A new version could provide fewer files
@@ -163,7 +173,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
             cur.executemany(sql, files)
 
-    return len(batch)
+    return success
 
 
 class TransformTask(Task):  # type: ignore

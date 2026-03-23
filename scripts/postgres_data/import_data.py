@@ -20,7 +20,7 @@ TIMEOUT_FASTAPI = 30
 TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S.%f%z'
 
 
-def import_data(repo_code: str, harvest_url: str, data_dir: Path, additional_dir: Optional[Path]) -> None:
+def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_dir: Optional[Path]) -> None:
     harvest_run_id = None
 
     try:
@@ -44,42 +44,50 @@ def import_data(repo_code: str, harvest_url: str, data_dir: Path, additional_dir
 
     started = datetime.now(timezone.utc)
 
-    files = data_dir.rglob("*.xml")
-    for file in files:
-        try:
-            with open(file) as f:
-                xml = f.read()
+    try:
+        with open(data_file) as f:
+            xml = f.read()
 
-            # https://stackoverflow.com/questions/15830421/xml-unicode-strings-with-encoding-declaration-are-not-supported
-            root = ET.fromstring(bytes(xml, encoding='utf-8'))
+        # https://stackoverflow.com/questions/15830421/xml-unicode-strings-with-encoding-declaration-are-not-supported
+        root = ET.fromstring(bytes(xml, encoding='utf-8'))
+
+        records = root.xpath('./oai:record[oai:header[@status!="deleted"]]', namespaces=NS)
+
+        for record in records:
 
             prefix = 'datacite' if repo_code != 'HAL' else 'oai'
 
-            identifier = root.find(f'./oai:metadata/{prefix}:resource/datacite:identifier[@identifierType="DOI"]', namespaces=NS)
+            oai_id = record.find(f'./oai:header/oai:identifier', namespaces=NS)
+            #print(oai_id.text)
+
+            identifier = record.find(f'./oai:metadata/{prefix}:resource/datacite:identifier[@identifierType="DOI"]', namespaces=NS)
             if identifier is None:
-                identifier = root.find(f'./oai:metadata/{prefix}:resource/datacite:identifier[@identifierType="URL"]', namespaces=NS)
-            datestamp = root.find('./oai:header/oai:datestamp', namespaces=NS)
+                identifier = record.find(f'./oai:metadata/{prefix}:resource/datacite:identifier[@identifierType="URL"]', namespaces=NS)
+            datestamp = record.find('./oai:header/oai:datestamp', namespaces=NS)
 
             if identifier is None or datestamp is None:
-                raise ValueError(f'XML OAI-PMH record {file} without identifier or datestamp')
+                raise ValueError(f'XML OAI-PMH record {data_file} without identifier or datestamp')
 
             additional_metadata = None
             if additional_dir:
-                name_parts = os.path.basename(file).split('.oai')
 
-                additional_file = list(additional_dir.rglob(f'{name_parts[0]}*'))
+                search_path_seg = oai_id.text.split(':')[-1].replace('/', '_')
+
+                additional_file = list(additional_dir.rglob(f'*{search_path_seg}*'))
+
+                #print(additional_file)
 
                 if len(additional_file) == 1:
                     with open(additional_file[0]) as f2:
                         additional_metadata = f2.read()
 
             if identifier.text is None:
-                raise Exception(f'No identifier found in XML: {file}')
+                raise Exception(f'No identifier found in XML: {oai_id.text}')
 
             payload = {
                 'record_identifier': identifier.text,
                 'datestamp': datestamp.text,
-                'raw_metadata': xml,
+                'raw_metadata': ET.tostring(record, encoding='unicode'),
                 'additional_metadata': additional_metadata,
                 'harvest_url': harvest_url,
                 'repo_code': repo_code,
@@ -92,10 +100,11 @@ def import_data(repo_code: str, harvest_url: str, data_dir: Path, additional_dir
             res.raise_for_status()
 
             print(identifier.text)
+            print('+++++')
 
-        except Exception as e:
-            print(f'An error occurred when creating harvest event: {e}', file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
+    except Exception as e:
+        print(f'An error occurred when creating harvest event: {e}', file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
 
 
     completed = datetime.now(timezone.utc)
@@ -115,17 +124,16 @@ def import_data(repo_code: str, harvest_url: str, data_dir: Path, additional_dir
         traceback.print_exc(file=sys.stderr)
         raise e
 
-
 HARVEST_ENDPOINTS = [
-    ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/harvests_DANS_arch'), Path('doi_dataverse')),
-    ('DANS', 'https://ssh.datastations.nl/oai', Path('data/harvests_DANS_soc'), Path('doi_dataverse')),
-    ('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/harvests_DANS_life'), Path('doi_dataverse')),
-    ('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/harvests_DANS_phystech'), Path('doi_dataverse')),
-    ('DANS', 'https://dataverse.nl/oai', Path('data/harvests_DANS_gen'), Path('doi_dataverse')),
-    ('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('doi_dataverse'), None),
-    ('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
-    ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/harvests_HAL_sample'), None),
-    ('ZENODO', 'https://zenodo.org/oai2d', Path('data/harvests_zenodo'), None)
+    ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/dans_arch/dans_arch.xml'), Path('doi_dataverse')),
+    ('DANS', 'https://ssh.datastations.nl/oai', Path('data/dans_soc/dans_soc.xml'), Path('doi_dataverse')),
+    ('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/dans_life/dans_life.xml'), Path('doi_dataverse')),
+    ('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/dans_phystec/dans_phystec.xml'), Path('doi_dataverse')),
+    ('DANS', 'https://dataverse.nl/oai', Path('data/dans_gen/dans_gen.xml'), Path('doi_dataverse')),
+    #('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('doi_dataverse'), None),
+    #('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
+    #('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/harvests_HAL_sample'), None),
+    #('ZENODO', 'https://zenodo.org/oai2d', Path('data/zenodo/zenodo_parts.xml'), Path('meta_zenodo'))
 ]
 
 if __name__ == "__main__":
