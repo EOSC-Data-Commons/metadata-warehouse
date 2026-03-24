@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Optional
 import os
 from dotenv import load_dotenv
+from typing import cast
 
 load_dotenv()
 
@@ -20,7 +21,7 @@ TIMEOUT_FASTAPI = 30
 TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S.%f%z'
 
 
-def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_dir: Optional[Path]) -> None:
+def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_dir: Optional[Path], limit: int = 10000) -> None:
     harvest_run_id = None
 
     try:
@@ -51,14 +52,17 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_di
         # https://stackoverflow.com/questions/15830421/xml-unicode-strings-with-encoding-declaration-are-not-supported
         root = ET.fromstring(bytes(xml, encoding='utf-8'))
 
-        records = root.xpath('./oai:record[oai:header[@status!="deleted"]]', namespaces=NS)
+        records = cast(list[ET._Element], root.xpath('./oai:record[oai:header[@status!="deleted"]]', namespaces=NS))
 
+        count = 0
         for record in records:
 
             prefix = 'datacite' if repo_code != 'HAL' else 'oai'
 
             oai_id = record.find(f'./oai:header/oai:identifier', namespaces=NS)
-            #print(oai_id.text)
+
+            if oai_id is None:
+                raise ValueError(f'XML OAI-PMH record {record} without identifier')
 
             identifier = record.find(f'./oai:metadata/{prefix}:resource/datacite:identifier[@identifierType="DOI"]', namespaces=NS)
             if identifier is None:
@@ -66,10 +70,10 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_di
             datestamp = record.find('./oai:header/oai:datestamp', namespaces=NS)
 
             if identifier is None or datestamp is None:
-                raise ValueError(f'XML OAI-PMH record {data_file} without identifier or datestamp')
+                raise ValueError(f'XML OAI-PMH record {record} without identifier or datestamp')
 
             additional_metadata = None
-            if additional_dir:
+            if additional_dir and oai_id.text is not None:
 
                 search_path_seg = oai_id.text.split(':')[-1].replace('/', '_')
 
@@ -101,6 +105,9 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_di
 
             print(identifier.text)
             print('+++++')
+            count += 1
+            if count >= limit:
+                break
 
     except Exception as e:
         print(f'An error occurred when creating harvest event: {e}', file=sys.stderr)
@@ -133,7 +140,7 @@ HARVEST_ENDPOINTS = [
     #('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('doi_dataverse'), None),
     #('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
     #('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/harvests_HAL_sample'), None),
-    #('ZENODO', 'https://zenodo.org/oai2d', Path('data/zenodo/zenodo_parts.xml'), Path('meta_zenodo'))
+    ('ZENODO', 'https://zenodo.org/oai2d', Path('data/zenodo/zenodo_parts.xml'), Path('meta_zenodo'))
 ]
 
 if __name__ == "__main__":
