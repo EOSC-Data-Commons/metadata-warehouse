@@ -113,10 +113,10 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                 # logger.debug(f'https://zenodo.org/records/{harvest_event.record_identifier.split('.')[-1]}')
 
                 # get id from DOI: 10.5281/zenodo.570959 -> 570959
-                ds = ZenodoJsonSrcDataset(harvest_event.record_identifier.split('.')[-1],harvest_event.additional_metadata)
+                ds_z = ZenodoJsonSrcDataset(harvest_event.record_identifier.split('.')[-1],harvest_event.additional_metadata)
 
                 try:
-                    for file in ds.crawl_file():
+                    for file in ds_z.crawl_file():
                         #logger.debug(f'file: {f}')
                         files.append(
                             self.make_file_entry(harvest_event, file)
@@ -129,9 +129,9 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
             elif harvest_event.additional_metadata and harvest_event.code == 'HAL':
 
-                ds = HalJsonSrcDataset(harvest_event.record_identifier.split('v')[0],harvest_event.additional_metadata)
+                ds_hal = HalJsonSrcDataset(harvest_event.record_identifier.split('v')[0],harvest_event.additional_metadata)
 
-                for file in ds.crawl_file():
+                for file in ds_hal.crawl_file():
                     logger.debug(file)
                     files.append(
                         self.make_file_entry(harvest_event, file)
