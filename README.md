@@ -131,3 +131,125 @@ To run the e2e tests:
 ```sh
 uv run pytest -s e2e
 ```
+
+## Use devenv.nix for local deploy/test development environment
+
+### Install Nix
+
+- Linux and Windows (WSL2):
+
+```console
+sh <(curl -L https://nixos.org/nix/install) --daemon
+```
+
+- macOS
+
+```console
+curl -L https://github.com/NixOS/experimental-nix-installer/releases/download/0.27.0/nix-installer.sh | sh -s -- install
+```
+
+- Docker 
+
+Be careful with this approach where the caching is lost after container stopped.
+
+```console
+docker run -it nixos/nix
+```
+
+For more details if you get stucked, check [here](https://devenv.sh/getting-started/#1-install-nix)
+
+### Install devenv
+
+```console
+nix-env --install --attr devenv -f https://github.com/NixOS/nixpkgs/tarball/nixpkgs-unstable
+```
+
+If you already know nix you probably want to install it though: nix profile, nix-darwin or through home-manager, check [here](https://devenv.sh/getting-started/#2-install-devenv)
+
+### (optional) Configure a GitHub access token
+
+To avoid being rate-limited, **we recommend providing Nix with a GitHub access token**, which will greatly increase your API limits.
+
+Create a new token with no extra permissions at https://github.com/settings/personal-access-tokens/new. Add the token to your ``~/.config/nix/nix.conf``:
+
+```console
+access-tokens = github.com=<GITHUB_TOKEN>
+```
+
+check [here](https://devenv.sh/getting-started/#3-configure-a-github-access-token-optional) for details.
+
+### Spin up services
+
+The environment is setup, to start all services run 
+
+```console
+devenv run -v
+```
+
+### Import data
+
+We need database include the havested data and indexing for opensearch.
+The database was already havested and can be requst from Tobias Schweizer (@tobiasschweizer).
+
+Download the data file (`dump.sql.zip`) from the [releases page](https://github.com/EOSC-Data-Commons/dev-environment/releases/).
+Unzip it and place the resulting `dump.sql` file in the repository root.
+
+Import the data with:
+
+```console
+devenv tasks run db-import
+```
+
+This import task takes about 30s to finish it import the dump, and create indexing for a small data repository. 
+
+```console
+python repo-index.py list
+```
+
+to get all available data repositories and then to indexing run:
+
+```console
+python repo-index.py indexing <repo-url>
+```
+
+Fill `<repo-url>` with a repo url.
+
+Here is a summary of the number of entries in each data repository: [1]
+
+[1] https://confluence.egi.eu/display/EOSCDATACOMMONS/2025-11-21+Work+Group+1+Update
+
+### Clean up and reset
+
+#### Cleanup and re-import the database
+
+The postgresql service need keep on running to clean up the database.
+
+To clean imported data, run:
+
+```console
+devenv tasks run clean:db
+```
+
+You can then import from dump and indexing for opensearch.
+
+#### Cleanup and reset python/npm environments
+
+To clean python venv run 
+
+```console
+devenv tasks run clean:python
+```
+
+This will delete the `venv` folder in the project (at `./.devenv/state/venv`).
+
+You can then reset the environment by `devenv tasks run setup:python`.
+
+#### Cleanup and reset the whole environment
+
+Cleanup tasks are provide to reset the environment if anything goes wrong and you want to have a clean start.
+
+To clean all caches and start environment from scratch run:
+
+```console
+devenv tasks run purge
+```
