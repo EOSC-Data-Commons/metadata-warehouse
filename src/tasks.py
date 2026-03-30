@@ -20,7 +20,7 @@ from celery.signals import after_setup_logger
 import datetime
 import psycopg
 from psycopg.rows import dict_row
-from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, resolve, FileEntry
+from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, HalJsonSrcDataset, resolve, FileEntry
 import os
 
 
@@ -64,15 +64,15 @@ class FileMetadataTask(Task):  # type: ignore
         return (
             harvest_event.harvest_url,  # harvest_url
             harvest_event.record_identifier,
-            file.file_identifier,
+            file.file_identifier if file.file_identifier else file.filename,
             file.filename,
             'datahugger',
             harvest_event.identifier_type,
             'Dataset',
             file.mimetype,
             file.size,
-            file.checksum[0][0].replace('sha1', 'sha-1').upper(),
-            file.checksum[0][1],
+            file.checksum[0][0].replace('sha1', 'sha-1').upper() if file.checksum else None,
+            file.checksum[0][1] if file.checksum else None,
             file.version,
             file.download_url,
             file.creation_date,
@@ -108,7 +108,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
                 # logger.debug(files)
 
-            elif harvest_event.additional_metadata and harvest_event.harvest_url == 'https://zenodo.org/oai2d':
+            elif harvest_event.additional_metadata and harvest_event.code == 'ZENODO':
                 #logger.debug(f'doi: {harvest_event.record_identifier}')
                 # logger.debug(f'https://zenodo.org/records/{harvest_event.record_identifier.split('.')[-1]}')
 
@@ -126,6 +126,16 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                 except Exception as e:
                     logger.error(f'Failed to add file metadata: {harvest_event.record_identifier}: {e}')
                     continue
+
+            elif harvest_event.additional_metadata and harvest_event.code == 'HAL':
+
+                ds = HalJsonSrcDataset(harvest_event.record_identifier.split('v')[0],harvest_event.additional_metadata)
+
+                for file in ds.crawl_file():
+                    logger.debug(file)
+                    files.append(
+                        self.make_file_entry(harvest_event, file)
+                    )
 
             if len(files) == 0:
                 logger.debug(f'no files for {harvest_event.record_identifier}')

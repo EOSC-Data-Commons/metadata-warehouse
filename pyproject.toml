@@ -13,7 +13,7 @@ dependencies = [
     "fastapi[standard]>=0.135.1",
     "psycopg[binary]>=3.3.3",
     # "flower", # only needed when not using mher/flower
-    "datahugger-ng>=0.5.3",
+    "datahugger-ng>=0.5.4",
 ]
 
 
