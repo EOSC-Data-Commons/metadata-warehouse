@@ -21,7 +21,7 @@ jobs:
             -   name: Check with mypy
                 run: |
                     uv run mypy --strict src
-                    uv run mypy --strict scripts --exclude scripts/postgres_data/dataverse.py --exclude scripts/postgres_data/zenodo.py
+                    uv run mypy --strict scripts --exclude scripts/postgres_data/dataverse.py --exclude scripts/postgres_data/get_meta.py
     test-e2e:
         runs-on: ubuntu-latest
         strategy:
