@@ -8,6 +8,20 @@ services:
     transform:
         ports:
             - "127.0.0.1:8080:80"
+        # Uncomment for dev (hot reload):
+        # command: [ "fastapi", "dev", "--host", "0.0.0.0", "transform.py", "--port", "80" ]
+
+    celery:
+        # Uncomment for dev (auto-restart on file changes):
+        # command:
+        #   [ "watchmedo", "auto-restart",
+        #     "--debug-force-polling",
+        #     "--directory=/code/src",
+        #     "--directory=/code/config",
+        #     "--pattern=*.py", "--recursive", "--",
+        #     "celery", "-A", "tasks", "worker",
+        #     "-E", "--pool=solo", "--loglevel=DEBUG"
+        #   ]
 
     postgres:
         ports:
