@@ -18,10 +18,10 @@ jobs:
                 run: uv sync --all-extras --group dev # https://docs.astral.sh/uv/guides/integration/github/#syncing-and-running
             -   name: Test with pytest
                 run: uv run pytest tests
-            -   name: Check with mypy
-                run: |
-                    uv run mypy --strict src
-                    uv run mypy --strict scripts --exclude scripts/postgres_data/dataverse.py --exclude scripts/postgres_data/get_meta.py
+            -   name: Check root mypy
+                run: uv run mypy --strict
+            -   name: Check scripts mypy
+                run: uv run mypy --config-file scripts/pyproject.toml
     test-e2e:
         runs-on: ubuntu-latest
         strategy:

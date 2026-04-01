@@ -14,6 +14,7 @@ dependencies = [
     "psycopg[binary]>=3.3.3",
     # "flower", # only needed when not using mher/flower
     "datahugger-ng>=0.5.4",
+    "docker>=7.1.0",
 ]
 
 
@@ -30,12 +31,25 @@ dev = [
     "celery-types>=0.24.0"
 ]
 
-[tool.pytest.ini_options]
-pythonpath = ["."]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+packages = ["src", "config", "scheduler"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+mypy_path = ["src"]
+explicit_package_bases = true
+
+files = [
+    "src",
+    "scheduler",
+    "config"
+]

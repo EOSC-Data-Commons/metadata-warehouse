@@ -119,6 +119,22 @@ After starting the stack with `docker compose up`, you can run the harvester for
 ```sh
 docker compose run harvester https://lifesciences.datastations.nl/oai
 ```
+## Scheduler
+
+The scheduler automates the full ingestion workflow: harvesting → transformation → indexing.
+It is designed to be executed periodically via CRON.
+
+### Run scheduler
+
+```sh
+uv run python -m scheduler.run
+```
+#### Environment variables
+
+Optionally add the following env variables (not needed for local dev):
+
+- `TRANSFORMER_URL` (default "http://192.168.10.6:8080")
+- `INDEX_NAME` (default "test_datacite")
 
 ## Run E2E Tests
 

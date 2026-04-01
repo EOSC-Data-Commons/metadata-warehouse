@@ -13,8 +13,12 @@ VALUES
     ('Zenodo', 'ZENODO', 'Zenodo repository', 'https://zenodo.org', true)
 ON CONFLICT (code) DO NOTHING;
 
+
 -- DANS Archaeology
-INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (
+    repository_id, name, harvest_url, protocol,
+    scientific_discipline, is_active, harvest_params, harvest_schedule
+)
 SELECT
     r.id,
     'Archaeology Data Station',
@@ -22,13 +26,18 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://archaeology.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}'
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://archaeology.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}',
+    INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
 
+
 -- DANS Social Sciences Data Station
-INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (
+    repository_id, name, harvest_url, protocol,
+    scientific_discipline, is_active, harvest_params, harvest_schedule
+)
 SELECT
     r.id,
     'Social Sciences Data Station',
@@ -36,13 +45,18 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://ssh.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}'
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://ssh.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}',
+    INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
 
+
 -- DANS Life Sciences
-INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (
+    repository_id, name, harvest_url, protocol,
+    scientific_discipline, is_active, harvest_params, harvest_schedule
+)
 SELECT
     r.id,
     'Life Sciences',
@@ -50,13 +64,18 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://lifesciences.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}'
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://lifesciences.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}',
+    INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
 
+
 -- DANS Physical and Technical Sciences
-INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (
+    repository_id, name, harvest_url, protocol,
+    scientific_discipline, is_active, harvest_params, harvest_schedule
+)
 SELECT
     r.id,
     'Physical and Technical Sciences',
@@ -64,13 +83,18 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://phys-techsciences.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}'
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://phys-techsciences.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}',
+    INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
 
+
 -- DANS Generalist
-INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (
+    repository_id, name, harvest_url, protocol,
+    scientific_discipline, is_active, harvest_params, harvest_schedule
+)
 SELECT
     r.id,
     'Generalist',
@@ -78,13 +102,18 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://dataverse.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}'
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://dataverse.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}',
+    INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DANS'
 ON CONFLICT (name) DO NOTHING;
 
+
 -- SwissUbase
-INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (
+    repository_id, name, harvest_url, protocol,
+    scientific_discipline, is_active, harvest_params, harvest_schedule
+)
 SELECT
     r.id,
     'SwissUbase',
@@ -92,13 +121,18 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_ddi25"}'
+    '{"metadata_prefix": "oai_ddi25"}',
+    INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'SWISS'
 ON CONFLICT (name) DO NOTHING;
 
+
 -- DABAR
-INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (
+    repository_id, name, harvest_url, protocol,
+    scientific_discipline, is_active, harvest_params, harvest_schedule
+)
 SELECT
     r.id,
     'DABAR',
@@ -106,13 +140,18 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "set": ["openaire"],  "additional_metadata_params": {"endpoint": "https://dabar.srce.hr/oai/", "protocol": "OAI-PMH", "format": "mods"}}'
+    '{"metadata_prefix": "oai_datacite", "set": ["openaire"], "additional_metadata_params": {"endpoint": "https://dabar.srce.hr/oai/", "protocol": "OAI-PMH", "format": "mods"}}',
+    INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DABAR'
 ON CONFLICT (name) DO NOTHING;
 
+
 -- HAL
-INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (
+    repository_id, name, harvest_url, protocol,
+    scientific_discipline, is_active, harvest_params, harvest_schedule
+)
 SELECT
     r.id,
     'HAL',
@@ -120,13 +159,18 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite"}'
+    '{"metadata_prefix": "oai_datacite"}',
+    INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'HAL'
 ON CONFLICT (name) DO NOTHING;
 
+
 -- Onedata
-INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (
+    repository_id, name, harvest_url, protocol,
+    scientific_discipline, is_active, harvest_params, harvest_schedule
+)
 SELECT
     r.id,
     'Onedata',
@@ -134,7 +178,8 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "set": ["a842ea97ec1855a54bf77a90e915cac7cha3ab"]}'
+    '{"metadata_prefix": "oai_datacite", "set": ["a842ea97ec1855a54bf77a90e915cac7cha3ab"]}',
+    INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'ONE'
 ON CONFLICT (name) DO NOTHING;
@@ -148,7 +193,8 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "datacite"}'
+    '{"metadata_prefix": "datacite"}',
+    INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'ZENODO'
 ON CONFLICT (name) DO NOTHING;

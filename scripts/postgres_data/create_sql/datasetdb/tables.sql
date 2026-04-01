@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS endpoints (
     protocol harvest_protocol NOT NULL DEFAULT 'OAI-PMH',
     scientific_discipline VARCHAR(255),
     harvest_params JSONB NOT NULL,
+    harvest_schedule INTERVAL NOT NULL DEFAULT INTERVAL '1 week',
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN NOT NULL DEFAULT true,
@@ -62,7 +63,7 @@ COMMENT ON COLUMN endpoints.harvest_url IS 'URL for harvesting data';
 COMMENT ON COLUMN endpoints.protocol IS 'Primary harvest protocol';
 COMMENT ON COLUMN endpoints.scientific_discipline IS 'e.g., Agriculture, Physics';
 COMMENT ON COLUMN endpoints.harvest_params IS 'API keys, auth tokens, custom headers, etc.';
-
+COMMENT ON COLUMN endpoints.harvest_schedule IS 'How often the endpoint should be harvested (e.g. 1 hour, 1 day, 1 week)';
 
 -- Harvest Runs Table
 CREATE TABLE IF NOT EXISTS harvest_runs (

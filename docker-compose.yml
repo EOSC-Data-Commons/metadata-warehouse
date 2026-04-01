@@ -41,8 +41,8 @@ services:
               "--loglevel=info",
               "--persistent=True",
               "--db=flower_db"
+#              "--port=5555"
             #"--without-heartbeat"
-            #"--port=5555"
           ]
 
     celery:
@@ -50,7 +50,8 @@ services:
             dockerfile: ./docker/transform/Dockerfile
             context: .
         volumes:
-            - ./src:/code/app
+            - ./src:/code/src
+            - ./config:/code/config
         networks:
             - warehouse-backend
         depends_on:
@@ -71,6 +72,7 @@ services:
         #volumes:
         #- ./data/results:/var/celery/results
         environment:
+            PYTHONPATH: /code/src:/code  # src for tasks.py, root for config/
             CELERY_BROKER_URL: redis://broker:6379/0
             #CELERY_RESULT_BACKEND: "file:///var/celery/results"
             CELERY_RESULT_BACKEND: redis://broker:6379/0
@@ -94,11 +96,13 @@ services:
             dockerfile: ./docker/transform/Dockerfile
             context: .
         volumes:
-            - ./src:/code/app
+            - ./src:/code/src
+            - ./config:/code/config
         command: [ "fastapi", "run", "--host", "0.0.0.0", "transform.py", "--port", "80" ]
         networks:
             - warehouse-backend
         environment:
+            PYTHONPATH: /code/src:/code
             CELERY_BROKER_URL: redis://broker:6379/0
             #CELERY_RESULT_BACKEND: "file:///var/celery/results"
             CELERY_RESULT_BACKEND: redis://broker:6379/0
@@ -231,6 +235,22 @@ services:
         entrypoint: ["python", "-m", "harvester"]
         networks:
             - warehouse-backend
+
+    scheduler:
+      build:
+        dockerfile: ./docker/scheduler/Dockerfile
+        context: .
+
+      profiles: ["manual"]
+
+      env_file:
+        - .env
+
+      networks:
+        - warehouse-backend
+
+      volumes:
+        - .:/app
 
 volumes:
     postgres-data:
