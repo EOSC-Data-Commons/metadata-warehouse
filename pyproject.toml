@@ -13,6 +13,7 @@ dependencies = [
     "fastapi[standard]>=0.135.1",
     "psycopg[binary]>=3.3.3",
     # "flower", # only needed when not using mher/flower
+    "docker>=7.1.0",
 ]
 
 
@@ -25,15 +26,28 @@ dev = [
     "types-jsonschema>=4.26.0.20260202",
     "types-requests>=2.32.4.20260107",
     "lxml-stubs>=0.5.1",
-    "python-dotenv>=1.2.2"
+    "python-dotenv>=1.2.2",
 ]
-
-[tool.pytest.ini_options]
-pythonpath = ["."]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+packages = ["src", "config", "scheduler"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+mypy_path = ["src"]
+explicit_package_bases = true
+
+files = [
+    "src",
+    "scheduler",
+    "config"
+]

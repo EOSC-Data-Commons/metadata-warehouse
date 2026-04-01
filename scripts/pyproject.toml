@@ -19,3 +19,15 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+files = ["."]
+explicit_package_bases = true
+
+# prevent mypy from walking outside scripts project
+exclude = [
+    "(?x)^(?!scripts/).*$",  # only allow files under scripts/
+]
