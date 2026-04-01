@@ -109,26 +109,18 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                 # logger.debug(files)
 
             elif harvest_event.additional_metadata and harvest_event.code == 'ZENODO':
-                #logger.debug(f'doi: {harvest_event.record_identifier}')
-                # logger.debug(f'https://zenodo.org/records/{harvest_event.record_identifier.split('.')[-1]}')
 
                 # get id from DOI: 10.5281/zenodo.570959 -> 570959
                 ds_z = ZenodoJsonSrcDataset(harvest_event.record_identifier.split('.')[-1],harvest_event.additional_metadata)
 
-                try:
-                    for file in ds_z.crawl_file():
-                        #logger.debug(f'file: {f}')
-                        files.append(
-                            self.make_file_entry(harvest_event, file)
-                        )
-
-                    #logger.debug(f'{files}')
-                except Exception as e:
-                    logger.error(f'Failed to add file metadata: {harvest_event.record_identifier}: {e}')
-                    continue
+                for file in ds_z.crawl_file():
+                    files.append(
+                        self.make_file_entry(harvest_event, file)
+                    )
 
             elif harvest_event.additional_metadata and harvest_event.code == 'HAL':
 
+                # HAL IDs contain a version suffix, needs to be removed
                 ds_hal = HalJsonSrcDataset(harvest_event.record_identifier.split('v')[0],harvest_event.additional_metadata)
 
                 for file in ds_hal.crawl_file():
