@@ -185,7 +185,7 @@ WHERE r.code = 'ONE'
 ON CONFLICT (name) DO NOTHING;
 
 -- Zenodo
-INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params)
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
 SELECT
     r.id,
     'Zenodo',

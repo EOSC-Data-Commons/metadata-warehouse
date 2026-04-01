@@ -30,4 +30,6 @@ explicit_package_bases = true
 # prevent mypy from walking outside scripts project
 exclude = [
     "(?x)^(?!scripts/).*$",  # only allow files under scripts/
+    "postgres_data/dataverse.py",
+    "postgres_data/get_meta.py",
 ]
