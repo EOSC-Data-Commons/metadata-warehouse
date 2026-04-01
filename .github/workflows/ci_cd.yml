@@ -18,8 +18,10 @@ jobs:
                 run: uv sync --all-extras --dev # https://docs.astral.sh/uv/guides/integration/github/#syncing-and-running
             -   name: Test with pytest
                 run: uv run pytest tests
-            -   name: Check mypy
+            -   name: Check root mypy
                 run: uv run mypy --strict
+            -   name: Check scripts mypy
+                run: uv run mypy --config-file scripts/pyproject.toml
     test-e2e:
         runs-on: ubuntu-latest
         strategy:

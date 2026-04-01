@@ -29,7 +29,5 @@ explicit_package_bases = true
 
 # prevent mypy from walking outside scripts project
 exclude = [
-    "../src",
-    "../scheduler",
-    "../config"
+    "(?x)^(?!scripts/).*$",  # only allow files under scripts/
 ]
