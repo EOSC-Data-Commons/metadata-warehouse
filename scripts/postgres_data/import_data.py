@@ -21,7 +21,7 @@ TIMEOUT_FASTAPI = 30
 TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S.%f%z'
 
 
-def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_dir: Optional[Path], limit: int = 10000) -> None:
+def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_dir: Optional[Path], limit: Optional[int]) -> None:
     harvest_run_id = None
 
     try:
@@ -106,7 +106,7 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_di
             print(identifier.text)
             print('+++++')
             count += 1
-            if count >= limit:
+            if limit and count >= limit:
                 break
 
     except Exception as e:
@@ -132,17 +132,17 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_di
         raise e
 
 HARVEST_ENDPOINTS = [
-    ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/dans_arch/dans_arch.xml'), Path('doi_dataverse')),
-    ('DANS', 'https://ssh.datastations.nl/oai', Path('data/dans_soc/dans_soc.xml'), Path('doi_dataverse')),
-    ('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/dans_life/dans_life.xml'), Path('doi_dataverse')),
-    ('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/dans_phystec/dans_phystec.xml'), Path('doi_dataverse')),
-    ('DANS', 'https://dataverse.nl/oai', Path('data/dans_gen/dans_gen.xml'), Path('doi_dataverse')),
+    ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/dans_arch/dans_arch.xml'), Path('doi_dataverse'), 500),
+    ('DANS', 'https://ssh.datastations.nl/oai', Path('data/dans_soc/dans_soc.xml'), Path('doi_dataverse'), 500),
+    ('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/dans_life/dans_life.xml'), Path('doi_dataverse'), 500),
+    ('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/dans_phystec/dans_phystec.xml'), Path('doi_dataverse'), 500),
+    ('DANS', 'https://dataverse.nl/oai', Path('data/dans_gen/dans_gen.xml'), Path('doi_dataverse'), 500),
     #('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('doi_dataverse'), None),
     #('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
-    #('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/harvests_HAL_sample'), None),
-    ('ZENODO', 'https://zenodo.org/oai2d', Path('data/zenodo/zenodo_parts.xml'), Path('meta_zenodo'))
+    ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/hal/test3.xml'), Path('meta_hal'), None),
+    ('ZENODO', 'https://zenodo.org/oai2d', Path('data/zenodo/zenodo_parts.xml'), Path('meta_zenodo'), None)
 ]
 
 if __name__ == "__main__":
-    for repo, harvest_url_repo, path, add in HARVEST_ENDPOINTS:
-        import_data(repo, harvest_url_repo, path, add)
+    for repo, harvest_url_repo, path, add, lim in HARVEST_ENDPOINTS:
+        import_data(repo, harvest_url_repo, path, add, lim)
