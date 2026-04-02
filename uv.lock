@@ -890,6 +890,7 @@ dependencies = [
     { name = "jsonschema" },
     { name = "opensearch-py" },
     { name = "psycopg", extra = ["binary"] },
+    { name = "requests" },
     { name = "watchdog" },
     { name = "xmltodict" },
 ]
@@ -915,6 +916,7 @@ requires-dist = [
     { name = "jsonschema", specifier = ">=4.26.0" },
     { name = "opensearch-py", specifier = ">=3.1.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.3" },
+    { name = "requests", specifier = ">=2.32.5" },
     { name = "watchdog", specifier = ">=6.0.0" },
     { name = "xmltodict", specifier = ">=1.0.4" },
 ]

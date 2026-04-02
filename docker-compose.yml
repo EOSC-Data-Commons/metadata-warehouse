@@ -239,17 +239,23 @@ services:
       build:
         dockerfile: ./docker/scheduler/Dockerfile
         context: .
-
       profiles: ["manual"]
-
+      command: ["python", "-m", "scheduler.run"]
       env_file:
         - .env
-
+      depends_on:
+        postgres:
+          condition: service_healthy
+        opensearch:
+          condition: service_healthy
+        transform:
+          condition: service_started
       networks:
         - warehouse-backend
-
       volumes:
-        - .:/app
+        - /var/run/docker.sock:/var/run/docker.sock
+        - ./docker-compose.yml:/app/compose.yml
+        - ./.env:/app/.env
 
 volumes:
     postgres-data:
