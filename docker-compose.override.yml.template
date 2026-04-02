@@ -5,30 +5,23 @@ services:
         environment:
             FLOWER_UNAUTHENTICATED_API: true
 
-    celery:
-        command:
-          [ "watchmedo",
-            "auto-restart",
-            "--debug-force-polling",
-            "--directory=/code/app",
-            "--pattern=*.py",
-            "--recursive",
-            "--",
-            "celery",
-            "-A",
-            "tasks",
-            "worker",
-            #"-Q",
-            #"batches",
-            "-E",
-            "--pool=solo", # https://stackoverflow.com/questions/56767461/celery-workerlosterror-worker-exited-prematurely-signal-6-sigabrt
-            "--loglevel=INFO"
-          ]
-
     transform:
-        command: [ "fastapi", "dev", "--host", "0.0.0.0", "transform.py", "--port", "80" ]
         ports:
             - "127.0.0.1:8080:80"
+        # Uncomment for dev (hot reload):
+        # command: [ "fastapi", "dev", "--host", "0.0.0.0", "transform.py", "--port", "80" ]
+
+    celery:
+        # Uncomment for dev (auto-restart on file changes):
+        # command:
+        #   [ "watchmedo", "auto-restart",
+        #     "--debug-force-polling",
+        #     "--directory=/code/src",
+        #     "--directory=/code/config",
+        #     "--pattern=*.py", "--recursive", "--",
+        #     "celery", "-A", "tasks", "worker",
+        #     "-E", "--pool=solo", "--loglevel=DEBUG"
+        #   ]
 
     postgres:
         ports:
@@ -46,6 +39,10 @@ services:
         ports:
             - "127.0.0.1:5601:5601"
 
-    mcp:
+    search-api:
         ports:
             - "127.0.0.1:8000:8000"
+
+    frontend:
+        ports:
+            - "127.0.0.1:3000:3000"

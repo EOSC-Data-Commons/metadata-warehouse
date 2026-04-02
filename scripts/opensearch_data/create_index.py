@@ -30,7 +30,7 @@ except Exception as e:
     print(e)
 
 try:
-    with open('../../src/config/opensearch_mapping.json') as f:
+    with open('../../config/opensearch_mapping.json') as f:
         os_mapping = json.load(f)
         # dynamically set embeddings dims
         os_mapping['mappings']['properties']['emb']['dimension'] = embedding_dims

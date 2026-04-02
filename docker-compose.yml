@@ -41,8 +41,8 @@ services:
               "--loglevel=info",
               "--persistent=True",
               "--db=flower_db"
+#              "--port=5555"
             #"--without-heartbeat"
-            #"--port=5555"
           ]
 
     celery:
@@ -50,7 +50,8 @@ services:
             dockerfile: ./docker/transform/Dockerfile
             context: .
         volumes:
-            - ./src:/code/app
+            - ./src:/code/src
+            - ./config:/code/config
         networks:
             - warehouse-backend
         depends_on:
@@ -71,12 +72,14 @@ services:
         #volumes:
         #- ./data/results:/var/celery/results
         environment:
+            PYTHONPATH: /code/src:/code  # src for tasks.py, root for config/
             CELERY_BROKER_URL: redis://broker:6379/0
             #CELERY_RESULT_BACKEND: "file:///var/celery/results"
             CELERY_RESULT_BACKEND: redis://broker:6379/0
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+            POSTGRES_DB: "${POSTGRES_DB}"
             POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
             POSTGRES_PORT: "${POSTGRES_PORT}"
             OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
@@ -92,16 +95,19 @@ services:
             dockerfile: ./docker/transform/Dockerfile
             context: .
         volumes:
-            - ./src:/code/app
+            - ./src:/code/src
+            - ./config:/code/config
         command: [ "fastapi", "run", "--host", "0.0.0.0", "transform.py", "--port", "80" ]
         networks:
             - warehouse-backend
         environment:
+            PYTHONPATH: /code/src:/code
             CELERY_BROKER_URL: redis://broker:6379/0
             #CELERY_RESULT_BACKEND: "file:///var/celery/results"
             CELERY_RESULT_BACKEND: redis://broker:6379/0
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+            POSTGRES_DB: "${POSTGRES_DB}"
             POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
             POSTGRES_PORT: "${POSTGRES_PORT}"
             OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
@@ -121,6 +127,7 @@ services:
         environment:
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+            POSTGRES_DB: "${POSTGRES_DB}"
         restart: unless-stopped
         volumes:
             - postgres-data:/var/lib/postgresql/data
@@ -186,43 +193,63 @@ services:
         networks:
             - warehouse-backend
 
-    #https://github.com/EOSC-Data-Commons/eoscdcpoc/pkgs/container/eoscdcpoc-frontend
+    #https://github.com/EOSC-Data-Commons/matchmaker/pkgs/container/matchmaker-frontend
     frontend:
-        image: ghcr.io/eosc-data-commons/eoscdcpoc-frontend:latest
-        # Removes only targeted frontend artifacts before refreshing them from /webapp.
-        command: >
-          sh -c 'set -eu
-          echo "Existing volume contents BEFORE prune (/frontend-volume)";
-          if [ -d /frontend-volume ]; then find /frontend-volume -maxdepth 2 -type f -print || true; else echo "(volume empty or not yet created)"; fi;
-          echo "Pruning old frontend artifacts (assets/, *.html, *.svg, *.css, *.js)";
-          rm -rf /frontend-volume/assets || true;
-          find /frontend-volume -maxdepth 1 -type f \( -name "*.html" -o -name "*.svg" -o -name "*.css" -o -name "*.js" \) -exec rm -f {} + || true;
-          echo "Copying updated assets directory";
-          if [ -d /webapp/assets ]; then cp -a /webapp/assets /frontend-volume/; fi;
-          echo "Copying root-level *.html / *.svg / *.css / *.js";
-          find /webapp -maxdepth 1 -type f \( -name "*.html" -o -name "*.svg" -o -name "*.css" -o -name "*.js" \) -exec cp -f {} /frontend-volume/ \+;
-          echo "Final volume contents AFTER copy";
-          find /frontend-volume -maxdepth 2 -type f -print'
-        volumes:
-            - frontend-data:/frontend-volume
-
-    # https://github.com/EOSC-Data-Commons/data-commons-mcp/pkgs/container/data-commons-mcp
-    mcp:
+        image: ghcr.io/eosc-data-commons/matchmaker-frontend:latest
         restart: unless-stopped
-        image: ghcr.io/eosc-data-commons/data-commons-mcp:latest
         depends_on:
             opensearch:
                 condition: service_healthy
-            frontend:
-                condition: service_completed_successfully
+        command: npm run prod
+        environment:
+            - NODE_ENV=production
+            - SEARCH_API_URL=http://search-api:8000
+            - PLAYER_API_URL=https://dev1.player.eosc-data-commons.eu
+        networks:
+            - warehouse-backend
+
+    # https://github.com/EOSC-Data-Commons/data-commons-search/pkgs/container/data-commons-search
+    search-api:
+        restart: unless-stopped
+        image: ghcr.io/eosc-data-commons/data-commons-search:latest
+        depends_on:
+            opensearch:
+                condition: service_healthy
         volumes:
-            - frontend-data:/src/webapp
+            - search-api-data:/app/data
         env_file: [ keys.env ]
         environment:
-            - RUST_LOG=info
             - OPENSEARCH_URL=http://opensearch:9200
         networks:
             - warehouse-backend
+
+    # https://github.com/EOSC-Data-Commons/metadata-crawlers/pkgs/container/metadata-crawlers
+    harvester:
+        image: ghcr.io/eosc-data-commons/metadata-crawlers:latest
+        profiles: ["manual"]
+        env_file:
+            - .env
+        volumes:
+            - harvester-logs:/app/logs
+        entrypoint: ["python", "-m", "harvester"]
+        networks:
+            - warehouse-backend
+
+    scheduler:
+      build:
+        dockerfile: ./docker/scheduler/Dockerfile
+        context: .
+
+      profiles: ["manual"]
+
+      env_file:
+        - .env
+
+      networks:
+        - warehouse-backend
+
+      volumes:
+        - .:/app
 
 volumes:
     postgres-data:
@@ -231,7 +258,9 @@ volumes:
     opensearch-dashboards-data:
     broker-data:
     flower-data:
+    search-api-data:
     frontend-data:
+    harvester-logs:
 
 networks:
     warehouse-backend:

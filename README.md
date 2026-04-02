@@ -12,7 +12,7 @@ To run the containers:
     - `POSTGRES_ADDRESS` (default "postgres") and `POSTGRES_PORT` (default 5432)
     - `OPENSEARCH_ADDRESS` (default "opensearch") and `OPENSEARCH_PORT` (default 9200)
     - `FASTAPI_ADDRESS` (default "127.0.0.1") and `FASTAPI_PORT` (default 8080)
-- API keys for mcp server:
+- API keys for search API server:
   ```sh
   cp keys.env.template keys.env
   ```
@@ -27,12 +27,12 @@ To run the containers:
 - create OpenSearch index, see below.
 - run transformation process, see below.
 
-### pgAdmin
+## pgAdmin
 
 - when using pgAdmin, register a new server with `Host name` "postgres" (container name in docker network) with port "5432".
 - provide credentials as defined in `.env`.
 
-## Basic Setup
+# Basic Setup
 
 - ```shell
   cd scripts
@@ -42,17 +42,19 @@ To run the containers:
   uv sync
   ```
 
-### Create Postgres DB and Load and Transform Data
+## Create Postgres DB and Load and Transform Data
 
 - ```sh
   cd scripts/postgres_data
   ```
 
-- create table structure and repo config as defined in `scripts/postgres_data/create_sql`
-  (to start from scratch, you have to remove the tables first with [DROP](https://www.postgresql.org/docs/current/sql-droptable.html)):
+- create table structure and repo config as defined in `scripts/postgres_data/create_sql/$dbname`
   ```sh
-  uv run create_db.py
+  uv run create_db.py --db $dbname [--reset]
   ```
+  This will create and init the specified DB if it does not exist yet.
+  If it already exists and should be **dropped and reinitialized**, 
+  additionally provide the flag --reset. 
 
 - load XML data from `scripts/postgres_data/data` (populates table `harvest_events`):
   ```sh
@@ -66,7 +68,7 @@ To run the containers:
   ```
   If the -n flag is provided, the JSON data will also be normalized and validated against the JSON schema file `utils/schema.json`.
 
-### Create OpenSearch Index
+## Create OpenSearch Index
 
 - ```sh
   cd scripts/opensearch_data
@@ -84,7 +86,7 @@ To run the containers:
   uv run query_index.py
   ```
 
-### Run Transformation Process
+## Run Transformation Process
 
 The transformer container provides an [API](http://127.0.0.1:8080/docs) to start the transformation and indexing process.
 
@@ -99,9 +101,9 @@ and the harvest run is then closed. Note that a transformation can only be perfo
   ```
 
 - To obtain a harvest run id and status for a given endpoint (https://dabar.srce.hr/oai):
-```sh
+  ```sh
   http://127.0.0.1:8080/harvest_run?harvest_url=https%3A%2F%2Fdabar.srce.hr%2Foai
-```
+  ```
 
 - start transformation process:
   ```sh
@@ -112,7 +114,41 @@ and the harvest run is then closed. Note that a transformation can only be perfo
   http://127.0.0.1:5555/tasks
   ```
 
-## Development
+After starting the stack with `docker compose up`, you can run the harvester for a given repository URL, e.g.:
+
+```sh
+docker compose run harvester https://lifesciences.datastations.nl/oai
+```
+## Scheduler
+
+The scheduler automates the full ingestion workflow: harvesting → transformation → indexing.
+It is designed to be executed periodically via CRON.
+
+### Run scheduler
+
+```sh
+uv run python -m scheduler.run
+```
+#### Environment variables
+
+Optionally add the following env variables (not needed for local dev):
+
+- `TRANSFORMER_URL` (default "http://192.168.10.6:8080")
+- `INDEX_NAME` (default "test_datacite")
+
+## Run E2E Tests
+
+Before running the e2e tests locally, the env var `POSTGRES_DB` needs to be set to "testdb" 
+since the e2e tests and the API have to use the same DB in order for the tests to work. 
+Note that the e2e tests reinit "testdb" on each run. Since "testdb" is hardcoded in the e2e tests, 
+the productive db "dataset" won't be overwritten by running the e2e tests. 
+
+To run the e2e tests:
+```sh
+uv run pytest -s e2e
+```
+
+## Linting
 
 Install pre-commit hooks to run all checks automatically on commit:
 
@@ -127,4 +163,3 @@ uvx ruff format
 uvx ruff check --fix
 uv run mypy
 ```
-

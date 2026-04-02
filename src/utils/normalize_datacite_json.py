@@ -62,7 +62,7 @@ def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, 
     # print(type(entry), field_name, entry)
 
     # ignore non-existing fields
-    if field_name not in entry:
+    if field_name not in entry or entry[field_name] is None:
         return {}
 
     name = field_name[len(DATACITE) + 1:]
@@ -254,6 +254,11 @@ def normalize_datacite_json(res: dict[str, Any]) -> dict[str, Any]:
             'dates': list(map(lambda el: harmonize_props(el, f'{DATACITE}:date', {'@dateType': 'dateType'},
                                                          {'date': normalize_date_string}),
                               make_array(res.get(f'{DATACITE}:dates'), f'{DATACITE}:date'))),
+            'formats': list(map(lambda el: el['format'], map(lambda el: harmonize_props(el, f'{DATACITE}:format', {}, {}),
+                              make_array(res.get(f'{DATACITE}:formats'), f'{DATACITE}:format')))),
+            'rightsList': list(map(lambda el: harmonize_props(el, f'{DATACITE}:rights', {'@rightsURI': 'rightsURI'},
+                                                         {}),
+                              make_array(res.get(f'{DATACITE}:rightsList'), f'{DATACITE}:rights'))),
             'types': get_resource_type(res)
         }
 

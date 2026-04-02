@@ -58,6 +58,18 @@ class TestNormalizeDatacite(unittest.TestCase):
             'titleType': 'alternative'
         })
 
+    def test_harmonize_props_object_empty(self):
+        data = {
+            'http://datacite.org/schema/kernel-4:rights': None
+        }
+
+        res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:rights',
+                                                      {'@rightsURI': 'rightsURI'}, {})
+
+        # print(res)
+
+        self.assertEqual(res, {})
+
     def test_harmonize_creator_string(self):
         data = {
             'http://datacite.org/schema/kernel-4:creator':

@@ -1,0 +1,76 @@
+<record xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <header>
+    <identifier>doi:10.17026/AR/0AKDPK</identifier>
+    <datestamp>2025-07-02T00:22:00Z</datestamp>
+  </header>
+  <metadata>
+    <resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://datacite.org/schema/kernel-4" xsi:schemaLocation="http://datacite.org/schema/kernel-4 http://schema.datacite.org/meta/kernel-4.1/metadata.xsd">
+      <identifier identifierType="DOI">10.17026/AR/0AKDPK</identifier>
+      <creators>
+        <creator>
+          <creatorName nameType="Personal">Portable Antiquities of the Netherlands</creatorName>
+          <givenName>the</givenName>
+          <familyName>able Antiquities of the Netherlands</familyName>
+        </creator>
+      </creators>
+      <titles>
+        <title>PAN-00152467 - wire brooch with angular bow variant A1</title>
+      </titles>
+      <publisher>DANS Data Station Archaeology</publisher>
+      <publicationYear>2025</publicationYear>
+      <subjects>
+        <subject>Arts and Humanities</subject>
+        <subject>metal</subject>
+        <subject>copper alloy</subject>
+        <subject schemeURI="https://data.cultureelerfgoed.nl/term/id/pan/PAN" subjectScheme="PAN thesaurus ideaaltypes">wire brooch with angular bow variant A1</subject>
+        <subject schemeURI="http://vocab.getty.edu/aat/" subjectScheme="Art and Architecture Thesaurus">brooches</subject>
+      </subjects>
+      <contributors>
+        <contributor contributorType="ContactPerson">
+          <contributorName nameType="Personal">PAN Admin</contributorName>
+          <givenName>PAN</givenName>
+          <familyName>Admin</familyName>
+          <affiliation>RCE</affiliation>
+        </contributor>
+      </contributors>
+      <dates>
+        <date dateType="Issued">2024-03-29</date>
+        <date dateType="Created">2024-03-29</date>
+        <date dateType="Submitted">2025-01-08</date>
+        <date dateType="Updated">2025-01-08</date>
+      </dates>
+      <resourceType resourceTypeGeneral="Dataset"/>
+      <alternateIdentifiers>
+        <alternateIdentifier alternateIdentifierType="PAN">00152467</alternateIdentifier>
+      </alternateIdentifiers>
+      <sizes>
+        <size>222</size>
+        <size>518</size>
+        <size>604</size>
+        <size>3281</size>
+        <size>189996</size>
+        <size>2234</size>
+        <size>2187</size>
+      </sizes>
+      <formats>
+        <format>text/xml</format>
+        <format>text/xml</format>
+        <format>text/xml</format>
+        <format>application/zip</format>
+        <format>image/jpeg</format>
+        <format>text/xml</format>
+        <format>text/xml</format>
+      </formats>
+      <version>1.0</version>
+      <rightsList>
+        <rights rightsURI="info:eu-repo/semantics/closedAccess"/>
+        <rights rightsURI="http://creativecommons.org/licenses/by-nc-sa/4.0">CC-BY-NC-SA-4.0</rights>
+      </rightsList>
+      <descriptions>
+        <description descriptionType="Abstract">&lt;p&gt;This find is registered at Portable Antiquities of the Netherlands with number PAN-00152467&lt;/p&gt;</description>
+        <description descriptionType="Abstract">Modified: 2024-10-25T19:44:29+02:00</description>
+      </descriptions>
+      <geoLocations/>
+    </resource>
+  </metadata>
+</record>
