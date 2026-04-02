@@ -95,3 +95,4 @@ select = [
 "__init__.py" = ["I", "F401"]
 # Tests can use assertions and magic values
 "tests/*" = ["PLR2004", "S101"]
+"e2e/*" = ["PLR2004", "S101"]

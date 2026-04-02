@@ -23,7 +23,7 @@ jobs:
             -   name: Check scripts mypy
                 run: uv run mypy --config-file scripts/pyproject.toml
             -   name: Check format
-                run: uv run format --check
+                run: uv run ruff format --check
     test-e2e:
         runs-on: ubuntu-latest
         strategy:
