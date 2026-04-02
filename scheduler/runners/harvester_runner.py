@@ -23,11 +23,12 @@ def run_harvester(harvest_url: str) -> None:
 
     subprocess.run(
         [
-            "docker",
-            "compose",
-            "run",
+            "docker", "run",
             "--rm",
-            "harvester",
+            "--network", "metadata-warehouse_warehouse-backend",
+            "--env-file", "/app/.env",
+            "-v", "metadata-warehouse_harvester-logs:/app/logs",
+            "ghcr.io/eosc-data-commons/metadata-crawlers:latest",
             harvest_url,
         ],
         check=True,
