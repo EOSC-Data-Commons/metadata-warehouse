@@ -27,6 +27,7 @@ dev = [
     "types-requests>=2.32.4.20260107",
     "lxml-stubs>=0.5.1",
     "python-dotenv>=1.2.2",
+    "ruff>=0.15.8",
 ]
 
 [build-system]
