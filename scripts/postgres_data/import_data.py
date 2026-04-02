@@ -86,7 +86,7 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_di
                         additional_metadata = f2.read()
 
             if identifier.text is None:
-                raise Exception(f'No identifier found in XML: {oai_id.text}')
+                raise Exception(f'No identifier found in XML: {identifier.text}')
 
             payload = {
                 'record_identifier': identifier.text,
