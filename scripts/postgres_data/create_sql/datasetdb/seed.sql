@@ -25,7 +25,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://archaeology.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}',
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://archaeology.datastations.nl/api/datasets/:persistentId/versions/:latest-published", "protocol": "REST_API", "format": "dataverse_json"}}',
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DANS'
@@ -44,7 +44,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://ssh.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}',
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://ssh.datastations.nl/api/datasets/:persistentId/versions/:latest-published", "protocol": "REST_API", "format": "dataverse_json"}}',
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DANS'
@@ -63,7 +63,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://lifesciences.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}',
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://lifesciences.datastations.nl/api/datasets/:persistentId/versions/:latest-published", "protocol": "REST_API", "format": "dataverse_json"}}',
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DANS'
@@ -82,7 +82,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://phys-techsciences.datastations.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}',
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://phys-techsciences.datastations.nl/api/datasets/:persistentId/versions/:latest-published", "protocol": "REST_API", "format": "dataverse_json"}}',
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DANS'
@@ -101,7 +101,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://dataverse.nl/api/datasets/export", "protocol": "REST_API", "format": "dataverse_json"}}',
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://dataverse.nl/api/datasets/:persistentId/versions/:latest-published", "protocol": "REST_API", "format": "dataverse_json"}}',
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DANS'
