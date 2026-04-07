@@ -12,7 +12,7 @@ from typing import Any, Dict
 
 import requests
 
-from scheduler.config import TRANSFORMER_URL
+from scheduler.config import WAREHOUSE_API_URL
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ def get_endpoints_to_harvest() -> list[str]:
     logger.info("requesting endpoints to harvest")
 
     r = requests.get(
-        f"{TRANSFORMER_URL}/harvest_run",
+        f"{WAREHOUSE_API_URL}/harvest_run",
         params={"only_active": True, "respect_schedule": True},
         timeout=30,
     )
@@ -71,7 +71,7 @@ def are_all_runs_closed() -> bool:
         True if no open harvest run exists
     """
 
-    r = requests.post(f"{TRANSFORMER_URL}/scheduler/wait-for-completion", timeout=30)
+    r = requests.post(f"{WAREHOUSE_API_URL}/scheduler/wait-for-completion", timeout=30)
 
     r.raise_for_status()
 
@@ -94,7 +94,7 @@ def get_closed_run_ids() -> list[str]:
     """
 
     logger.info("requesting closed runs")
-    r = requests.get(f"{TRANSFORMER_URL}/scheduler/closed-runs", timeout=30)
+    r = requests.get(f"{WAREHOUSE_API_URL}/scheduler/closed-runs", timeout=30)
 
     r.raise_for_status()
     data: Dict[str, Any] = r.json()
@@ -121,7 +121,7 @@ def trigger_index(run_ids: list[str], index_name: str) -> None:
         logger.info("trigger index for run %s", run_id)
 
         r = requests.get(
-            f"{TRANSFORMER_URL}/index",
+            f"{WAREHOUSE_API_URL}/index",
             params={"harvest_run_id": run_id, "index_name": index_name},
             timeout=6000,
         )

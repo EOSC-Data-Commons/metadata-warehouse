@@ -15,6 +15,7 @@ dependencies = [
     # "flower", # only needed when not using mher/flower
     "datahugger-ng>=0.5.4",
     "docker>=7.1.0",
+    "requests>=2.32.5",
 ]
 
 
