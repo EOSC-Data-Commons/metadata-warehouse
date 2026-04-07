@@ -138,10 +138,36 @@ class HarvestRunCloseResponse(BaseModel):
 
 
 class SchedulerRunsResponse(BaseModel):
+    """
+    Response returned by /scheduler/wait-for-completion endpoint.
+
+    Attributes
+    ----------
+    all_closed : bool
+        True when there are no harvest runs with status='open'.
+
+        Both 'closed' and 'failed' statuses are treated as completed runs,
+        meaning the scheduler can proceed to the next step of the workflow.
+    """
     all_closed: bool
 
 
 class SchedulerClosedRunsResponse(BaseModel):
+    """
+    Response returned by /scheduler/closed-runs endpoint.
+
+    Attributes
+    ----------
+    harvest_run_ids : list[str]
+        IDs of harvest runs that finished in the last 6 days.
+
+        Includes runs with status:
+        - 'closed'  -> completed successfully
+        - 'failed'  -> completed with errors
+
+        Failed runs are included because they are no longer actively running
+        and should be processed further by Transfomer.
+    """
     harvest_run_ids: list[str]
 
 
@@ -575,20 +601,47 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str) -> int:
 
 
 def are_all_runs_closed_in_db() -> bool:
+    """
+    Check whether all harvest runs have finished processing.
+
+    A run is considered finished when its status is:
+    - 'closed'
+    - 'failed'
+
+    The scheduler should wait only for runs that are still actively executing,
+    which are represented by status='open'.
+
+    Returns
+    -------
+    bool
+        True if there are no runs with status='open'.
+        False if at least one run is still open.
+
+    Notes
+    -----
+    Expected status values in harvest_runs table:
+        ('open', 'closed', 'failed')
+
+    Logic:
+        EXISTS(status='open') -> scheduler must wait
+        no open runs -> scheduler may continue
+    """
     with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
+
         cur.execute("""
-SELECT EXISTS (
-    SELECT 1
-    FROM harvest_runs
-    WHERE status != 'closed'
-)
+            SELECT EXISTS (
+                SELECT 1
+                FROM harvest_runs
+                WHERE status = 'open'
+            ) AS has_open_runs
         """)
 
         result = cur.fetchone()
         if result is None:
             raise RuntimeError("Query returned no result")
-        return not result["exists"]
+
+        return not result["has_open_runs"]
 
 
 @app.get("/index", tags=["index"])
@@ -723,6 +776,30 @@ def close_harvest_run(harvest_run: HarvestRunCloseRequest) -> HarvestRunCloseRes
     summary="Check if all harvest runs are closed",
 )
 def scheduler_wait_for_completion() -> SchedulerRunsResponse:
+    """
+    Determine whether Crawler has finished its work
+    and Scheduler can trigger Transfomer.
+
+    The scheduler periodically checks whether all harvest runs
+    have finished execution.
+
+    A run is considered finished when its status is:
+    - 'closed'  -> completed successfully
+    - 'failed'  -> completed with errors but no longer running
+
+    Only runs with status='open' block the scheduler.
+
+    Returns
+    -------
+    SchedulerRunsResponse
+        Object containing boolean flag:
+
+        all_closed=True
+            no open runs exist → scheduler may proceed
+
+        all_closed=False
+            at least one run is still open → scheduler should wait
+    """
     try:
         all_closed = are_all_runs_closed_in_db()
 
@@ -737,18 +814,46 @@ def scheduler_wait_for_completion() -> SchedulerRunsResponse:
 @app.get(
     "/scheduler/closed-runs",
     tags=["scheduler"],
-    summary="Return closed harvest runs completed in the last 6 days",
+    summary="Return closed or failed harvest runs completed in the last 6 days",
 )
 def get_closed_runs() -> SchedulerClosedRunsResponse:
+    """
+    Retrieve IDs of recently finished harvest runs.
+
+    This endpoint returns harvest runs that are no longer active,
+    meaning their status is:
+    - 'closed'
+    - 'failed'
+
+    The result is limited to runs completed within the last 6 days
+    to avoid reprocessing older runs and to keep Transformer payloads small.
+
+    Returns
+    -------
+    SchedulerClosedRunsResponse
+        harvest_run_ids : list[str]
+            IDs of runs eligible for further processing.
+
+    Notes
+    -----
+    Expected status values in harvest_runs table:
+        ('open', 'closed', 'failed')
+
+    Filtering logic:
+        status IN ('closed', 'failed')
+        AND until_date >= NOW() - INTERVAL '6 days'
+    """
     try:
         with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
             cur = conn.cursor()
+
             cur.execute("""
                 SELECT id
                 FROM harvest_runs
-                WHERE status = 'closed'
+                WHERE status IN ('closed', 'failed')
                 AND until_date >= NOW() - INTERVAL '6 days'
             """)
+
             ids = [str(row["id"]) for row in cur.fetchall()]
 
         return SchedulerClosedRunsResponse(harvest_run_ids=ids)
