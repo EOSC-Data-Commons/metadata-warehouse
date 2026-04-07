@@ -1,10 +1,8 @@
 from enum import Enum
 from typing import NamedTuple, Optional
 
-
-#class IdentifierType(Enum):
-    #DOI = 'doi'
-    #URL = 'url'
+def detect_identifier_type(identifier: str) -> str:
+    return "DOI" if identifier.startswith("10.") else "URL"
 
 class HarvestEventQueue(NamedTuple):
     id: str # 0

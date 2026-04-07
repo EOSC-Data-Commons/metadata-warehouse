@@ -12,7 +12,7 @@ import os
 from fastapi import FastAPI, Query, HTTPException
 import logging
 from pydantic import BaseModel, Field
-from utils.queue_utils import HarvestEventQueue
+from utils.queue_utils import HarvestEventQueue, detect_identifier_type
 
 dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
@@ -548,7 +548,7 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str) -> int:
                 batch.append(
                     HarvestEventQueue(id=str(doc['id']), xml=doc['record'], repository_id=str(doc['repository_id']),
                                       endpoint_id=str(doc['endpoint_id']), record_identifier=doc['record_identifier'],
-                                      identifier_type='DOI' if doc['record_identifier'].startswith('10.') else 'URL',
+                                      identifier_type=detect_identifier_type(doc['record_identifier']),
                                       code=doc['code'], harvest_url=doc['harvest_url'],
                                       additional_metadata=doc['additional_metadata'], additional_metadata_API=additional_metadata_API, is_deleted=doc['is_deleted'],
                                       datestamp=doc['datestamp'].strftime('%Y-%m-%d %H:%M:%S.%f%z'))
