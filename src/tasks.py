@@ -1,5 +1,4 @@
 import json
-import os
 from config.logging_config import LOGGING_CONFIG
 from logging.config import dictConfig
 from fastembed import TextEmbedding
@@ -20,8 +19,9 @@ from celery.signals import after_setup_logger
 import datetime
 import psycopg
 from psycopg.rows import dict_row
-from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, HalJsonSrcDataset, resolve, FileEntry
+from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, HalJsonSrcDataset, resolve, FileEntry, Dataset
 import os
+from enum import Enum
 
 
 @after_setup_logger.connect()  # type: ignore[untyped-decorator, unused-ignore]
@@ -50,6 +50,11 @@ celery_app = Celery('tasks')
 
 # celery_app.task_serializer = 'json'
 # celery_app.ignore_result = False
+
+class ProviderCode(str, Enum):
+    DANS = "DANS"
+    ZENODO = "ZENODO"
+    HAL = "HAL"
 
 class FileMetadataTask(Task):  # type: ignore
 
@@ -90,6 +95,11 @@ class FileMetadataTask(Task):  # type: ignore
             file.last_modification_date
         )
 
+    def collect_files(self, harvest_event: HarvestEventQueue, dataset: Dataset) -> list[tuple[Any, ...]]:
+        return [
+            self.make_file_entry(harvest_event, file)
+            for file in dataset.crawl_file()
+        ]
 
 @celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
 def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
@@ -103,7 +113,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
             files = []
             harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
 
-            if harvest_event.additional_metadata_API and harvest_event.additional_metadata and harvest_event.code == 'DANS':
+            if harvest_event.additional_metadata_API and harvest_event.additional_metadata and harvest_event.code == ProviderCode.DANS:
                 # this only covers dataverse for now
 
                 # TODO: adapt in DB config
@@ -112,33 +122,21 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
                 ds_dv = DataverseJsonSrcDataset(url, harvest_event.additional_metadata)
 
-                for file in ds_dv.crawl_file():
-                    files.append(
-                        self.make_file_entry(harvest_event, file)
-                    )
+                files.extend(self.collect_files(harvest_event, ds_dv))
 
-                # logger.debug(files)
-
-            elif harvest_event.additional_metadata and harvest_event.code == 'ZENODO':
+            elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.ZENODO:
 
                 # get id from DOI: 10.5281/zenodo.570959 -> 570959
                 ds_z = ZenodoJsonSrcDataset(harvest_event.record_identifier.split('.')[-1],harvest_event.additional_metadata)
 
-                for file in ds_z.crawl_file():
-                    files.append(
-                        self.make_file_entry(harvest_event, file)
-                    )
+                files.extend(self.collect_files(harvest_event, ds_z))
 
-            elif harvest_event.additional_metadata and harvest_event.code == 'HAL':
+            elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.HAL:
 
                 # HAL IDs contain a version suffix, needs to be removed
                 ds_hal = HalJsonSrcDataset(harvest_event.record_identifier.split('v')[0],harvest_event.additional_metadata)
 
-                for file in ds_hal.crawl_file():
-                    logger.debug(file)
-                    files.append(
-                        self.make_file_entry(harvest_event, file)
-                    )
+                files.extend(self.collect_files(harvest_event, ds_hal))
 
             if len(files) == 0:
                 logger.debug(f'no files for {harvest_event.record_identifier}')
