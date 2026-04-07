@@ -14,7 +14,8 @@ USER = os.environ.get("POSTGRES_ADMIN")
 PW = os.environ.get("POSTGRES_PASSWORD")
 ADDRESS = os.environ.get("POSTGRES_ADDRESS")
 PORT = os.environ.get("POSTGRES_PORT")
-TEST_DB = "testdb"
+TEST_DATASET_DB = "testdatasetdb"
+TEST_FILE_DB = "testfiledb"
 TEST_INDEX = "test_index"
 EMBEDDING_DIMS = os.environ.get("EMBEDDING_DIMS")
 
@@ -36,18 +37,9 @@ def flower_client():
         yield client
 
 
-@pytest.fixture
-def reset_db():
-    sql_files = [
-        "types.sql",
-        "tables.sql",
-        "indexes.sql",
-        "triggers.sql",
-        "seed.sql",
-        "views.sql",
-        "permissions.sql",
-        "verify.sql",
-    ]
+def reset_db(name: str, path: str):
+    sql_files = ['types.sql', 'tables.sql', 'indexes.sql', 'triggers.sql', 'seed.sql', 'views.sql', 'permissions.sql',
+                 'verify.sql']
 
     # Connect to default 'postgres' db to create the test db if needed
     with psycopg.connect(
@@ -59,22 +51,35 @@ def reset_db():
         autocommit=True,
     ) as conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (TEST_DB,))
+            cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,))
             if not cursor.fetchone():
-                cursor.execute(f"CREATE DATABASE {TEST_DB}")
+                cursor.execute(f"CREATE DATABASE {name}")
 
-    with psycopg.connect(
-        dbname=TEST_DB, user=USER, host="127.0.0.1", password=PW, port=5432
-    ) as conn:
+    with psycopg.connect(dbname=name, user=USER, host='127.0.0.1', password=PW,
+                         port=5432) as conn:
         with conn.cursor() as cursor:
             # Drop and recreate schema
             cursor.execute("DROP SCHEMA IF EXISTS public CASCADE")
             cursor.execute("CREATE SCHEMA public")
 
             for sql_f in sql_files:
-                with open(f"scripts/postgres_data/create_sql/datasetdb/{sql_f}") as f:
+                filepath = f'scripts/postgres_data/create_sql/{path}/{sql_f}'
+                if not os.path.exists(filepath):
+                    #print(f'Skipping {filepath} (not found)')
+                    continue
+
+                with open(filepath) as f:
                     sql_statements = f.read()
                 cursor.execute(sql_statements)
+
+@pytest.fixture
+def reset_dataset_db():
+    reset_db(TEST_DATASET_DB, 'datasetdb')
+
+
+@pytest.fixture
+def reset_file_db():
+    reset_db(TEST_FILE_DB, 'filedb')
 
 
 @pytest.fixture
@@ -104,22 +109,43 @@ def reset_index():
 
     yield client
 
+@pytest.fixture
+def wait_for_task():
+    def _wait_for_task(flower_client, task_name, timeout=TIMEOUT):
+        """Wait for a task to complete successfully."""
+        start_time = time.time()
 
-def test_health(api_client, reset_db):
+        while time.time() - start_time < timeout:
+            try:
+                response = flower_client.get("/api/tasks", params={"taskname": task_name})
+                tasks = response.json()
+
+                if tasks:
+                    first_task = next(iter(tasks.values()))
+                    if first_task.get("state") == "SUCCESS":
+                        return first_task
+            except Exception:
+                pass
+
+            time.sleep(1)
+
+        return None
+    return _wait_for_task
+
+def test_health(api_client, reset_dataset_db, reset_file_db):
     resource = api_client.get("/health")
     assert resource.status_code == 200
     assert resource.json()["status"] == "ok"
 
 
-def test_get_config(api_client, reset_db):
+def test_get_config(api_client, reset_dataset_db, reset_file_db):
     response = api_client.get("/config")
 
     assert response.status_code == 200
-    assert len(response.json()["endpoints_configs"]) == 9
-
+    assert len(response.json()['endpoints_configs']) == 10
 
 def test_get_latest_harvest_run_with_harvest_url(
-    api_client, flower_client, reset_db, reset_index
+    api_client, flower_client, reset_dataset_db, reset_index
 ):
     res_get = api_client.get(
         "/harvest_run", params={"harvest_url": "https://demo.onedata.org/oai_pmh"}
@@ -171,7 +197,7 @@ def test_get_latest_harvest_run_with_harvest_url(
 
 
 def test_get_latest_harvest_run_without_harvest_url(
-    api_client, flower_client, reset_db, reset_index
+    api_client, flower_client, reset_dataset_db, reset_index
 ):
     res_get = api_client.get("/harvest_run")
 
@@ -218,7 +244,7 @@ def test_get_latest_harvest_run_without_harvest_url(
     assert res_get3_response["harvest_runs"][0]["status"] == "closed"
 
 
-def test_should_be_harvested_flag(api_client, reset_db):
+def test_should_be_harvested_flag(api_client, reset_dataset_db, reset_index):
     """
     Endpoints with no harvest run and is_active=True should have
     should_be_harvested=True. After a recent closed run, the flag
@@ -259,7 +285,8 @@ def test_should_be_harvested_flag(api_client, reset_db):
     assert isinstance(runs2[0]["should_be_harvested"], bool)
 
 
-def test_create_and_close_harvest_run(api_client, flower_client, reset_db, reset_index):
+def test_create_and_close_harvest_run(api_client, flower_client, reset_dataset_db, reset_file_db, reset_index,
+                                      wait_for_task):
     # create a new harvest run
     res_create = api_client.post(
         "/harvest_run", json={"harvest_url": "https://demo.onedata.org/oai_pmh"}
@@ -272,19 +299,20 @@ def test_create_and_close_harvest_run(api_client, flower_client, reset_db, reset
     with open("e2e/test_data/dans.xml") as f:
         xml = f.read()
 
+    with open('e2e/test_data/dans_additional.json') as f:
+        additional_meta = f.read()
+
     # write a harvest event
-    post_he = api_client.post(
-        "/harvest_event",
-        json={
-            "record_identifier": "10.34894/G8PZKV",
-            "datestamp": "2026-02-17T15:43:03.326Z",
-            "raw_metadata": f"{xml}",
-            "harvest_url": "https://demo.onedata.org/oai_pmh",
-            "repo_code": "DANS",
-            "harvest_run_id": create_response["id"],
-            "is_deleted": False,
-        },
-    )
+    post_he = api_client.post('/harvest_event', json={
+        "record_identifier": "10.34894/G8PZKV",
+        "datestamp": "2026-02-17T15:43:03.326Z",
+        "raw_metadata": f"{xml}",
+        "additional_metadata": additional_meta,
+        "harvest_url": "https://archaeology.datastations.nl/oai",
+        "repo_code": "DANS",
+        "harvest_run_id": create_response['id'],
+        "is_deleted": False
+    })
 
     assert post_he.status_code == 200
 
@@ -313,39 +341,16 @@ def test_create_and_close_harvest_run(api_client, flower_client, reset_db, reset
     # note this does not check for a successful transformation
     assert res_index.status_code == 200
 
-    start_time = time.time()
-    first_task = None
+    transform_task = wait_for_task(flower_client, "tasks.transform_batch")
+    filemeta_task = wait_for_task(flower_client, "tasks.add_file_metadata")
 
-    while time.time() - start_time < TIMEOUT:
-        try:
-            tasks_res = flower_client.get(
-                "/api/tasks", params={"taskname": "tasks.transform_batch"}
-            )
-            tasks = tasks_res.json()
+    assert transform_task and transform_task['state'] == 'SUCCESS'
+    assert "10.17026/AR/0AKDPK" in transform_task["args"]
 
-            # Check if tasks is non-empty
-            if tasks:
-                # Get first task
-                first_task = next(iter(tasks.values()))
-
-                print(len(tasks.values()), first_task)
-                state = first_task.get("state")
-
-                # Check if it's SUCCESS
-                # https://flower.readthedocs.io/en/latest/api.html
-                if state == "SUCCESS":
-                    break  # Found a successful task
-
-        except Exception as e:
-            pass
-
-        time.sleep(1)
-
-    assert first_task is not None
-    assert first_task["state"] == "SUCCESS"
-    assert "10.17026/AR/0AKDPK" in first_task["args"]
+    assert filemeta_task and filemeta_task['state'] == 'SUCCESS'
+    assert "10.17026/AR/0AKDPK" in filemeta_task["args"]
 
     response_config = api_client.get("/config")
 
     assert response_config.status_code == 200
-    assert len(response_config.json()["endpoints_configs"]) == 9
+    assert len(response_config.json()['endpoints_configs']) == 10
