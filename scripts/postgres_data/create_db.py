@@ -1,10 +1,11 @@
 #!/usr/bin/env -S uv run --script
-import sys
-import os
 import argparse
-from dotenv import load_dotenv
-import psycopg
+import os
+import sys
 import traceback
+
+import psycopg
+from dotenv import load_dotenv
 
 load_dotenv()
 

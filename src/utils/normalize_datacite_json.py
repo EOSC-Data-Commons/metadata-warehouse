@@ -1,5 +1,5 @@
-import sys
 import datetime
+import sys
 from typing import Any, Callable, Optional
 
 DATACITE = 'http://datacite.org/schema/kernel-4'

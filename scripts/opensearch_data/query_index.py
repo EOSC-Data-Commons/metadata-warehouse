@@ -1,10 +1,11 @@
 #!/usr/bin/env -S uv run --script
 
-from dotenv import load_dotenv
+import json
 import os
+
+from dotenv import load_dotenv
 from fastembed import TextEmbedding
 from opensearchpy import OpenSearch
-import json
 
 load_dotenv()
 

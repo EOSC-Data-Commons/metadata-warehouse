@@ -1,13 +1,14 @@
 import datetime
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
-import json
-from src.utils import embedding_utils
-from fastembed import TextEmbedding
-import numpy as np
 
-from src.utils.embedding_utils import SourceWithEmbeddingText, OpenSearchSourceWithEmbedding
+import numpy as np
+from fastembed import TextEmbedding
+
+from src.utils import embedding_utils
+from src.utils.embedding_utils import OpenSearchSourceWithEmbedding, SourceWithEmbeddingText
 from src.utils.queue_utils import HarvestEventQueue
 
 

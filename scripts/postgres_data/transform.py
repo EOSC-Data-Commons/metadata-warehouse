@@ -4,13 +4,14 @@ import argparse
 import json
 import os
 import sys
-from typing import Optional, Any
-import xmltodict
-from pathlib import Path
+import traceback
 from multiprocessing import Pool, cpu_count
+from pathlib import Path
+from typing import Any, Optional
+
+import xmltodict
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
-import traceback
 
 # setting path
 sys.path.append('..')

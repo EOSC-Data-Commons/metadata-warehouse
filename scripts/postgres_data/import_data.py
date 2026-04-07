@@ -1,14 +1,14 @@
 #!/usr/bin/env -S uv run --script
-from pathlib import Path
-from lxml import etree as ET
-import requests
-import traceback
-import sys
-from datetime import datetime, timezone
-from typing import Optional
 import os
+import sys
+import traceback
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional, cast
+
+import requests
 from dotenv import load_dotenv
-from typing import cast
+from lxml import etree as ET
 
 load_dotenv()
 

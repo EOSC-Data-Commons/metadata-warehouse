@@ -1,5 +1,6 @@
-import unittest
 import json
+import unittest
+
 from src.utils import normalize_datacite_json
 
 
