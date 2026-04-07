@@ -139,7 +139,7 @@ HARVEST_ENDPOINTS = [
     ('DANS', 'https://dataverse.nl/oai', Path('data/dans_gen/dans_gen.xml'), Path('doi_dataverse'), 500),
     #('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('doi_dataverse'), None),
     #('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
-    ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/hal/test3.xml'), Path('meta_hal'), None),
+    ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/hal/linked_research_outputs.xml'), Path('meta_hal'), None),
     ('ZENODO', 'https://zenodo.org/oai2d', Path('data/zenodo/zenodo_parts.xml'), Path('meta_zenodo'), None)
 ]
 

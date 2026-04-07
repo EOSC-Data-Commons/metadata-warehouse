@@ -59,20 +59,31 @@ class FileMetadataTask(Task):  # type: ignore
         # TODO: how to configure DB and not hard code?
         self.postgres_config = PostgresConfig(db=os.environ.get('FILE_DB'))
 
+    def parse_checksum(self, file: FileEntry) -> tuple[str | None, str | None]:
+        if not file.checksum:
+            return None, None
+
+        algo = file.checksum[0][0].replace("sha1", "sha-1").upper()
+        value = file.checksum[0][1]
+        return algo, value
+
     def make_file_entry(self, harvest_event: HarvestEventQueue,
-                        file: FileEntry) -> Any:
+                        file: FileEntry) -> tuple[Any, ...]:
+
+        checksum_type, checksum_value = self.parse_checksum(file)
+
         return (
             harvest_event.harvest_url,  # harvest_url
             harvest_event.record_identifier,
-            file.file_identifier if file.file_identifier else file.filename,
+            file.file_identifier or file.filename,
             file.filename,
             'datahugger',
             harvest_event.identifier_type,
             'Dataset',
             file.mimetype,
             file.size,
-            file.checksum[0][0].replace('sha1', 'sha-1').upper() if file.checksum else None,
-            file.checksum[0][1] if file.checksum else None,
+            checksum_type,
+            checksum_value,
             file.version,
             file.download_url,
             file.creation_date,
