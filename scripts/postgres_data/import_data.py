@@ -61,8 +61,10 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_di
 
             oai_id = record.find(f'./oai:header/oai:identifier', namespaces=NS)
 
-            if oai_id is None:
+            if oai_id is None or oai_id.text is None:
                 raise ValueError(f'XML OAI-PMH record {record} without identifier')
+
+            oai_id_without_prefix = oai_id.text.split(':')[-1]
 
             identifier = record.find(f'./oai:metadata/{prefix}:resource/datacite:identifier[@identifierType="DOI"]', namespaces=NS)
             if identifier is None:
@@ -75,7 +77,7 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_di
             additional_metadata = None
             if additional_dir and oai_id.text is not None:
 
-                search_path_seg = oai_id.text.split(':')[-1].replace('/', '_')
+                search_path_seg = oai_id_without_prefix.replace('/', '_')
 
                 additional_file = list(additional_dir.rglob(f'*{search_path_seg}*'))
 
@@ -85,11 +87,8 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_di
                     with open(additional_file[0]) as f2:
                         additional_metadata = f2.read()
 
-            if identifier.text is None:
-                raise Exception(f'No identifier found in XML: {identifier.text}')
-
             payload = {
-                'record_identifier': identifier.text,
+                'record_identifier': oai_id_without_prefix,
                 'datestamp': datestamp.text,
                 'raw_metadata': ET.tostring(record, encoding='unicode'),
                 'additional_metadata': additional_metadata,
@@ -132,15 +131,15 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_di
         raise e
 
 HARVEST_ENDPOINTS = [
-    ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/dans_arch/dans_arch.xml'), Path('doi_dataverse'), 500),
-    ('DANS', 'https://ssh.datastations.nl/oai', Path('data/dans_soc/dans_soc.xml'), Path('doi_dataverse'), 500),
-    ('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/dans_life/dans_life.xml'), Path('doi_dataverse'), 500),
-    ('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/dans_phystec/dans_phystec.xml'), Path('doi_dataverse'), 500),
-    ('DANS', 'https://dataverse.nl/oai', Path('data/dans_gen/dans_gen.xml'), Path('doi_dataverse'), 500),
+    ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/dans_arch/dans_arch.xml'), Path('doi_dataverse'), 200),
+    #('DANS', 'https://ssh.datastations.nl/oai', Path('data/dans_soc/dans_soc.xml'), Path('doi_dataverse'), 500),
+    #('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/dans_life/dans_life.xml'), Path('doi_dataverse'), 500),
+    #('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/dans_phystec/dans_phystec.xml'), Path('doi_dataverse'), 500),
+    #('DANS', 'https://dataverse.nl/oai', Path('data/dans_gen/dans_gen.xml'), Path('doi_dataverse'), 500),
     #('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('doi_dataverse'), None),
     #('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
-    ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/hal/linked_research_outputs.xml'), Path('meta_hal'), None),
-    ('ZENODO', 'https://zenodo.org/oai2d', Path('data/zenodo/zenodo_parts.xml'), Path('meta_zenodo'), None)
+    ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/hal/linked_research_outputs.xml'), Path('meta_hal'), 200),
+    ('ZENODO', 'https://zenodo.org/oai2d', Path('data/zenodo/zenodo_parts.xml'), Path('meta_zenodo'), 200)
 ]
 
 if __name__ == "__main__":
