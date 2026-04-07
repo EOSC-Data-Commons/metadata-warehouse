@@ -1,5 +1,5 @@
 import os
-from typing import Any
+from typing import Any, Optional
 
 class PostgresConfig:
 
@@ -9,17 +9,17 @@ class PostgresConfig:
     address: str
     port: int
 
-    def __init__(self) -> None:
+    def __init__(self, db: Optional[str] = None) -> None:
         user = os.environ.get('POSTGRES_USER')
-        db = os.environ.get('POSTGRES_DB')
+        resolved_db = db if db else os.environ.get('POSTGRES_DB')
         password = os.environ.get('POSTGRES_PASSWORD')
         address = os.environ.get('POSTGRES_ADDRESS')
         port = os.environ.get('POSTGRES_PORT')
 
-        if user and password and db:
+        if user and password and resolved_db:
             self.user = user
             self.password = password
-            self.db = db
+            self.db = resolved_db
             self.address = address if address else 'postgres'
             self.port = int(port) if port else 5432
         else:
