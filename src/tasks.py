@@ -10,8 +10,13 @@ import xmltodict
 from config.postgres_config import PostgresConfig
 from config.opensearch_config import OpenSearchConfig
 from utils.queue_utils import HarvestEventQueue
-from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
-    get_embedding_text_from_fields, OpenSearchSourceWithEmbedding
+from utils.embedding_utils import (
+    preprocess_batch,
+    add_embeddings_to_source,
+    SourceWithEmbeddingText,
+    get_embedding_text_from_fields,
+    OpenSearchSourceWithEmbedding,
+)
 from utils import normalize_datacite_json
 from typing import Any
 from celery.utils.log import get_task_logger
@@ -51,13 +56,14 @@ celery_app = Celery('tasks')
 # celery_app.task_serializer = 'json'
 # celery_app.ignore_result = False
 
+
 class ProviderCode(str, Enum):
-    DANS = "DANS"
-    ZENODO = "ZENODO"
-    HAL = "HAL"
+    DANS = 'DANS'
+    ZENODO = 'ZENODO'
+    HAL = 'HAL'
+
 
 class FileMetadataTask(Task):  # type: ignore
-
     postgres_config: PostgresConfig
 
     def __init__(self) -> None:
@@ -68,12 +74,11 @@ class FileMetadataTask(Task):  # type: ignore
         if not file.checksum:
             return None, None
 
-        algo = file.checksum[0][0].replace("sha1", "sha-1").upper()
+        algo = file.checksum[0][0].replace('sha1', 'sha-1').upper()
         value = file.checksum[0][1]
         return algo, value
 
-    def make_file_entry(self, harvest_event: HarvestEventQueue,
-                        file: FileEntry) -> tuple[Any, ...]:
+    def make_file_entry(self, harvest_event: HarvestEventQueue, file: FileEntry) -> tuple[Any, ...]:
 
         checksum_type, checksum_value = self.parse_checksum(file)
 
@@ -92,14 +97,12 @@ class FileMetadataTask(Task):  # type: ignore
             file.version,
             file.download_url,
             file.creation_date,
-            file.last_modification_date
+            file.last_modification_date,
         )
 
     def collect_files(self, harvest_event: HarvestEventQueue, dataset: Dataset) -> list[tuple[Any, ...]]:
-        return [
-            self.make_file_entry(harvest_event, file)
-            for file in dataset.crawl_file()
-        ]
+        return [self.make_file_entry(harvest_event, file) for file in dataset.crawl_file()]
+
 
 @celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
 def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
@@ -113,28 +116,35 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
             files = []
             harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
 
-            if harvest_event.additional_metadata_API and harvest_event.additional_metadata and harvest_event.code == ProviderCode.DANS:
+            if (
+                harvest_event.additional_metadata_API
+                and harvest_event.additional_metadata
+                and harvest_event.code == ProviderCode.DANS
+            ):
                 # this only covers dataverse for now
 
                 # TODO: adapt in DB config
-                url = harvest_event.additional_metadata_API.replace('/api/datasets/export',
-                                                                    f'/dataset.xhtml?persistentId=doi:{harvest_event.record_identifier}')
+                url = harvest_event.additional_metadata_API.replace(
+                    '/api/datasets/export', f'/dataset.xhtml?persistentId=doi:{harvest_event.record_identifier}'
+                )
 
                 ds_dv = DataverseJsonSrcDataset(url, harvest_event.additional_metadata)
 
                 files.extend(self.collect_files(harvest_event, ds_dv))
 
             elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.ZENODO:
-
                 # get id from DOI: 10.5281/zenodo.570959 -> 570959
-                ds_z = ZenodoJsonSrcDataset(harvest_event.record_identifier.split('.')[-1],harvest_event.additional_metadata)
+                ds_z = ZenodoJsonSrcDataset(
+                    harvest_event.record_identifier.split('.')[-1], harvest_event.additional_metadata
+                )
 
                 files.extend(self.collect_files(harvest_event, ds_z))
 
             elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.HAL:
-
                 # HAL IDs contain a version suffix, needs to be removed
-                ds_hal = HalJsonSrcDataset(harvest_event.record_identifier.split('v')[0],harvest_event.additional_metadata)
+                ds_hal = HalJsonSrcDataset(
+                    harvest_event.record_identifier.split('v')[0], harvest_event.additional_metadata
+                )
 
                 files.extend(self.collect_files(harvest_event, ds_hal))
 
@@ -150,7 +160,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                 DELETE FROM record_files
                 WHERE harvest_url = %s AND record_identifier = %s
                 """,
-                (harvest_event.harvest_url, harvest_event.record_identifier)
+                (harvest_event.harvest_url, harvest_event.record_identifier),
             )
 
             sql = """
@@ -188,7 +198,6 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
 
 class TransformTask(Task):  # type: ignore
-
     embedding_transformer: TextEmbedding
     client: OpenSearch
     schema: dict[Any, Any]
@@ -204,12 +213,12 @@ class TransformTask(Task):  # type: ignore
             hosts=[{'host': opensearch_config.host, 'port': opensearch_config.port}],
             http_auth=None,
             use_ssl=False,
-            logger=logger
+            logger=logger,
         )
 
         self.postgres_config = PostgresConfig()
 
-        with open("../config/schema.json") as f:
+        with open('../config/schema.json') as f:
             self.schema = json.load(f)
 
 
@@ -226,25 +235,25 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
     # (or roll it back if the block is exited with an exception)"
     # However, this is not true for OpenSearch since we use a different client to write or delete data in OpenSearch and this actions will take immediate effect.
     with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
-
         cur = conn.cursor()
 
         normalized: list[SourceWithEmbeddingText] = []
         for ele in batch:
-
             harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
 
             if harvest_event.is_deleted:
                 # find record in DB
-                cur.execute("""
+                cur.execute(
+                    """
                 SELECT id, doi, url FROM records
                 WHERE endpoint_id = %s and record_identifier = %s
-                """, (harvest_event.endpoint_id, harvest_event.record_identifier))
+                """,
+                    (harvest_event.endpoint_id, harvest_event.record_identifier),
+                )
 
                 record_to_delete = cur.fetchone()
 
                 if record_to_delete is not None:
-
                     id = record_to_delete['id']
                     doi = record_to_delete.get('doi')
 
@@ -255,27 +264,30 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                         self.client.delete(
                             index=index_name,
                             id=opensearch_id,
-                            ignore=404
+                            ignore=404,
                             # https://github.com/opensearch-project/opensearch-py/blob/4ef46e5c17234e3e9b09338c98a599e18d42f572/guides/document_lifecycle.md
                         )
                     except Exception as e:
-                        logger.warning(f"Failed to delete {opensearch_id} from OpenSearch: {e}")
+                        logger.warning(f'Failed to delete {opensearch_id} from OpenSearch: {e}')
                         raise e
 
                     # delete record in DB
-                    cur.execute("""
+                    cur.execute(
+                        """
                     DELETE FROM records WHERE id = %s;
-                    """, [id])
+                    """,
+                        [id],
+                    )
 
                 continue
 
             logger.debug(f'Processing {harvest_event}')
-            converted = xmltodict.parse(harvest_event.xml,
-                                        process_namespaces=True)  # named tuple serialized as list in broker
+            converted = xmltodict.parse(
+                harvest_event.xml, process_namespaces=True
+            )  # named tuple serialized as list in broker
 
             if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
-                rec_id = converted[OAI_RECORD][f'{OAI}:header'][
-                    f'{OAI}:identifier']
+                rec_id = converted[OAI_RECORD][f'{OAI}:header'][f'{OAI}:identifier']
 
                 logger.debug(f'{rec_id}')
 
@@ -290,42 +302,52 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
             elif HAL_RESOURCE in metadata:
                 # HAL
                 resource = metadata[HAL_RESOURCE]
-            elif ONEDATA_WRAPPER in metadata and ONEDATA_PAYLOAD in metadata[ONEDATA_WRAPPER] and DATACITE_RESOURCE in \
-                metadata[ONEDATA_WRAPPER][ONEDATA_PAYLOAD]:
+            elif (
+                ONEDATA_WRAPPER in metadata
+                and ONEDATA_PAYLOAD in metadata[ONEDATA_WRAPPER]
+                and DATACITE_RESOURCE in metadata[ONEDATA_WRAPPER][ONEDATA_PAYLOAD]
+            ):
                 # extra layer structure from Onedata
                 resource = metadata[ONEDATA_WRAPPER][ONEDATA_PAYLOAD][DATACITE_RESOURCE]
             else:
                 # JSON cannot be processed, log this
                 logger.debug(
-                    f'Cannot access resource element {DATACITE_RESOURCE} or {HAL_RESOURCE} or {ONEDATA_WRAPPER}{ONEDATA_PAYLOAD} in : {metadata}')
+                    f'Cannot access resource element {DATACITE_RESOURCE} or {HAL_RESOURCE} or {ONEDATA_WRAPPER}{ONEDATA_PAYLOAD} in : {metadata}'
+                )
                 continue
 
             # Catch and log errors
             try:
                 normalized_record = normalize_datacite_json.normalize_datacite_json(resource)
                 validate(instance=normalized_record, schema=self.schema)
-                normalized.append(SourceWithEmbeddingText(src=normalized_record,
-                                                          textToEmbed=get_embedding_text_from_fields(normalized_record),
-                                                          event=harvest_event
-                                                          ))
+                normalized.append(
+                    SourceWithEmbeddingText(
+                        src=normalized_record,
+                        textToEmbed=get_embedding_text_from_fields(normalized_record),
+                        event=harvest_event,
+                    )
+                )
 
             except Exception as e:
                 logger.info(
-                    f'An error occurred for {rec_id} in harvest_event {harvest_event.id} during transformation or validation: {e}')
+                    f'An error occurred for {rec_id} in harvest_event {harvest_event.id} during transformation or validation: {e}'
+                )
 
                 cur.execute(
                     """
                     UPDATE harvest_events 
                     SET error_message = %s
                     WHERE id = %s  
-                    """, (str(e), harvest_event.id)
+                    """,
+                    (str(e), harvest_event.id),
                 )
                 continue
 
         try:
             logger.info(f'About to Calculate embeddings for {len(normalized)}')
-            src_with_emb: list[OpenSearchSourceWithEmbedding] = add_embeddings_to_source(normalized,
-                                                                                         self.embedding_transformer)
+            src_with_emb: list[OpenSearchSourceWithEmbedding] = add_embeddings_to_source(
+                normalized, self.embedding_transformer
+            )
             logger.info(f'Calculated embeddings for {len(src_with_emb)}')
             preprocessed = preprocess_batch([src_with_emb_ele.src for src_with_emb_ele in src_with_emb], index_name)
         except Exception as e:
@@ -336,7 +358,8 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
             success, failed = bulk(self.client, preprocessed)
             if success < len(src_with_emb):
                 logger.error(
-                    f'Normalized doc size was {len(src_with_emb)} but only {success} were imported into OpenSearch.')
+                    f'Normalized doc size was {len(src_with_emb)} but only {success} were imported into OpenSearch.'
+                )
 
             opensearch_synced_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f%z')
             logger.info(f'Bulk results: success {success} failed: {failed}')
@@ -360,7 +383,8 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 additional_metadata = rec.harvest_event.additional_metadata
 
                 # https://neon.com/postgresql/postgresql-tutorial/postgresql-upsert
-                cur.execute("""
+                cur.execute(
+                    """
                 INSERT INTO records 
                 (   
                     record_identifier,
@@ -385,42 +409,45 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                     )
                     ON CONFLICT (endpoint_id, record_identifier)
                     DO UPDATE SET resource_type = %s, title = %s, raw_metadata = XMLPARSE(DOCUMENT %s), doi = %s, url = %s, embeddings = %s, embedding_model = %s, datacite_json = %s, opensearch_synced_at = %s, additional_metadata = %s, datestamp = %s      
-                """, (record_identifier,  # Insert
-                      repository_id,
-                      endpoint_id,
-                      resource_type,
-                      title,
-                      xml,
-                      protocol,
-                      doi,
-                      url,
-                      embeddings,
-                      EMBEDDING_MODEL,
-                      datacite_json,
-                      opensearch_synced,
-                      opensearch_synced_at,
-                      additional_metadata,
-                      datestamp,
-                      resource_type,  # Update
-                      title,
-                      xml,
-                      doi,
-                      url,
-                      embeddings,
-                      EMBEDDING_MODEL,
-                      datacite_json,
-                      opensearch_synced_at,
-                      additional_metadata,
-                      datestamp
-                      )
-                            )
+                """,
+                    (
+                        record_identifier,  # Insert
+                        repository_id,
+                        endpoint_id,
+                        resource_type,
+                        title,
+                        xml,
+                        protocol,
+                        doi,
+                        url,
+                        embeddings,
+                        EMBEDDING_MODEL,
+                        datacite_json,
+                        opensearch_synced,
+                        opensearch_synced_at,
+                        additional_metadata,
+                        datestamp,
+                        resource_type,  # Update
+                        title,
+                        xml,
+                        doi,
+                        url,
+                        embeddings,
+                        EMBEDDING_MODEL,
+                        datacite_json,
+                        opensearch_synced_at,
+                        additional_metadata,
+                        datestamp,
+                    ),
+                )
 
                 cur.execute(
                     """
                     UPDATE harvest_events 
                     SET error_message = NULL
                     WHERE id = %s  
-                    """, [rec.harvest_event.id]
+                    """,
+                    [rec.harvest_event.id],
                 )
 
         except BulkIndexError as e:

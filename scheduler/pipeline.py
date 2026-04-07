@@ -36,16 +36,16 @@ def wait_until_runs_closed() -> None:
     This prevents indexing before crawler has finished.
     """
 
-    logger.info("waiting for harvest runs to close")
+    logger.info('waiting for harvest runs to close')
     attempt = 1
 
     while True:
         if are_all_runs_closed():
-            logger.info("all harvest runs closed")
+            logger.info('all harvest runs closed')
             return
 
         logger.info(
-            "harvest still running - retry in %s seconds (attempt %s)",
+            'harvest still running - retry in %s seconds (attempt %s)',
             WAIT_INTERVAL_SECONDS,
             attempt,
         )
@@ -64,22 +64,22 @@ def run_pipeline() -> None:
         if pipeline fails
     """
 
-    logger.info("starting harvesting pipeline")
+    logger.info('starting harvesting pipeline')
     harvest_urls = get_endpoints_to_harvest()
 
     if not harvest_urls:
-        logger.info("no endpoints require harvesting")
+        logger.info('no endpoints require harvesting')
 
         return
 
     logger.info(
-        "%s endpoints scheduled for harvesting",
+        '%s endpoints scheduled for harvesting',
         len(harvest_urls),
     )
 
     for url in harvest_urls:
         logger.info(
-            "running harvester for %s",
+            'running harvester for %s',
             url,
         )
 
@@ -88,17 +88,17 @@ def run_pipeline() -> None:
     # wait until crawler finishes
     wait_until_runs_closed()
 
-    logger.info("fetching closed runs requiring indexing")
+    logger.info('fetching closed runs requiring indexing')
 
     run_ids = get_closed_run_ids()
 
     if not run_ids:
-        logger.info("no runs require indexing")
+        logger.info('no runs require indexing')
 
         return
 
     logger.info(
-        "trigger indexing for %s runs",
+        'trigger indexing for %s runs',
         len(run_ids),
     )
 
@@ -106,4 +106,4 @@ def run_pipeline() -> None:
         run_ids,
         INDEX_NAME,
     )
-    logger.info("pipeline finished successfully")
+    logger.info('pipeline finished successfully')

@@ -7,16 +7,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # DB connection parameters
-USER = os.environ.get("POSTGRES_USER", "postgres")
-PW = os.environ.get("POSTGRES_PASSWORD", "postgres")
-ADDRESS = os.environ.get("POSTGRES_ADDRESS", "127.0.0.1")
-PORT = int(os.environ.get("POSTGRES_PORT", "5432"))
-DB_NAME = os.environ.get("POSTGRES_DB", "postgres")
+USER = os.environ.get('POSTGRES_USER', 'postgres')
+PW = os.environ.get('POSTGRES_PASSWORD', 'postgres')
+ADDRESS = os.environ.get('POSTGRES_ADDRESS', '127.0.0.1')
+PORT = int(os.environ.get('POSTGRES_PORT', '5432'))
+DB_NAME = os.environ.get('POSTGRES_DB', 'postgres')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SQL_DIR = os.path.join(BASE_DIR, "sql")
-TPL_DIR = os.path.join(BASE_DIR, "templates")
-REPORTS_DIR = os.path.join(BASE_DIR, "reports")
+SQL_DIR = os.path.join(BASE_DIR, 'sql')
+TPL_DIR = os.path.join(BASE_DIR, 'templates')
+REPORTS_DIR = os.path.join(BASE_DIR, 'reports')
 
 # Create reports directory if it doesn't exist
 os.makedirs(REPORTS_DIR, exist_ok=True)
@@ -31,9 +31,9 @@ def load_sql_files() -> dict[str, str]:
     """
     queries = {}
     for filename in os.listdir(SQL_DIR):
-        if filename.endswith(".sql"):
-            key = filename.replace(".sql", "")
-            with open(os.path.join(SQL_DIR, filename), "r") as f:
+        if filename.endswith('.sql'):
+            key = filename.replace('.sql', '')
+            with open(os.path.join(SQL_DIR, filename), 'r') as f:
                 queries[key] = f.read()
     return queries
 
@@ -80,12 +80,12 @@ def aggregate_statistics(data: dict[str, list[dict]]) -> dict[str, int]:
     stats = {}
 
     # Total records
-    count_records = data.get("count_records_per_endpoint", [])
-    stats["total_records"] = sum(row.get("record_count", 0) for row in count_records)
+    count_records = data.get('count_records_per_endpoint', [])
+    stats['total_records'] = sum(row.get('record_count', 0) for row in count_records)
 
     # Total harvest events
-    summary = data.get("summary", [])
-    stats["total_events"] = sum(row.get("total_harvest_events", 0) for row in summary)
+    summary = data.get('summary', [])
+    stats['total_events'] = sum(row.get('total_harvest_events', 0) for row in summary)
 
     return stats
 
@@ -100,7 +100,7 @@ def render_markdown(data: dict[str, list[dict]]) -> str:
     Returns:
         str: Rendered Markdown report content
     """
-    template_path = os.path.join(TPL_DIR, "report.md.jinja")
+    template_path = os.path.join(TPL_DIR, 'report.md.jinja')
 
     # Calculate aggregated statistics
     stats = aggregate_statistics(data)
@@ -108,12 +108,7 @@ def render_markdown(data: dict[str, list[dict]]) -> str:
     with open(template_path) as f:
         template = Template(f.read())
 
-    return template.render(
-        generated_at=datetime.now(UTC).isoformat(),
-        database_name=DB_NAME,
-        **data,
-        **stats
-    )
+    return template.render(generated_at=datetime.now(UTC).isoformat(), database_name=DB_NAME, **data, **stats)
 
 
 def save_report(content: str) -> None:
@@ -126,16 +121,16 @@ def save_report(content: str) -> None:
     Returns:
         None
     """
-    filename = f"report_{datetime.now(UTC).strftime('%Y-%m-%d_%H-%M-%S')}.md"
+    filename = f'report_{datetime.now(UTC).strftime("%Y-%m-%d_%H-%M-%S")}.md'
     output_path = os.path.join(REPORTS_DIR, filename)
 
-    with open(output_path, "w") as f:
+    with open(output_path, 'w') as f:
         f.write(content)
 
-    print(f"✓ Report saved to {output_path}")
+    print(f'✓ Report saved to {output_path}')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     sql_queries = load_sql_files()
     query_results = run_queries(sql_queries)
     markdown = render_markdown(query_results)

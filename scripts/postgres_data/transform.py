@@ -13,10 +13,11 @@ from jsonschema.exceptions import ValidationError
 import traceback
 
 # setting path
-sys.path.append("..")
-sys.path.append("../..")
+sys.path.append('..')
+sys.path.append('../..')
 
 from src.utils.normalize_datacite_json import normalize_datacite_json
+
 
 def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: Optional[dict[Any, Any]]) -> None:
     try:
@@ -26,7 +27,8 @@ def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: 
 
         if normalize:
             metadata = converted['http://www.openarchives.org/OAI/2.0/:record'][
-                'http://www.openarchives.org/OAI/2.0/:metadata']
+                'http://www.openarchives.org/OAI/2.0/:metadata'
+            ]
 
             if 'http://datacite.org/schema/kernel-4:resource' in metadata:
                 resource = metadata['http://datacite.org/schema/kernel-4:resource']
@@ -50,20 +52,29 @@ def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: 
         print(f'Transformation failed for {filepath}: {e}', file=sys.stderr)
         traceback.print_exc()
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', help='input directory', type=str, required=True)
     parser.add_argument('-o', help='output directory', type=str, required=True)
-    parser.add_argument('-s', help='path to schema file if normalized output should be validated (requires flag -n)', type=str)
+    parser.add_argument(
+        '-s', help='path to schema file if normalized output should be validated (requires flag -n)', type=str
+    )
     parser.add_argument('-n', help='If set, output JSON is normalized', action='store_true')
 
     args = parser.parse_args()
 
-    if args.i is None or not os.path.isdir(args.i) or args.o is None or not os.path.isdir(args.o) or (args.s and not os.path.isfile(args.s)):
+    if (
+        args.i is None
+        or not os.path.isdir(args.i)
+        or args.o is None
+        or not os.path.isdir(args.o)
+        or (args.s and not os.path.isfile(args.s))
+    ):
         parser.print_help()
         exit(1)
 
-    files: list[Path] = (list(Path(args.i).rglob("*.xml")))
+    files: list[Path] = list(Path(args.i).rglob('*.xml'))
 
     schema = None
     if args.s is not None:

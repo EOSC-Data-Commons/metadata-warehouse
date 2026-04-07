@@ -26,9 +26,9 @@ dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 
-if __name__ == "__main__":
-    logger.info("scheduler job started")
+if __name__ == '__main__':
+    logger.info('scheduler job started')
 
     run_pipeline()
 
-    logger.info("scheduler job finished")
+    logger.info('scheduler job finished')
