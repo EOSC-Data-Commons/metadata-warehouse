@@ -158,7 +158,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite"}',
+    '{"metadata_prefix": "oai_datacite", "set": ["collection:LINKED_RESEARCH_OUTPUTS"]}',
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'HAL'
