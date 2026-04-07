@@ -11,6 +11,5 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 load_dotenv(BASE_DIR / ".env")
 
 
-TRANSFORMER_URL = os.getenv("TRANSFORMER_URL", "http://192.168.10.6:8080")
-
+WAREHOUSE_API_URL = os.getenv("WAREHOUSE_API_URL", "http://transform:80")
 INDEX_NAME = os.getenv("INDEX_NAME", "test_datacite")

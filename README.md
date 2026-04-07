@@ -133,7 +133,7 @@ uv run python -m scheduler.run
 
 Optionally add the following env variables (not needed for local dev):
 
-- `TRANSFORMER_URL` (default "http://192.168.10.6:8080")
+- `WAREHOUSE_API_URL` (default "http://transform:80")
 - `INDEX_NAME` (default "test_datacite")
 
 ## Run E2E Tests
