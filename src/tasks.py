@@ -22,6 +22,7 @@ from psycopg.rows import dict_row
 from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, HalJsonSrcDataset, resolve, FileEntry, Dataset
 import os
 from enum import Enum
+from lxml import etree as ET
 
 
 @after_setup_logger.connect()  # type: ignore[untyped-decorator, unused-ignore]
@@ -40,6 +41,8 @@ DATACITE_RESOURCE = 'http://datacite.org/schema/kernel-4:resource'
 HAL_RESOURCE = f'{OAI}:resource'
 ONEDATA_WRAPPER = 'http://schema.datacite.org/oai/oai-1.1/:oai_datacite'
 ONEDATA_PAYLOAD = 'http://schema.datacite.org/oai/oai-1.1/:payload'
+NS = {"oai": "http://www.openarchives.org/OAI/2.0/", "datacite": "http://datacite.org/schema/kernel-4", "mods": "http://www.loc.gov/mods/v3"}
+
 
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
 if not EMBEDDING_MODEL:
@@ -55,6 +58,7 @@ class ProviderCode(str, Enum):
     DANS = "DANS"
     ZENODO = "ZENODO"
     HAL = "HAL"
+    DABAR = "DABAR"
 
 class FileMetadataTask(Task):  # type: ignore
 
@@ -101,6 +105,47 @@ class FileMetadataTask(Task):  # type: ignore
             for file in dataset.crawl_file()
         ]
 
+    def make_file_entry_dabar(self, harvest_event: HarvestEventQueue, file_meta: ET._Element, record_identifier: ET._Element, ) -> tuple[Any, ...]:
+        file_identifier = file_meta.get('ID')
+
+        #file_description = file_meta.find('mods:abstract', namespaces=NS)
+
+        return (
+            harvest_event.harvest_url,  # harvest_url
+            harvest_event.record_identifier,
+            file_meta.get('ID'),
+            file_meta.get('ID'),
+            'mods',
+            harvest_event.identifier_type,
+            'Dataset',
+            file_meta.find('mods:physicalDescription/mods:internetMediaType', namespaces=NS).text, # TODO: not safe
+            None,
+            None,
+            None,
+            None,
+            f'https://repozitorij.{record_identifier.text.split(':')[0]}.unizg.hr/object/{record_identifier.text}/{file_identifier}/download', # TODO: unizg is not static
+            None,
+            None,
+        )
+
+    def collect_files_dabar(self, harvest_event: HarvestEventQueue, root: ET._Element) -> list[tuple[Any, ...]] :
+        record_identifier = root.xpath('/oai:record/oai:metadata//mods:identifier[@type="local"]', namespaces=NS)
+        record_url = root.xpath('/oai:record/oai:metadata//mods:location/mods:url', namespaces=NS)
+
+        file_meta_ele = root.xpath(
+            '/oai:record/oai:metadata//mods:mods[mods:physicalDescription/mods:internetMediaType]', namespaces=NS)
+
+        if len(record_identifier) == 0 or len(record_url) == 0:
+            return []
+
+        logger.debug(record_identifier[0].text)
+        logger.debug(record_url[0].text)
+
+        return [
+            self.make_file_entry_dabar(harvest_event, file_meta, record_identifier[0])
+            for file_meta in file_meta_ele
+        ]
+
 @celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
 def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
@@ -137,6 +182,13 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                 ds_hal = HalJsonSrcDataset(harvest_event.record_identifier.split('v')[0],harvest_event.additional_metadata)
 
                 files.extend(self.collect_files(harvest_event, ds_hal))
+
+            elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.DABAR:
+
+                #logger.debug(harvest_event.additional_metadata)
+                root = ET.fromstring(bytes(harvest_event.additional_metadata, encoding='utf-8'))
+
+                files.extend(self.collect_files_dabar(harvest_event, root))
 
             if len(files) == 0:
                 logger.debug(f'no files for {harvest_event.record_identifier}')
