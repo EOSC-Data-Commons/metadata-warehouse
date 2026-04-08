@@ -1,0 +1,622 @@
+{
+  "status": "OK",
+  "data": {
+    "id": 278330,
+    "datasetId": 3749006,
+    "datasetPersistentId": "doi:10.17026/AR/0AKDPK",
+    "datasetType": "dataset",
+    "storageIdentifier": "surf://10.17026/AR/0AKDPK",
+    "versionNumber": 1,
+    "internalVersionNumber": 12,
+    "versionMinorNumber": 0,
+    "versionState": "RELEASED",
+    "latestVersionPublishingState": "RELEASED",
+    "deaccessionLink": "",
+    "distributionDate": "2024-03-29",
+    "productionDate": "2024-03-29",
+    "lastUpdateTime": "2025-05-17T16:55:09Z",
+    "releaseTime": "2025-01-08T13:43:54Z",
+    "createTime": "2025-01-08T13:42:25Z",
+    "publicationDate": "2025-01-08",
+    "citationDate": "2025-01-08",
+    "license": {
+      "name": "CC-BY-NC-SA-4.0",
+      "uri": "http://creativecommons.org/licenses/by-nc-sa/4.0",
+      "iconUri": "https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png"
+    },
+    "termsOfAccess": "N/a",
+    "fileAccessRequest": false,
+    "metadataBlocks": {
+      "citation": {
+        "displayName": "Citation Metadata",
+        "name": "citation",
+        "fields": [
+          {
+            "typeName": "title",
+            "multiple": false,
+            "typeClass": "primitive",
+            "value": "PAN-00152467 - wire brooch with angular bow variant A1"
+          },
+          {
+            "typeName": "otherId",
+            "multiple": true,
+            "typeClass": "compound",
+            "value": [
+              {
+                "otherIdAgency": {
+                  "typeName": "otherIdAgency",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "PAN"
+                },
+                "otherIdValue": {
+                  "typeName": "otherIdValue",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "00152467"
+                }
+              }
+            ]
+          },
+          {
+            "typeName": "author",
+            "multiple": true,
+            "typeClass": "compound",
+            "value": [
+              {
+                "authorName": {
+                  "typeName": "authorName",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "Portable Antiquities of the Netherlands"
+                }
+              }
+            ]
+          },
+          {
+            "typeName": "datasetContact",
+            "multiple": true,
+            "typeClass": "compound",
+            "value": [
+              {
+                "datasetContactName": {
+                  "typeName": "datasetContactName",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "PAN Admin"
+                },
+                "datasetContactAffiliation": {
+                  "typeName": "datasetContactAffiliation",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "RCE"
+                }
+              }
+            ]
+          },
+          {
+            "typeName": "dsDescription",
+            "multiple": true,
+            "typeClass": "compound",
+            "value": [
+              {
+                "dsDescriptionValue": {
+                  "typeName": "dsDescriptionValue",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "\u003Cp\u003EThis find is registered at Portable Antiquities of the Netherlands with number PAN-00152467\u003C/p\u003E"
+                }
+              },
+              {
+                "dsDescriptionValue": {
+                  "typeName": "dsDescriptionValue",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "Modified: 2024-10-25T19:44:29+02:00"
+                }
+              }
+            ]
+          },
+          {
+            "typeName": "subject",
+            "multiple": true,
+            "typeClass": "controlledVocabulary",
+            "value": [
+              "Arts and Humanities"
+            ]
+          },
+          {
+            "typeName": "keyword",
+            "multiple": true,
+            "typeClass": "compound",
+            "value": [
+              {
+                "keywordValue": {
+                  "typeName": "keywordValue",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "metal"
+                }
+              },
+              {
+                "keywordValue": {
+                  "typeName": "keywordValue",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "copper alloy"
+                }
+              },
+              {
+                "keywordValue": {
+                  "typeName": "keywordValue",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "wire brooch with angular bow variant A1"
+                },
+                "keywordVocabulary": {
+                  "typeName": "keywordVocabulary",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "PAN thesaurus ideaaltypes"
+                },
+                "keywordVocabularyURI": {
+                  "typeName": "keywordVocabularyURI",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "https://data.cultureelerfgoed.nl/term/id/pan/PAN"
+                }
+              },
+              {
+                "keywordValue": {
+                  "typeName": "keywordValue",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "brooches"
+                },
+                "keywordVocabulary": {
+                  "typeName": "keywordVocabulary",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "Art and Architecture Thesaurus"
+                },
+                "keywordVocabularyURI": {
+                  "typeName": "keywordVocabularyURI",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "http://vocab.getty.edu/aat/"
+                }
+              }
+            ]
+          },
+          {
+            "typeName": "language",
+            "multiple": true,
+            "typeClass": "controlledVocabulary",
+            "value": [
+              "Dutch",
+              "English"
+            ]
+          },
+          {
+            "typeName": "productionDate",
+            "multiple": false,
+            "typeClass": "primitive",
+            "value": "2024-03-29"
+          },
+          {
+            "typeName": "distributionDate",
+            "multiple": false,
+            "typeClass": "primitive",
+            "value": "2024-03-29"
+          },
+          {
+            "typeName": "dateOfDeposit",
+            "multiple": false,
+            "typeClass": "primitive",
+            "value": "2025-01-08"
+          }
+        ]
+      },
+      "dansRights": {
+        "displayName": "Rights Metadata",
+        "name": "dansRights",
+        "fields": [
+          {
+            "typeName": "dansRightsHolder",
+            "multiple": true,
+            "typeClass": "primitive",
+            "value": [
+              "Rijksdienst voor het Cultureel Erfgoed (RCE)"
+            ]
+          },
+          {
+            "typeName": "dansPersonalDataPresent",
+            "multiple": false,
+            "typeClass": "controlledVocabulary",
+            "value": "Yes"
+          },
+          {
+            "typeName": "dansMetadataLanguage",
+            "multiple": true,
+            "typeClass": "controlledVocabulary",
+            "value": [
+              "Dutch",
+              "English"
+            ]
+          }
+        ]
+      },
+      "dansRelationMetadata": {
+        "displayName": "Relation Metadata",
+        "name": "dansRelationMetadata",
+        "fields": [
+          {
+            "typeName": "dansAudience",
+            "multiple": true,
+            "typeClass": "primitive",
+            "value": [
+              "https://www.narcis.nl/classification/D37000"
+            ],
+            "expandedvalue": [
+              {
+                "@id": "https://www.narcis.nl/classification/D37000",
+                "termName": [
+                  {
+                    "lang": "nl",
+                    "value": "Archeologie"
+                  },
+                  {
+                    "lang": "en",
+                    "value": "Archaeology"
+                  }
+                ],
+                "vocabularyUri": "https://www.narcis.nl/classification/"
+              }
+            ]
+          },
+          {
+            "typeName": "dansRelation",
+            "multiple": true,
+            "typeClass": "compound",
+            "value": [
+              {
+                "dansRelationType": {
+                  "typeName": "dansRelationType",
+                  "multiple": false,
+                  "typeClass": "controlledVocabulary",
+                  "value": "is format of"
+                },
+                "dansRelationText": {
+                  "typeName": "dansRelationText",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "PAN-00152467"
+                }
+              },
+              {
+                "dansRelationType": {
+                  "typeName": "dansRelationType",
+                  "multiple": false,
+                  "typeClass": "controlledVocabulary",
+                  "value": "references"
+                },
+                "dansRelationText": {
+                  "typeName": "dansRelationText",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "Portable Antiquities of The Netherlands"
+                },
+                "dansRelationURI": {
+                  "typeName": "dansRelationURI",
+                  "multiple": false,
+                  "typeClass": "primitive",
+                  "value": "https://www.portable-antiquities.nl/pan/#/object/public/152467"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "dansArchaeologyMetadata": {
+        "displayName": "Archaeology-Specific Metadata",
+        "name": "dansArchaeologyMetadata",
+        "fields": [
+          {
+            "typeName": "dansAbrArtifact",
+            "multiple": true,
+            "typeClass": "primitive",
+            "value": [
+              "https://data.cultureelerfgoed.nl/term/id/abr/594e2fa3-50fa-40b4-a089-d90e759aaed4"
+            ],
+            "expandedvalue": [
+              {
+                "@id": "https://data.cultureelerfgoed.nl/term/id/abr/594e2fa3-50fa-40b4-a089-d90e759aaed4"
+              }
+            ]
+          },
+          {
+            "typeName": "dansAbrPeriod",
+            "multiple": true,
+            "typeClass": "primitive",
+            "value": [
+              "https://data.cultureelerfgoed.nl/term/id/abr/d08febfe-53a5-4053-a332-c4372b2bfe12",
+              "https://data.cultureelerfgoed.nl/term/id/abr/5b253754-ddd0-4ae0-a5bb-555176bca858"
+            ],
+            "expandedvalue": [
+              {
+                "@id": "https://data.cultureelerfgoed.nl/term/id/abr/d08febfe-53a5-4053-a332-c4372b2bfe12"
+              },
+              {
+                "@id": "https://data.cultureelerfgoed.nl/term/id/abr/5b253754-ddd0-4ae0-a5bb-555176bca858"
+              }
+            ]
+          }
+        ]
+      },
+      "dansTemporalSpatial": {
+        "displayName": "Temporal and Spatial Coverage",
+        "name": "dansTemporalSpatial",
+        "fields": [
+          {
+            "typeName": "dansTemporalCoverage",
+            "multiple": true,
+            "typeClass": "primitive",
+            "value": [
+              "30 until 150"
+            ]
+          },
+          {
+            "typeName": "dansSpatialCoverageText",
+            "multiple": true,
+            "typeClass": "primitive",
+            "value": [
+              "Overbetuwe",
+              "NLD"
+            ]
+          }
+        ]
+      },
+      "dansDataVaultMetadata": {
+        "displayName": "Data Vault Metadata",
+        "name": "dansDataVaultMetadata",
+        "fields": [
+          {
+            "typeName": "dansDataversePid",
+            "multiple": false,
+            "typeClass": "primitive",
+            "value": "doi:10.17026/AR/0AKDPK"
+          },
+          {
+            "typeName": "dansDataversePidVersion",
+            "multiple": false,
+            "typeClass": "primitive",
+            "value": "1.0"
+          },
+          {
+            "typeName": "dansBagId",
+            "multiple": false,
+            "typeClass": "primitive",
+            "value": "urn:uuid:a5d1fd61-c097-4d5d-8568-58deac628b33"
+          },
+          {
+            "typeName": "dansNbn",
+            "multiple": false,
+            "typeClass": "primitive",
+            "value": "urn:nbn:nl:ui:13-c0854b3a-1332-4c2b-a503-c3b0ce0b4a44"
+          },
+          {
+            "typeName": "dansOtherId",
+            "multiple": false,
+            "typeClass": "primitive",
+            "value": "PAN:00152467"
+          },
+          {
+            "typeName": "dansSwordToken",
+            "multiple": false,
+            "typeClass": "primitive",
+            "value": "sword:a5d1fd61-c097-4d5d-8568-58deac628b33"
+          },
+          {
+            "typeName": "dansDataSupplier",
+            "multiple": false,
+            "typeClass": "primitive",
+            "value": "PAN"
+          }
+        ]
+      }
+    },
+    "files": [
+      {
+        "description": "",
+        "label": "thesaurus-nl.xml",
+        "restricted": false,
+        "version": 1,
+        "datasetVersionId": 278330,
+        "dataFile": {
+          "id": 3749010,
+          "persistentId": "",
+          "filename": "thesaurus-nl.xml",
+          "contentType": "text/xml",
+          "friendlyType": "XML",
+          "filesize": 2187,
+          "description": "",
+          "storageIdentifier": "surf://store:1944626f590-a0474fb99676",
+          "rootDataFileId": -1,
+          "checksum": {
+            "type": "SHA-1",
+            "value": "40dd500be37dce988749a896971072705a20dced"
+          },
+          "tabularData": false,
+          "creationDate": "2025-01-08",
+          "publicationDate": "2025-01-08",
+          "lastUpdateTime": "2025-05-17T16:55:09Z",
+          "fileAccessRequest": false
+        }
+      },
+      {
+        "description": "",
+        "label": "thesaurus-en.xml",
+        "restricted": false,
+        "version": 1,
+        "datasetVersionId": 278330,
+        "dataFile": {
+          "id": 3749009,
+          "persistentId": "",
+          "filename": "thesaurus-en.xml",
+          "contentType": "text/xml",
+          "friendlyType": "XML",
+          "filesize": 2234,
+          "description": "",
+          "storageIdentifier": "surf://store:1944626f58b-3354d8554af0",
+          "rootDataFileId": -1,
+          "checksum": {
+            "type": "SHA-1",
+            "value": "8f4df9e0b6b69dc79560a1a3479511bb3b338094"
+          },
+          "tabularData": false,
+          "creationDate": "2025-01-08",
+          "publicationDate": "2025-01-08",
+          "lastUpdateTime": "2025-05-17T16:55:09Z",
+          "fileAccessRequest": false
+        }
+      },
+      {
+        "description": "",
+        "label": "location.xml",
+        "restricted": true,
+        "version": 1,
+        "datasetVersionId": 278330,
+        "dataFile": {
+          "id": 3749007,
+          "persistentId": "",
+          "filename": "location.xml",
+          "contentType": "text/xml",
+          "friendlyType": "XML",
+          "filesize": 518,
+          "description": "",
+          "storageIdentifier": "surf://store:1944626f4d5-74712dc8a051",
+          "rootDataFileId": -1,
+          "checksum": {
+            "type": "SHA-1",
+            "value": "2b2fcbe6dad737d02643ef55c1bf6bbf23774ba9"
+          },
+          "tabularData": false,
+          "creationDate": "2025-01-08",
+          "publicationDate": "2025-01-08",
+          "lastUpdateTime": "2025-05-17T16:55:09Z",
+          "fileAccessRequest": false
+        }
+      },
+      {
+        "description": "",
+        "label": "original-metadata.zip",
+        "restricted": false,
+        "version": 1,
+        "datasetVersionId": 278330,
+        "dataFile": {
+          "id": 3749012,
+          "persistentId": "",
+          "filename": "original-metadata.zip",
+          "contentType": "application/zip",
+          "friendlyType": "ZIP Archive",
+          "filesize": 3281,
+          "description": "",
+          "storageIdentifier": "surf://store:1944626f594-97ae2c32dae1",
+          "rootDataFileId": -1,
+          "checksum": {
+            "type": "SHA-1",
+            "value": "8ed3a31697ad8ad0ba3fe269d20067e8400730a6"
+          },
+          "tabularData": false,
+          "creationDate": "2025-01-08",
+          "publicationDate": "2025-01-08",
+          "lastUpdateTime": "2025-05-17T16:55:09Z",
+          "fileAccessRequest": false
+        }
+      },
+      {
+        "description": "",
+        "label": "PAN-00152467-001.jpg",
+        "restricted": false,
+        "directoryLabel": "images",
+        "version": 1,
+        "datasetVersionId": 278330,
+        "dataFile": {
+          "id": 3749013,
+          "persistentId": "",
+          "filename": "PAN-00152467-001.jpg",
+          "contentType": "image/jpeg",
+          "friendlyType": "JPEG Image",
+          "filesize": 189996,
+          "description": "",
+          "storageIdentifier": "surf://store:1944626f586-cff53a442a10",
+          "rootDataFileId": -1,
+          "checksum": {
+            "type": "SHA-1",
+            "value": "92498de526e9671d38a9ac4f66aad8b4aefd31e1"
+          },
+          "tabularData": false,
+          "creationDate": "2025-01-08",
+          "publicationDate": "2025-01-08",
+          "directoryLabel": "images",
+          "lastUpdateTime": "2025-05-17T16:55:09Z",
+          "fileAccessRequest": false
+        }
+      },
+      {
+        "description": "",
+        "label": "object.xml",
+        "restricted": false,
+        "version": 1,
+        "datasetVersionId": 278330,
+        "dataFile": {
+          "id": 3749011,
+          "persistentId": "",
+          "filename": "object.xml",
+          "contentType": "text/xml",
+          "friendlyType": "XML",
+          "filesize": 604,
+          "description": "",
+          "storageIdentifier": "surf://store:1944626f581-e8f5630df739",
+          "rootDataFileId": -1,
+          "checksum": {
+            "type": "SHA-1",
+            "value": "c2ddfeef3186cb4f30160d490564506e19287eac"
+          },
+          "tabularData": false,
+          "creationDate": "2025-01-08",
+          "publicationDate": "2025-01-08",
+          "lastUpdateTime": "2025-05-17T16:55:09Z",
+          "fileAccessRequest": false
+        }
+      },
+      {
+        "description": "",
+        "label": "depositor.xml",
+        "restricted": true,
+        "version": 1,
+        "datasetVersionId": 278330,
+        "dataFile": {
+          "id": 3749008,
+          "persistentId": "",
+          "filename": "depositor.xml",
+          "contentType": "text/xml",
+          "friendlyType": "XML",
+          "filesize": 222,
+          "description": "",
+          "storageIdentifier": "surf://store:1944626f4d9-c142f79afd9c",
+          "rootDataFileId": -1,
+          "checksum": {
+            "type": "SHA-1",
+            "value": "96f47ff9a5e8245a646b8a23abbe6db9ecf96e12"
+          },
+          "tabularData": false,
+          "creationDate": "2025-01-08",
+          "publicationDate": "2025-01-08",
+          "lastUpdateTime": "2025-05-17T16:55:09Z",
+          "fileAccessRequest": false
+        }
+      }
+    ]
+  }
+}

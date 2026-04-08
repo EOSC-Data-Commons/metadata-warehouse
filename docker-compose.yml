@@ -41,8 +41,8 @@ services:
               "--loglevel=info",
               "--persistent=True",
               "--db=flower_db"
+#              "--port=5555"
             #"--without-heartbeat"
-            #"--port=5555"
           ]
 
     celery:
@@ -50,7 +50,8 @@ services:
             dockerfile: ./docker/transform/Dockerfile
             context: .
         volumes:
-            - ./src:/code/app
+            - ./src:/code/src
+            - ./config:/code/config
         networks:
             - warehouse-backend
         depends_on:
@@ -71,6 +72,7 @@ services:
         #volumes:
         #- ./data/results:/var/celery/results
         environment:
+            PYTHONPATH: /code/src:/code  # src for tasks.py, root for config/
             CELERY_BROKER_URL: redis://broker:6379/0
             #CELERY_RESULT_BACKEND: "file:///var/celery/results"
             CELERY_RESULT_BACKEND: redis://broker:6379/0
@@ -78,6 +80,7 @@ services:
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
             POSTGRES_DB: "${POSTGRES_DB}"
+            FILE_DB: "${FILE_DB}"
             POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
             POSTGRES_PORT: "${POSTGRES_PORT}"
             OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
@@ -93,11 +96,13 @@ services:
             dockerfile: ./docker/transform/Dockerfile
             context: .
         volumes:
-            - ./src:/code/app
+            - ./src:/code/src
+            - ./config:/code/config
         command: [ "fastapi", "run", "--host", "0.0.0.0", "transform.py", "--port", "80" ]
         networks:
             - warehouse-backend
         environment:
+            PYTHONPATH: /code/src:/code
             CELERY_BROKER_URL: redis://broker:6379/0
             #CELERY_RESULT_BACKEND: "file:///var/celery/results"
             CELERY_RESULT_BACKEND: redis://broker:6379/0
@@ -230,6 +235,28 @@ services:
         entrypoint: ["python", "-m", "harvester"]
         networks:
             - warehouse-backend
+
+    scheduler:
+      build:
+        dockerfile: ./docker/scheduler/Dockerfile
+        context: .
+      profiles: ["manual"]
+      command: ["python", "-m", "scheduler.run"]
+      env_file:
+        - .env
+      depends_on:
+        postgres:
+          condition: service_healthy
+        opensearch:
+          condition: service_healthy
+        transform:
+          condition: service_started
+      networks:
+        - warehouse-backend
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+        - ./docker-compose.yml:/app/compose.yml
+        - ./.env:/app/.env
 
 volumes:
     postgres-data:

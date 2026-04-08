@@ -155,6 +155,27 @@
                     "resourceTypeGeneral"
                 ],
             "additionalProperties": false
+        },
+        "formats": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "rightsList": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "rights": {
+                        "type": "string"
+                    },
+                    "rightsUri": {
+                        "type": "string"
+                    }
+                }
+            },
+            "additionalProperties": false
         }
     },
     "required": [
