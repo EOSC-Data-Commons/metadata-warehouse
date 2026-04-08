@@ -210,7 +210,7 @@ SELECT
     'https://zenodo.org/oai2d',
     'OAI-PMH',
     'Multidisciplinary',
-    true,
+    false,
     '{"metadata_prefix": "datacite"}',
     INTERVAL '1 week'
 FROM repositories r
