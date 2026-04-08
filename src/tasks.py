@@ -117,7 +117,7 @@ class FileMetadataTask(Task):  # type: ignore
 
         if record_identifier.text is not None:
             # TODO: unizg.hr is not static: how to figure out domain (e.g., uniri.hr)?
-            download_url = f'https://repozitorij.{record_identifier.text.split(':')[0]}.unizg.hr/object/{record_identifier.text}/{file_identifier}/download',
+            download_url = f'https://repozitorij.{record_identifier.text.split(':')[0]}.unizg.hr/object/{record_identifier.text}/{file_identifier}/download'
         else:
             raise Exception(f'Could not built download URL for {harvest_event.record_identifier}')
 
