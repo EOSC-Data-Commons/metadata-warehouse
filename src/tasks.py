@@ -13,7 +13,7 @@ from utils.queue_utils import HarvestEventQueue
 from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
     get_embedding_text_from_fields, OpenSearchSourceWithEmbedding
 from utils import normalize_datacite_json
-from typing import Any
+from typing import Any, cast
 from celery.utils.log import get_task_logger
 from celery.signals import after_setup_logger
 import datetime
@@ -129,11 +129,11 @@ class FileMetadataTask(Task):  # type: ignore
         )
 
     def collect_files_dabar(self, harvest_event: HarvestEventQueue, root: ET._Element) -> list[tuple[Any, ...]] :
-        record_identifier = root.xpath('/oai:record/oai:metadata//mods:identifier[@type="local"]', namespaces=NS)
-        record_url = root.xpath('/oai:record/oai:metadata//mods:location/mods:url', namespaces=NS)
+        record_identifier = cast(list[ET._Element], root.xpath('/oai:record/oai:metadata//mods:identifier[@type="local"]', namespaces=NS))
+        record_url = cast(list[ET._Element], root.xpath('/oai:record/oai:metadata//mods:location/mods:url', namespaces=NS))
 
-        file_meta_ele = root.xpath(
-            '/oai:record/oai:metadata//mods:mods[mods:physicalDescription/mods:internetMediaType]', namespaces=NS)
+        file_meta_ele = cast(list[ET._Element], root.xpath(
+            '/oai:record/oai:metadata//mods:mods[mods:physicalDescription/mods:internetMediaType]', namespaces=NS))
 
         if len(record_identifier) == 0 or len(record_url) == 0:
             return []
