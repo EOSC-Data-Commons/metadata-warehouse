@@ -10,6 +10,7 @@ VALUES
     ('SwissUbase', 'SWISS', 'Swiss data repository', 'https://www.swissubase.ch', true),
     ('HAL Science', 'HAL', 'French open archive', 'https://hal.science', true),
     ('Onedata', 'ONE', 'Onedata demo repository', 'https://demo.onedata.org', true),
+    ('FinBIF', 'FINBIF', 'Finnish Biodiversity Information Facility', 'https://laji.fi', true),
     ('Zenodo', 'ZENODO', 'Zenodo repository', 'https://zenodo.org', true)
 ON CONFLICT (code) DO NOTHING;
 
@@ -183,6 +184,23 @@ SELECT
 FROM repositories r
 WHERE r.code = 'ONE'
 ON CONFLICT (name) DO NOTHING;
+
+
+-- FinBIF
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'FinBIF',
+    'https://api.laji.fi',
+    'FINBIF_API',
+    'Biology',
+    true,
+    '{"metadata_prefix": "oai_datacite"}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'FINBIF'
+ON CONFLICT (name) DO NOTHING;
+
 
 -- Zenodo
 INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
