@@ -551,7 +551,8 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str) -> int:
         JOIN harvest_runs hr ON he.harvest_run_id = hr.id 
         JOIN endpoints e ON he.endpoint_id = e.id
         JOIN repositories r ON he.repository_id = r.id
-            WHERE harvest_run_id = %s and hr.status = 'closed' 
+            WHERE he.harvest_run_id = %s
+                    AND hr.status IN ('closed', 'failed')
             ORDER BY he.id
             LIMIT %s
             OFFSET %s
