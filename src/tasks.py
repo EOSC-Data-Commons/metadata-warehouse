@@ -110,6 +110,17 @@ class FileMetadataTask(Task):  # type: ignore
 
         #file_description = file_meta.find('mods:abstract', namespaces=NS)
 
+        mime = file_meta.find('mods:physicalDescription/mods:internetMediaType', namespaces=NS)
+
+        if mime is None:
+            raise Exception(f'No mimetype for {harvest_event.record_identifier}')
+
+        if record_identifier.text is not None:
+            # TODO: unizg.hr is not static: how to figure out domain (e.g., uniri.hr)?
+            download_url = f'https://repozitorij.{record_identifier.text.split(':')[0]}.unizg.hr/object/{record_identifier.text}/{file_identifier}/download',
+        else:
+            raise Exception(f'Could not built download URL for {harvest_event.record_identifier}')
+
         return (
             harvest_event.harvest_url,  # harvest_url
             harvest_event.record_identifier,
@@ -118,12 +129,12 @@ class FileMetadataTask(Task):  # type: ignore
             'mods',
             harvest_event.identifier_type,
             'Dataset',
-            file_meta.find('mods:physicalDescription/mods:internetMediaType', namespaces=NS).text, # TODO: not safe
+            mime.text,
             None,
             None,
             None,
             None,
-            f'https://repozitorij.{record_identifier.text.split(':')[0]}.unizg.hr/object/{record_identifier.text}/{file_identifier}/download', # TODO: unizg is not static
+            download_url,
             None,
             None,
         )
