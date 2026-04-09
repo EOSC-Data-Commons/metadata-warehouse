@@ -41,11 +41,23 @@ def harmonize_creator(entry: dict[str, Any]) -> dict[str, Any]:
 
     cr = entry[f'{DATACITE}:creator']
 
+    name_identifier_props = harmonize_props(cr, f'{DATACITE}:nameIdentifier', {'@nameIdentifierScheme': 'nameIdentifierScheme'}, {})
+
+    if f'{DATACITE}:nameIdentifier' in name_identifier_props and isinstance(name_identifier_props[f'{DATACITE}:nameIdentifier'], list):
+        # list of name ids
+        name_id = {'nameIdentifiers': name_identifier_props[f'{DATACITE}:nameIdentifier']}
+    elif name_identifier_props:
+        # single name id
+        name_id = {'nameIdentifiers': [name_identifier_props]}
+    else:
+        # no name id
+        name_id = {}
+
     return {
         **harmonize_props(cr, f'{DATACITE}:creatorName', {'@nameType': 'nameType'}, {}),
         **harmonize_props(cr, f'{DATACITE}:givenName', {}, {}),
         **harmonize_props(cr, f'{DATACITE}:familyName', {}, {}),
-        **harmonize_props(cr, f'{DATACITE}:nameIdentifier', {'@nameIdentifierScheme': 'nameIdentifierScheme'}, {})
+        **name_id
     }
 
 
@@ -99,26 +111,9 @@ def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, 
             harmonize_props({field_name: item}, field_name, attr_map, normalization)
             for item in entry[field_name]
         ]
-        # Merge: scalar `name` key becomes a list; other keys (attributes) are collected too
+        merged: dict[str, list[dict[str, Any]]] = {field_name: []}
 
-
-        #merged: dict[str, Any] = {}
-        '''
         for r in results:
-            for k, v in r.items():
-                if k in merged:
-                    if not isinstance(merged[k], list):
-                        merged[k] = [merged[k]]
-                    merged[k].append(v)
-                else:
-                    merged[k] = v
-        return merged
-        '''
-        merged = {field_name: []}
-
-        print('---')
-        for r in results:
-            print('++++')
             merged[field_name].append(r)
 
         return merged

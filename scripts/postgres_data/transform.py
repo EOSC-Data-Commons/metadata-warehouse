@@ -37,8 +37,7 @@ def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: 
             normalized = normalize_datacite_json(resource)
 
             if schema is not None:
-                pass
-                #validate(instance=normalized, schema=schema)
+                validate(instance=normalized, schema=schema)
 
             with open(f'{output_dir}/{filepath.name}.json', 'w') as f:
                 f.write(json.dumps(normalized))
