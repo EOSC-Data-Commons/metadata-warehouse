@@ -447,7 +447,10 @@ def create_harvest_events_bulk_in_db(
 
         ids = []
         for _ in harvest_events:
-            ids.append(cur.fetchone()["id"])
+            row = cur.fetchone()
+            if row is None:
+                raise Exception(f"Expected id for harvest event but got None")
+            ids.append(row["id"])
             cur.nextset()
 
         if len(ids) != len(harvest_events):
