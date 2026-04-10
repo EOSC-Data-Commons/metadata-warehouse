@@ -446,13 +446,9 @@ def create_harvest_events_bulk_in_db(
         )
 
         ids = []
-        while True:
-            row = cur.fetchone()
-            if row is None:
-                if cur.nextset():
-                    continue
-                break
-            ids.append(row["id"])
+        for _ in harvest_events:
+            ids.append(cur.fetchone()["id"])
+            cur.nextset()
 
         if len(ids) != len(harvest_events):
             raise Exception(f"Only {len(ids)}/{len(harvest_events)} harvest events were registered")
@@ -684,14 +680,7 @@ def create_harvest_event(
 ) -> HarvestEventCreateResponse:
     try:
         # logger.debug(harvest_event)
-        res = create_harvest_events_bulk_in_db([harvest_event])
-        if len(res) == 1:
-            return res[0]
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="Harvest event could not be created for the given harvest run because the record identifier already exists.",
-            )
+        return create_harvest_events_bulk_in_db([harvest_event])[0]
     except psycopg_errors.UniqueViolation as e:
         logger.exception(f"Harvest event could not be created for given harvest run")
         raise HTTPException(

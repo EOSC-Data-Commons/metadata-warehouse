@@ -97,9 +97,8 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_fi
             }
 
             bulk.append(payload)
-            #print(len(bulk))
 
-            if len(bulk) >= BULK_SIZE or limit and (limit_reached:= count >= limit):
+            if len(bulk) >= BULK_SIZE:
                 res = requests.post(f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_event_bulk', json=bulk, timeout=TIMEOUT_FASTAPI)
                 res.raise_for_status()
                 bulk = []
@@ -107,8 +106,13 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_fi
                 print(res.json())
 
             count += 1
-            if limit and limit_reached:
+            if limit and count >= limit:
                 break
+
+        if len(bulk) > 0:
+            res = requests.post(f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_event_bulk', json=bulk,
+                                timeout=TIMEOUT_FASTAPI)
+            res.raise_for_status()
 
     except Exception as e:
         print(f'An error occurred when creating harvest event: {e}', file=sys.stderr)
@@ -133,11 +137,11 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_fi
         raise e
 
 HARVEST_ENDPOINTS = [
-    ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/dans_arch/dans_arch.xml'), Path('doi_dataverse/lookup.json'), None),
-    ('DANS', 'https://ssh.datastations.nl/oai', Path('data/dans_soc/dans_soc.xml'), Path('doi_dataverse/lookup.json'), 2000),
-    ('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/dans_life/dans_life.xml'), Path('doi_dataverse/lookup.json'), 2000),
-    ('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/dans_phystec/dans_phystec.xml'), Path('doi_dataverse/lookup.json'), 2000),
-    ('DANS', 'https://dataverse.nl/oai', Path('data/dans_gen/dans_gen.xml'), Path('doi_dataverse/lookup.json'), 2000),
+    #('DANS', 'https://archaeology.datastations.nl/oai', Path('data/dans_arch/dans_arch.xml'), Path('doi_dataverse/lookup.json'), None),
+    #('DANS', 'https://ssh.datastations.nl/oai', Path('data/dans_soc/dans_soc.xml'), Path('doi_dataverse/lookup.json'), 2000),
+    #('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/dans_life/dans_life.xml'), Path('doi_dataverse/lookup.json'), 2000),
+    #('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/dans_phystec/dans_phystec.xml'), Path('doi_dataverse/lookup.json'), 2000),
+    #('DANS', 'https://dataverse.nl/oai', Path('data/dans_gen/dans_gen.xml'), Path('doi_dataverse/lookup.json'), 2000),
     #('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('doi_dataverse'), None),
     #('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
     ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/hal/linked_research_outputs.xml'), Path('meta_hal/lookup.json'), None),
