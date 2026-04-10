@@ -9,6 +9,7 @@ from typing import Optional
 import os
 from dotenv import load_dotenv
 from typing import cast
+import json
 
 load_dotenv()
 
@@ -19,10 +20,16 @@ FASTAPI_PORT = os.environ.get('FASTAPI_PORT', '8080')
 TIMEOUT_FASTAPI = 30
 
 TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S.%f%z'
+BULK_SIZE = 50
 
-
-def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_dir: Optional[Path], limit: Optional[int]) -> None:
+def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_file: Optional[Path], limit: Optional[int]) -> None:
     harvest_run_id = None
+    bulk = []
+
+    additional_metadata_lookup = None
+    if additional_file:
+        with open(additional_file) as f:
+            additional_metadata_lookup = json.load(f)
 
     try:
         harvest_run = requests.post(f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_run', json={
@@ -75,37 +82,32 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_di
                 raise ValueError(f'XML OAI-PMH record {record} without identifier or datestamp')
 
             additional_metadata = None
-            if additional_dir and oai_id.text is not None:
-
-                search_path_seg = oai_id_without_prefix.replace('/', '_')
-
-                additional_file = list(additional_dir.rglob(f'*{search_path_seg}*'))
-
-                #print(additional_file)
-
-                if len(additional_file) == 1:
-                    with open(additional_file[0]) as f2:
-                        additional_metadata = f2.read()
+            if additional_metadata_lookup and oai_id.text is not None:
+                additional_metadata = additional_metadata_lookup.get(oai_id.text)
 
             payload = {
                 'record_identifier': oai_id_without_prefix,
                 'datestamp': datestamp.text,
                 'raw_metadata': ET.tostring(record, encoding='unicode'),
-                'additional_metadata': additional_metadata,
+                'additional_metadata': json.dumps(additional_metadata) if additional_metadata else None,
                 'harvest_url': harvest_url,
                 'repo_code': repo_code,
                 'harvest_run_id': harvest_run_id,
                 'is_deleted': False
             }
 
-            res = requests.post(f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_event', json=payload, timeout=TIMEOUT_FASTAPI)
+            bulk.append(payload)
+            #print(len(bulk))
 
-            res.raise_for_status()
+            if len(bulk) >= BULK_SIZE or limit and (limit_reached:= count >= limit):
+                res = requests.post(f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_event_bulk', json=bulk, timeout=TIMEOUT_FASTAPI)
+                res.raise_for_status()
+                bulk = []
+                print('registered bulk')
+                print(res.json())
 
-            print(identifier.text)
-            print('+++++')
             count += 1
-            if limit and count >= limit:
+            if limit and limit_reached:
                 break
 
     except Exception as e:
@@ -131,14 +133,14 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_di
         raise e
 
 HARVEST_ENDPOINTS = [
-    ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/dans_arch/dans_arch.xml'), Path('doi_dataverse'), 2000),
-    ('DANS', 'https://ssh.datastations.nl/oai', Path('data/dans_soc/dans_soc.xml'), Path('doi_dataverse'), 2000),
-    ('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/dans_life/dans_life.xml'), Path('doi_dataverse'), 2000),
-    ('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/dans_phystec/dans_phystec.xml'), Path('doi_dataverse'), 2000),
-    ('DANS', 'https://dataverse.nl/oai', Path('data/dans_gen/dans_gen.xml'), Path('doi_dataverse'), 2000),
+    ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/dans_arch/dans_arch.xml'), Path('doi_dataverse/lookup.json'), None),
+    ('DANS', 'https://ssh.datastations.nl/oai', Path('data/dans_soc/dans_soc.xml'), Path('doi_dataverse/lookup.json'), 2000),
+    ('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/dans_life/dans_life.xml'), Path('doi_dataverse/lookup.json'), 2000),
+    ('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/dans_phystec/dans_phystec.xml'), Path('doi_dataverse/lookup.json'), 2000),
+    ('DANS', 'https://dataverse.nl/oai', Path('data/dans_gen/dans_gen.xml'), Path('doi_dataverse/lookup.json'), 2000),
     #('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('doi_dataverse'), None),
     #('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
-    ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/hal/linked_research_outputs.xml'), Path('meta_hal'), 2000),
+    ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/hal/linked_research_outputs.xml'), Path('meta_hal/lookup.json'), None),
     #('ZENODO', 'https://zenodo.org/oai2d', Path('data/zenodo/zenodo_parts.xml'), Path('meta_zenodo'), 200)
 ]
 

@@ -33,7 +33,7 @@ tags_metadata = [
     },
     {"name": "config", "description": "Get available endpoints"},
     {"name": "harvest_run", "description": "Manage harvest runs"},
-    {"name": "harvest_event", "description": "Register a harvest event"},
+    {"name": "harvest_event", "description": "Register one or multiple harvest event"}
 ]
 
 app = FastAPI(openapi_tags=tags_metadata)
@@ -390,78 +390,74 @@ def close_harvest_run_in_db(
         return HarvestRunCloseResponse(id=harvest_run.id)
 
 
-def create_harvest_event_in_db(
-    harvest_event: HarvestEventCreateRequest,
-) -> HarvestEventCreateResponse:
+def create_harvest_events_bulk_in_db(
+    harvest_events: list[HarvestEventCreateRequest],
+) -> list[HarvestEventCreateResponse]:
     """
-    Creates a record in table harvest_events
-
-    :param harvest_event: The new record to be created.
+    Creates multiple records in table harvest_events in a single transaction.
     """
-
     with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
-        cur.execute(
+        cur.executemany(
             """
-                        INSERT INTO harvest_events 
-                            (record_identifier,
-                            datestamp, 
-                            raw_metadata,
-                            additional_metadata,
-                            repository_id, 
-                            endpoint_id,  
-                            metadata_protocol,
-                            metadata_format,
-                            harvest_run_id,
-                            is_deleted
-                            ) 
-                        VALUES ( 
-                            %s,
-                            %s, 
-                            XMLPARSE(DOCUMENT %s), 
-                            %s,
-                            (SELECT id from repositories WHERE code=%s),
-                            (SELECT id from endpoints WHERE harvest_url=%s), 
-                            %s,
-                            %s,
-                            (SELECT id FROM harvest_runs WHERE id = %s and status = 'open'),
-                            %s
-                            );
-                        """,
-            (
-                harvest_event.record_identifier,
-                harvest_event.datestamp,
-                harvest_event.raw_metadata,
-                harvest_event.additional_metadata,
-                harvest_event.repo_code,
-                harvest_event.harvest_url,
-                "OAI-PMH",
-                "XML",
-                harvest_event.harvest_run_id,
-                harvest_event.is_deleted,
-            ),
+            INSERT INTO harvest_events 
+                (record_identifier,
+                datestamp, 
+                raw_metadata,
+                additional_metadata,
+                repository_id, 
+                endpoint_id,  
+                metadata_protocol,
+                metadata_format,
+                harvest_run_id,
+                is_deleted
+                ) 
+            VALUES ( 
+                %s,
+                %s, 
+                XMLPARSE(DOCUMENT %s), 
+                %s,
+                (SELECT id from repositories WHERE code=%s),
+                (SELECT id from endpoints WHERE harvest_url=%s), 
+                %s,
+                %s,
+                (SELECT id FROM harvest_runs WHERE id = %s and status = 'open'),
+                %s
+                )
+            RETURNING id
+            """,
+            [
+                (
+                    he.record_identifier,
+                    he.datestamp,
+                    he.raw_metadata,
+                    he.additional_metadata,
+                    he.repo_code,
+                    he.harvest_url,
+                    "OAI-PMH",
+                    "XML",
+                    he.harvest_run_id,
+                    he.is_deleted,
+                )
+                for he in harvest_events
+            ],
+            returning=True,
         )
 
-        cur.execute(
-            """
-        SELECT id 
-        FROM harvest_events
-        WHERE harvest_run_id = %s and record_identifier = %s and endpoint_id = (SELECT id from endpoints WHERE harvest_url=%s)
-        """,
-            (
-                harvest_event.harvest_run_id,
-                harvest_event.record_identifier,
-                harvest_event.harvest_url,
-            ),
-        )
+        ids = []
+        while True:
+            row = cur.fetchone()
+            if row is None:
+                if cur.nextset():
+                    continue
+                break
+            ids.append(row["id"])
 
-        new_harvest_event = cur.fetchone()
+        if len(ids) != len(harvest_events):
+            raise Exception(f"Only {len(ids)}/{len(harvest_events)} harvest events were registered")
 
-        if new_harvest_event is None:
-            raise Exception("Harvest event could not be registered")
-
-        return HarvestEventCreateResponse(id=str(new_harvest_event["id"]))
+        return [HarvestEventCreateResponse(id=str(id)) for id in ids]
 
 
 def get_config_from_db() -> list[EndpointConfig]:
@@ -688,7 +684,14 @@ def create_harvest_event(
 ) -> HarvestEventCreateResponse:
     try:
         # logger.debug(harvest_event)
-        return create_harvest_event_in_db(harvest_event)
+        res = create_harvest_events_bulk_in_db([harvest_event])
+        if len(res) == 1:
+            return res[0]
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Harvest event could not be created for the given harvest run because the record identifier already exists.",
+            )
     except psycopg_errors.UniqueViolation as e:
         logger.exception(f"Harvest event could not be created for given harvest run")
         raise HTTPException(
@@ -699,6 +702,24 @@ def create_harvest_event(
         logger.exception(f"An error occurred when creating harvest event: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.post(
+    "/harvest_event_bulk", tags=["harvest_event"], summary="Register multiple harvest events in one transaction"
+)
+def create_harvest_events_bulk(
+    harvest_events: list[HarvestEventCreateRequest],
+) -> list[HarvestEventCreateResponse]:
+    try:
+        return create_harvest_events_bulk_in_db(harvest_events)
+    except psycopg_errors.UniqueViolation as e:
+        logger.exception(f"Harvest events could not be created for given harvest run")
+        raise HTTPException(
+            status_code=400,
+            detail="One or more harvest events could not be created because the record identifier already exists.",
+        )
+    except Exception as e:
+        logger.exception(f"An error occurred when creating harvest events: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get(
     "/harvest_run",
