@@ -53,7 +53,7 @@ class IndexGetResponse(BaseModel):
 
 
 class AdditionalMetadataParams(BaseModel):
-    format: str
+    format: Optional[str] = None
     endpoint: str
     protocol: str
 
