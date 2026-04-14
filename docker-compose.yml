@@ -164,11 +164,11 @@ services:
             postgres:
                 condition: service_healthy
         environment:
-            TOOL_REGISTRY_DB__HOST: ${POSTGRES_ADDRESS}
-            TOOL_REGISTRY_DB__PORT: ${POSTGRES_PORT}
-            TOOL_REGISTRY_DB__NAME: ${TOOL_DB}
-            TOOL_REGISTRY_DB__USER: ${TOOL_DB_USER}
-            TOOL_REGISTRY_DB__PASSWORD: ${TOOL_DB_PASSWORD}
+            TOOL_REGISTRY_DATABASE__HOST: ${POSTGRES_ADDRESS}
+            TOOL_REGISTRY_DATABASE__PORT: ${POSTGRES_PORT}
+            TOOL_REGISTRY_DATABASE__NAME: ${TOOL_DB}
+            TOOL_REGISTRY_DATABASE__USER: ${TOOL_DB_USER}
+            TOOL_REGISTRY_DATABASE__PASSWORD: ${TOOL_DB_PASSWORD}
         networks:
             - warehouse-backend
 
