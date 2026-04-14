@@ -231,7 +231,7 @@ SELECT
     '{"metadata_prefix": "oai_dc"}',
     INTERVAL '1 week'
 FROM repositories r
-WHERE r.code = 'PaNOSc'
+WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
 
 
@@ -247,7 +247,7 @@ SELECT
     '{"metadata_prefix": "oai_dc"}',
     INTERVAL '1 week'
 FROM repositories r
-WHERE r.code = 'PaNOSc'
+WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
 
 
@@ -263,7 +263,7 @@ SELECT
     '{"metadata_prefix": "oai_datacite"}',
     INTERVAL '1 week'
 FROM repositories r
-WHERE r.code = 'PaNOSc'
+WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
 
 
@@ -279,7 +279,7 @@ SELECT
     '{"metadata_prefix": "oai_datacite"}',
     INTERVAL '1 week'
 FROM repositories r
-WHERE r.code = 'PaNOSc'
+WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
 
 
@@ -295,7 +295,7 @@ SELECT
     '{"metadata_prefix": "oai_datacite"}',
     INTERVAL '1 week'
 FROM repositories r
-WHERE r.code = 'PaNOSc'
+WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
 
 
@@ -311,7 +311,7 @@ SELECT
     '{"metadata_prefix": "oai_datacite"}',
     INTERVAL '1 week'
 FROM repositories r
-WHERE r.code = 'PaNOSc'
+WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
 
 
@@ -327,7 +327,7 @@ SELECT
     '{"metadata_prefix": "oai_datacite", "set": ["openaire_data"]}',
     INTERVAL '1 week'
 FROM repositories r
-WHERE r.code = 'PaNOSc'
+WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
 
 
@@ -343,7 +343,7 @@ SELECT
     '{"metadata_prefix": "oai_datacite"}',
     INTERVAL '1 week'
 FROM repositories r
-WHERE r.code = 'PaNOSc'
+WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
 
 
@@ -359,7 +359,7 @@ SELECT
     '{"metadata_prefix": "oai_datacite"}',
     INTERVAL '1 week'
 FROM repositories r
-WHERE r.code = 'PaNOSc'
+WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
 
 
@@ -375,7 +375,7 @@ SELECT
     '{"metadata_prefix": "oai_datacite"}',
     INTERVAL '1 week'
 FROM repositories r
-WHERE r.code = 'PaNOSc'
+WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
 
 
@@ -391,5 +391,5 @@ SELECT
     '{"metadata_prefix": "oai_dc"}',
     INTERVAL '1 week'
 FROM repositories r
-WHERE r.code = 'PaNOSc'
+WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
