@@ -23,7 +23,7 @@ from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, HalJsonSrc
 import os
 from enum import Enum
 from lxml import etree as ET
-
+import requests
 
 @after_setup_logger.connect()  # type: ignore[untyped-decorator, unused-ignore]
 def configurate_celery_task_logger(**kwargs: Any) -> None:
@@ -105,7 +105,7 @@ class FileMetadataTask(Task):  # type: ignore
             for file in dataset.crawl_file()
         ]
 
-    def make_file_entry_dabar(self, harvest_event: HarvestEventQueue, file_meta: ET._Element, record_identifier: ET._Element, ) -> tuple[Any, ...]:
+    def make_file_entry_dabar(self, harvest_event: HarvestEventQueue, file_meta: ET._Element, record_identifier: ET._Element, location: str) -> tuple[Any, ...]:
         file_identifier = file_meta.get('ID')
 
         #file_description = file_meta.find('mods:abstract', namespaces=NS)
@@ -116,8 +116,7 @@ class FileMetadataTask(Task):  # type: ignore
             raise Exception(f'No mimetype for {harvest_event.record_identifier}')
 
         if record_identifier.text is not None:
-            # TODO: unizg.hr is not static: how to figure out domain (e.g., uniri.hr)?
-            download_url = f'https://repozitorij.{record_identifier.text.split(':')[0]}.unizg.hr/object/{record_identifier.text}/{file_identifier}/download'
+            download_url = f'{location}/{file_identifier}/download'
         else:
             raise Exception(f'Could not built download URL for {harvest_event.record_identifier}')
 
@@ -149,11 +148,22 @@ class FileMetadataTask(Task):  # type: ignore
         if len(record_identifier) == 0 or len(record_url) == 0:
             return []
 
-        logger.debug(record_identifier[0].text)
-        logger.debug(record_url[0].text)
+        #logger.debug(record_identifier[0].text)
+        #logger.debug(record_url[0].text)
+
+        url = cast(list[ET._Element], root.xpath('/oai:record/oai:metadata//mods:location/mods:url[@displayLabel="URN:NBN"]', namespaces=NS))
+
+        if len(url) == 0:
+            raise Exception(f'No location url for {harvest_event.record_identifier}')
+
+        resolved = requests.head(url[0].text)
+
+        resolved.raise_for_status()
+
+        location = resolved.headers['location']
 
         return [
-            self.make_file_entry_dabar(harvest_event, file_meta, record_identifier[0])
+            self.make_file_entry_dabar(harvest_event, file_meta, record_identifier[0], location)
             for file_meta in file_meta_ele
         ]
 
