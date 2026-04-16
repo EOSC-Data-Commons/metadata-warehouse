@@ -116,8 +116,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
             if harvest_event.additional_metadata_API and harvest_event.additional_metadata and harvest_event.code == ProviderCode.DANS:
                 # this only covers dataverse for now
 
-                # TODO: adapt in DB config
-                url = harvest_event.additional_metadata_API.replace('/api/datasets/export',
+                url = harvest_event.additional_metadata_API.replace('/api/datasets/:persistentId/versions/:latest-published',
                                                                     f'/dataset.xhtml?persistentId=doi:{harvest_event.record_identifier}')
 
                 ds_dv = DataverseJsonSrcDataset(url, harvest_event.additional_metadata)
