@@ -11,7 +11,8 @@ VALUES
     ('HAL Science', 'HAL', 'French open archive', 'https://hal.science', true),
     ('Onedata', 'ONE', 'Onedata demo repository', 'https://demo.onedata.org', true),
     ('FinBIF', 'FINBIF', 'Finnish Biodiversity Information Facility', 'https://laji.fi', true),
-    ('Zenodo', 'ZENODO', 'Zenodo repository', 'https://zenodo.org', true)
+    ('Zenodo', 'ZENODO', 'Zenodo repository', 'https://zenodo.org', true),
+    ('Dataverse Latvia EOSC Node', 'DATAVERSELV', 'Latvian research data repository', 'https://dataverse.lv/', true)
 ON CONFLICT (code) DO NOTHING;
 
 
@@ -215,4 +216,52 @@ SELECT
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'ZENODO'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- DataverseLV
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'DataverseLV',
+    'https://dv.dataverse.lv/oai',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_datacite"}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'DATAVERSELV'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- DataverseLV Riga
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'Riga Stradins University',
+    'https://dataverse.rsu.lv/oai',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_datacite"}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'DATAVERSELV'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- DataverseLV CLARIN-IV
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'CLARIN-IV',
+    'https://repository.clarin.lv/repository/oai/request',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_dc"}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'DATAVERSELV'
 ON CONFLICT (name) DO NOTHING;
