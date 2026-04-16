@@ -169,6 +169,7 @@ services:
             TOOL_REGISTRY_DATABASE__NAME: ${TOOL_DB}
             TOOL_REGISTRY_DATABASE__USER: ${TOOL_DB_USER}
             TOOL_REGISTRY_DATABASE__PASSWORD: ${TOOL_DB_PASSWORD}
+            TOOL_REGISTRY_SERVICE__EGI_ENV: ${EGI_CHECKIN_ENV}
         networks:
             - warehouse-backend
 
