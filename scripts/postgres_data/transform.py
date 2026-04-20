@@ -20,7 +20,7 @@ from src.utils.normalize_datacite_json import normalize_datacite_json
 
 def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: Optional[dict[Any, Any]]) -> None:
     try:
-        with open(filepath) as f:
+        with open(filepath, encoding="utf-8") as f:
             contents = f.read()
             converted = xmltodict.parse(contents, process_namespaces=True)
 
