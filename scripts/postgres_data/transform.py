@@ -23,7 +23,16 @@ OAI = 'http://www.openarchives.org/OAI/2.0/'
 DATACITE_4 = 'http://datacite.org/schema/kernel-4'
 DATACITE_3 = 'http://datacite.org/schema/kernel-3/'
 
-def preprocess_xml(contents: str) -> str:
+KNOWN_DATACITE_NS = {DATACITE_3, DATACITE_4}
+
+def detect_metadata_namespace(root: ET._Element) -> str | None:
+    """Extract the namespace of the resource element inside OAI metadata."""
+    resource = root.find('.//{*}resource')
+    if resource is None:
+        return None
+    return resource.nsmap.get(resource.prefix)
+
+def preprocess_xml(root: ET._Element) -> str:
     xslt_transform = b'''<?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet version="1.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
@@ -54,8 +63,7 @@ def preprocess_xml(contents: str) -> str:
 
     xslt_tree = ET.fromstring(xslt_transform)
     transform = ET.XSLT(xslt_tree)
-    doc = ET.fromstring(contents.encode('utf-8'))
-    result = transform(doc)
+    result = transform(root)
     return ET.tostring(result, encoding='unicode')
 
 def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: Optional[dict[Any, Any]], perform_validation: bool) -> None:
@@ -63,28 +71,25 @@ def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: 
         with open(filepath, encoding="utf-8") as f:
             contents = f.read()
 
-        print(contents)
+        root = ET.fromstring(contents.encode('utf-8'))
 
-        contents = preprocess_xml(contents)
+        metadata_ns = detect_metadata_namespace(root)
 
-        print(contents)
-
+        contents = preprocess_xml(root)
         converted = xmltodict.parse(contents, process_namespaces=True)
 
         if normalize:
-            metadata = converted['http://www.openarchives.org/OAI/2.0/:record'][
-                'http://www.openarchives.org/OAI/2.0/:metadata']
+            metadata = converted[f'{OAI}:record'][f'{OAI}:metadata']
 
-            if f'{DATACITE_4}:resource' in metadata:
-                resource = metadata[f'{DATACITE_4}:resource']
+            if metadata_ns in KNOWN_DATACITE_NS:
+                resource = metadata[f'{metadata_ns}:resource']
+                normalized = normalize_datacite_json(resource, metadata_ns)
+            elif metadata_ns is not None:
+                # e.g. HAL or other known formats
+                resource = metadata[f'{metadata_ns}:resource']
                 normalized = normalize_datacite_json(resource, DATACITE_4)
-            elif f'{DATACITE_3}:resource' in metadata:
-                resource = metadata[f'{DATACITE_3}:resource']
-                normalized = normalize_datacite_json(resource, DATACITE_3)
             else:
-                # HAL
-                resource = metadata[f'{OAI}:resource']
-                normalized = normalize_datacite_json(resource, DATACITE_4)
+                raise ValueError(f"Could not detect metadata namespace in {filepath}")
 
             if schema is not None and perform_validation:
                 validate(instance=normalized, schema=schema)
