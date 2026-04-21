@@ -142,7 +142,7 @@ def test_get_config(api_client, reset_dataset_db, reset_file_db):
     response = api_client.get("/config")
 
     assert response.status_code == 200
-    assert len(response.json()['endpoints_configs']) == 23
+    assert len(response.json()['endpoints_configs']) == 11
 
 def test_get_latest_harvest_run_with_harvest_url(
     api_client, flower_client, reset_dataset_db, reset_index
