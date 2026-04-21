@@ -48,7 +48,7 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_fi
     except Exception as e:
         print(f'An error occurred when creating a harvest run: {e}', file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
-        raise e
+        raise # preserves original traceback
 
     started = datetime.now(timezone.utc)
 
@@ -134,14 +134,14 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_fi
     except Exception as e:
         print(f'An error occurred when closing the harvest run: {e}', file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
-        raise e
+        raise # preserves original traceback
 
 HARVEST_ENDPOINTS = [
-    #('DANS', 'https://archaeology.datastations.nl/oai', Path('data/dans_arch/dans_arch.xml'), Path('doi_dataverse/lookup.json'), None),
-    #('DANS', 'https://ssh.datastations.nl/oai', Path('data/dans_soc/dans_soc.xml'), Path('doi_dataverse/lookup.json'), 2000),
-    #('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/dans_life/dans_life.xml'), Path('doi_dataverse/lookup.json'), 2000),
-    #('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/dans_phystec/dans_phystec.xml'), Path('doi_dataverse/lookup.json'), 2000),
-    #('DANS', 'https://dataverse.nl/oai', Path('data/dans_gen/dans_gen.xml'), Path('doi_dataverse/lookup.json'), 2000),
+    ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/dans_arch/dans_arch.xml'), Path('doi_dataverse/lookup.json'), None),
+    ('DANS', 'https://ssh.datastations.nl/oai', Path('data/dans_soc/dans_soc.xml'), Path('doi_dataverse/lookup.json'), None),
+    ('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/dans_life/dans_life.xml'), Path('doi_dataverse/lookup.json'), None),
+    ('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/dans_phystec/dans_phystec.xml'), Path('doi_dataverse/lookup.json'), None),
+    ('DANS', 'https://dataverse.nl/oai', Path('data/dans_gen/dans_gen.xml'), Path('doi_dataverse/lookup.json'), None),
     #('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('doi_dataverse'), None),
     #('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
     ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/hal/linked_research_outputs.xml'), Path('meta_hal/lookup.json'), None),
