@@ -11,6 +11,7 @@ from multiprocessing import Pool, cpu_count
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 import traceback
+from lxml import etree as ET
 
 # setting path
 sys.path.append("..")
@@ -18,25 +19,74 @@ sys.path.append("../..")
 
 from src.utils.normalize_datacite_json import normalize_datacite_json
 
-def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: Optional[dict[Any, Any]]) -> None:
+OAI = 'http://www.openarchives.org/OAI/2.0/'
+DATACITE_4 = 'http://datacite.org/schema/kernel-4'
+DATACITE_3 = 'http://datacite.org/schema/kernel-3/'
+
+def preprocess_xml(contents: str) -> str:
+    xslt_transform = b'''<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0"
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+    <!-- Identity transform -->
+    <xsl:template match="@*|node()">
+        <xsl:copy>
+            <xsl:apply-templates select="@*|node()"/>
+        </xsl:copy>
+    </xsl:template>
+
+    <!-- Re-home no-namespace elements that are inside a 'resource' element,
+         using whatever namespace 'resource' itself has -->
+    <xsl:template match="*[namespace-uri()='' and ancestor::*[local-name()='resource']]">
+        <xsl:element
+            name="{local-name()}"
+            namespace="{namespace-uri(ancestor::*[local-name()='resource'])}">
+            <xsl:apply-templates select="@*|node()"/>
+        </xsl:element>
+    </xsl:template>
+
+    <!-- Drop xmlns="" attributes -->
+    <xsl:template match="@xmlns"/>
+
+</xsl:stylesheet>
+
+    '''
+
+    xslt_tree = ET.fromstring(xslt_transform)
+    transform = ET.XSLT(xslt_tree)
+    doc = ET.fromstring(contents.encode('utf-8'))
+    result = transform(doc)
+    return ET.tostring(result, encoding='unicode')
+
+def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: Optional[dict[Any, Any]], perform_validation: bool) -> None:
     try:
         with open(filepath, encoding="utf-8") as f:
             contents = f.read()
-            converted = xmltodict.parse(contents, process_namespaces=True)
+
+        print(contents)
+
+        contents = preprocess_xml(contents)
+
+        print(contents)
+
+        converted = xmltodict.parse(contents, process_namespaces=True)
 
         if normalize:
             metadata = converted['http://www.openarchives.org/OAI/2.0/:record'][
                 'http://www.openarchives.org/OAI/2.0/:metadata']
 
-            if 'http://datacite.org/schema/kernel-4:resource' in metadata:
-                resource = metadata['http://datacite.org/schema/kernel-4:resource']
+            if f'{DATACITE_4}:resource' in metadata:
+                resource = metadata[f'{DATACITE_4}:resource']
+                normalized = normalize_datacite_json(resource, DATACITE_4)
+            elif f'{DATACITE_3}:resource' in metadata:
+                resource = metadata[f'{DATACITE_3}:resource']
+                normalized = normalize_datacite_json(resource, DATACITE_3)
             else:
                 # HAL
-                resource = metadata['http://www.openarchives.org/OAI/2.0/:resource']
+                resource = metadata[f'{OAI}:resource']
+                normalized = normalize_datacite_json(resource, DATACITE_4)
 
-            normalized = normalize_datacite_json(resource, 'http://datacite.org/schema/kernel-4')
-
-            if schema is not None:
+            if schema is not None and perform_validation:
                 validate(instance=normalized, schema=schema)
 
             with open(f'{output_dir}/{filepath.name}.json', 'w') as f:
@@ -56,6 +106,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', help='output directory', type=str, required=True)
     parser.add_argument('-s', help='path to schema file if normalized output should be validated (requires flag -n)', type=str)
     parser.add_argument('-n', help='If set, output JSON is normalized', action='store_true')
+    parser.add_argument('-v', help='If set, output JSON is validated', action='store_true')
 
     args = parser.parse_args()
 
@@ -71,4 +122,4 @@ if __name__ == '__main__':
             schema = json.load(f)
 
     with Pool(processes=cpu_count()) as p:
-        p.starmap(transform_record, map(lambda file: (file, args.o, args.n, schema), files))
+        p.starmap(transform_record, map(lambda file: (file, args.o, args.n, schema, args.v), files))
