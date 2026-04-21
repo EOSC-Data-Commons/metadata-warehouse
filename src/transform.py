@@ -17,6 +17,9 @@ from utils.queue_utils import HarvestEventQueue, detect_identifier_type
 dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
+DEFAULT_PROTOCOL = "OAI-PMH"
+DEFAULT_FORMAT = "XML"
+
 BATCH_SIZE_DEFAULT = 125
 batch_size_raw = os.environ.get("CELERY_BATCH_SIZE", BATCH_SIZE_DEFAULT)
 
@@ -435,8 +438,8 @@ def create_harvest_events_bulk_in_db(
                     he.additional_metadata,
                     he.repo_code,
                     he.harvest_url,
-                    "OAI-PMH",
-                    "XML",
+                    DEFAULT_PROTOCOL,
+                    DEFAULT_FORMAT,
                     he.harvest_run_id,
                     he.is_deleted,
                 )
@@ -687,7 +690,7 @@ def create_harvest_event(
     except psycopg_errors.UniqueViolation as e:
         logger.exception(f"Harvest event could not be created for given harvest run")
         raise HTTPException(
-            status_code=400,
+            status_code=409,
             detail="Harvest event could not be created for the given harvest run because the record identifier already exists.",
         )
     except Exception as e:
@@ -706,7 +709,7 @@ def create_harvest_events_bulk(
     except psycopg_errors.UniqueViolation as e:
         logger.exception(f"Harvest events could not be created for given harvest run")
         raise HTTPException(
-            status_code=400,
+            status_code=409,
             detail="One or more harvest events could not be created because the record identifier already exists.",
         )
     except Exception as e:
