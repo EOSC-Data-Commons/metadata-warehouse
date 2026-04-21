@@ -219,6 +219,22 @@ WHERE r.code = 'ZENODO'
 ON CONFLICT (name) DO NOTHING;
 
 
+-- PaNOSc ALBA
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'ALBA',
+    'https://data.cells.es/iws/icat_plus/oaipmh/request',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_datacite"}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'PANOSC'
+ON CONFLICT (name) DO NOTHING;
+
+
 -- PaNOSc DESY
 INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
 SELECT
