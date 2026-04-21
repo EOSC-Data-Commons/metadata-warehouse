@@ -34,7 +34,7 @@ def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: 
                 # HAL
                 resource = metadata['http://www.openarchives.org/OAI/2.0/:resource']
 
-            normalized = normalize_datacite_json(resource)
+            normalized = normalize_datacite_json(resource, 'http://datacite.org/schema/kernel-4')
 
             if schema is not None:
                 validate(instance=normalized, schema=schema)

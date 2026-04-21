@@ -301,7 +301,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
 
             # Catch and log errors
             try:
-                normalized_record = normalize_datacite_json.normalize_datacite_json(resource)
+                normalized_record = normalize_datacite_json.normalize_datacite_json(resource, 'http://datacite.org/schema/kernel-4')
                 validate(instance=normalized_record, schema=self.schema)
                 normalized.append(SourceWithEmbeddingText(src=normalized_record,
                                                           textToEmbed=get_embedding_text_from_fields(normalized_record),

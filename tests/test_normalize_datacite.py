@@ -32,7 +32,7 @@ class TestNormalizeDatacite(unittest.TestCase):
             'http://datacite.org/schema/kernel-4:title': 'A title'
         }
 
-        res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:title', {}, {})
+        res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:title', {}, {}, 'http://datacite.org/schema/kernel-4')
 
         # print(res)
 
@@ -49,7 +49,7 @@ class TestNormalizeDatacite(unittest.TestCase):
         }
 
         res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:title',
-                                                      {'@titleType': 'titleType'}, {})
+                                                      {'@titleType': 'titleType'}, {}, 'http://datacite.org/schema/kernel-4')
 
         # print(res)
 
@@ -64,7 +64,7 @@ class TestNormalizeDatacite(unittest.TestCase):
         }
 
         res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:rights',
-                                                      {'@rightsURI': 'rightsURI'}, {})
+                                                      {'@rightsURI': 'rightsURI'}, {}, 'http://datacite.org/schema/kernel-4')
 
         # print(res)
 
@@ -76,7 +76,7 @@ class TestNormalizeDatacite(unittest.TestCase):
                 {'http://datacite.org/schema/kernel-4:creatorName': 'Pe\u0161un, Luka'}
         }
 
-        res = normalize_datacite_json.harmonize_creator(data)
+        res = normalize_datacite_json.harmonize_creator(data, 'http://datacite.org/schema/kernel-4')
 
         self.assertEqual(res, {'creatorName': 'Pe\u0161un, Luka'})
 
@@ -87,7 +87,7 @@ class TestNormalizeDatacite(unittest.TestCase):
                                                                      '@nameType': 'personal'}}
         }
 
-        res = normalize_datacite_json.harmonize_creator(data)
+        res = normalize_datacite_json.harmonize_creator(data, 'http://datacite.org/schema/kernel-4')
 
         self.assertEqual(res, {'creatorName': 'Pe\u0161un, Luka', 'nameType': 'personal'})
 
@@ -151,7 +151,7 @@ class TestNormalizeDatacite(unittest.TestCase):
             }
         }
 
-        res = normalize_datacite_json.get_resource_type(test_res)
+        res = normalize_datacite_json.get_resource_type(test_res, 'http://datacite.org/schema/kernel-4')
 
         self.assertEqual(res,
                          {'resourceType': 'test', 'resourceTypeGeneral': 'Dataset'}
@@ -164,7 +164,7 @@ class TestNormalizeDatacite(unittest.TestCase):
             }
         }
 
-        res = normalize_datacite_json.get_resource_type(test_res)
+        res = normalize_datacite_json.get_resource_type(test_res, 'http://datacite.org/schema/kernel-4')
 
         self.assertEqual(res,
                          {'resourceTypeGeneral': 'Dataset'}
