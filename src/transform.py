@@ -832,7 +832,7 @@ def scheduler_wait_for_completion() -> SchedulerRunsResponse:
     tags=["scheduler"],
     summary="Return closed or failed harvest runs completed in the last 6 days",
 )
-def get_closed_runs() -> SchedulerClosedRunsResponse:
+def get_closed_runs(all_runs: bool = Query(False, description="If true, return runs from any time, not just the last 6 days")) -> SchedulerClosedRunsResponse:
     """
     Retrieve IDs of recently finished harvest runs.
 
@@ -841,8 +841,14 @@ def get_closed_runs() -> SchedulerClosedRunsResponse:
     - 'closed'
     - 'failed'
 
-    The result is limited to runs completed within the last 6 days
+    By default, results are limited to runs completed within the last 6 days
     to avoid reprocessing older runs and to keep Transformer payloads small.
+
+    Parameters
+    ----------
+    all_runs : bool, optional
+        If True, the 6-day recency filter is disabled and all matching runs
+        are returned regardless of age. Defaults to False.
 
     Returns
     -------
@@ -857,7 +863,7 @@ def get_closed_runs() -> SchedulerClosedRunsResponse:
 
     Filtering logic:
         status IN ('closed', 'failed')
-        AND until_date >= NOW() - INTERVAL '6 days'
+        AND (all_runs=True OR until_date >= NOW() - INTERVAL '6 days')
     """
     try:
         with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
@@ -867,8 +873,8 @@ def get_closed_runs() -> SchedulerClosedRunsResponse:
                 SELECT id
                 FROM harvest_runs
                 WHERE status IN ('closed', 'failed')
-                AND until_date >= NOW() - INTERVAL '6 days'
-            """)
+                AND (%(all_runs)s OR until_date >= NOW() - INTERVAL '6 days')
+            """, {"all_runs": all_runs})
 
             ids = [str(row["id"]) for row in cur.fetchall()]
 

@@ -54,9 +54,15 @@ def wait_until_runs_closed() -> None:
         attempt += 1
 
 
-def run_pipeline() -> None:
+def run_pipeline(all_runs: bool = False) -> None:
     """
     Execute harvesting workflow.
+
+    Parameters
+    ----------
+    all_runs : bool, optional
+        If True, closed run retrieval is not limited to the last 6 days.
+        Defaults to False.
 
     Raises
     ------
@@ -64,46 +70,31 @@ def run_pipeline() -> None:
         if pipeline fails
     """
 
-    logger.info("starting harvesting pipeline")
+    logger.info("starting harvesting pipeline%s", " (all-runs mode)" if all_runs else "")
     harvest_urls = get_endpoints_to_harvest()
 
     if not harvest_urls:
         logger.info("no endpoints require harvesting")
-
         return
 
-    logger.info(
-        "%s endpoints scheduled for harvesting",
-        len(harvest_urls),
-    )
+    logger.info("%s endpoints scheduled for harvesting", len(harvest_urls))
 
     for url in harvest_urls:
-        logger.info(
-            "running harvester for %s",
-            url,
-        )
-
+        logger.info("running harvester for %s", url)
         run_harvester(url)
 
-    # wait until crawler finishes
     wait_until_runs_closed()
 
     logger.info("fetching closed runs requiring indexing")
 
-    run_ids = get_closed_run_ids()
+    run_ids = get_closed_run_ids(all_runs=all_runs)
 
     if not run_ids:
         logger.info("no runs require indexing")
-
         return
 
-    logger.info(
-        "trigger indexing for %s runs",
-        len(run_ids),
-    )
+    logger.info("trigger indexing for %s runs", len(run_ids))
 
-    trigger_index(
-        run_ids,
-        INDEX_NAME,
-    )
+    trigger_index(run_ids, INDEX_NAME)
     logger.info("pipeline finished successfully")
+    
