@@ -73,7 +73,7 @@ def run_pipeline(all_runs: bool = False) -> None:
     logger.info("starting harvesting pipeline%s", " (all-runs mode)" if all_runs else "")
     harvest_urls = get_endpoints_to_harvest()
 
-    if not harvest_urls:
+    if not harvest_urls and not all_runs:
         logger.info("no endpoints require harvesting")
         return
 
@@ -97,4 +97,4 @@ def run_pipeline(all_runs: bool = False) -> None:
 
     trigger_index(run_ids, INDEX_NAME)
     logger.info("pipeline finished successfully")
-    
+
