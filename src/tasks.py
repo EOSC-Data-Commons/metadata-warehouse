@@ -13,7 +13,7 @@ from utils.queue_utils import HarvestEventQueue
 from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
     get_embedding_text_from_fields, OpenSearchSourceWithEmbedding
 from utils import normalize_datacite_json
-from utils.handle_xml import detect_metadata_namespace, preprocess_xml, OAI, get_resource
+from utils import handle_xml
 from typing import Any
 from celery.utils.log import get_task_logger
 from celery.signals import after_setup_logger
@@ -34,8 +34,8 @@ def configurate_celery_task_logger(**kwargs: Any) -> None:
 logger = get_task_logger(__name__)
 
 # OAI-PMH XML namespaces
-OAI_RECORD = f'{OAI}:record'
-OAI_METADATA = f'{OAI}:metadata'
+OAI_RECORD = f'{handle_xml.OAI}:record'
+OAI_METADATA = f'{handle_xml.OAI}:metadata'
 
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
 if not EMBEDDING_MODEL:
@@ -267,15 +267,15 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
             logger.debug(f'Processing {harvest_event}')
 
             root = ET.fromstring(harvest_event.xml.encode('utf-8'))
-            metadata_ns = detect_metadata_namespace(root)
-            contents = preprocess_xml(root)
+            metadata_ns = handle_xml.detect_metadata_namespace(root)
+            contents = handle_xml.preprocess_xml(root)
 
             converted = xmltodict.parse(contents,
                                         process_namespaces=True)
 
             if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
                 metadata = converted[OAI_RECORD][OAI_METADATA]
-                result = get_resource(metadata, metadata_ns)
+                result = handle_xml.get_resource(metadata, metadata_ns)
 
                 if result is None:
                     # Converted JSON cannot be processed, log this
