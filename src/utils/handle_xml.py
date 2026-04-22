@@ -3,12 +3,13 @@ from typing import Any
 
 OAI = 'http://www.openarchives.org/OAI/2.0/'
 DATACITE_4 = 'http://datacite.org/schema/kernel-4'
+DATACITE_4_2 = 'http://schema.datacite.org/meta/kernel-4.2'
 DATACITE_3 = 'http://datacite.org/schema/kernel-3'
 
 OAI_WRAPPER = 'http://schema.datacite.org/oai/oai-1.1/:oai_datacite'
 OAI_PAYLOAD = 'http://schema.datacite.org/oai/oai-1.1/:payload'
 
-KNOWN_DATACITE_NS = {DATACITE_3, DATACITE_4}
+KNOWN_DATACITE_NS = {DATACITE_3, DATACITE_4, DATACITE_4_2}
 
 def detect_metadata_namespace(root: ET._Element) -> str | None:
     """Extract the namespace of the resource element inside OAI metadata."""
