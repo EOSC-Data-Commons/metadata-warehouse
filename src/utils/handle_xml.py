@@ -11,15 +11,7 @@ OAI_PAYLOAD = 'http://schema.datacite.org/oai/oai-1.1/:payload'
 
 KNOWN_DATACITE_NS = {DATACITE_3, DATACITE_4, DATACITE_4_2}
 
-def detect_metadata_namespace(root: ET._Element) -> str | None:
-    """Extract the namespace of the resource element inside OAI metadata."""
-    resource = root.find('.//{*}resource')
-    if resource is None:
-        return None
-    return resource.nsmap.get(resource.prefix)
-
-def preprocess_xml(root: ET._Element) -> str:
-    xslt_transform = b'''<?xml version="1.0" encoding="UTF-8"?>
+XSLT_NS = b'''<?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet version="1.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 
@@ -53,9 +45,17 @@ def preprocess_xml(root: ET._Element) -> str:
 
     '''
 
-    xslt_tree = ET.fromstring(xslt_transform)
-    transform = ET.XSLT(xslt_tree)
-    result = transform(root)
+_XSLT_TRANSFORM = ET.XSLT(ET.fromstring(XSLT_NS))
+
+def detect_metadata_namespace(root: ET._Element) -> str | None:
+    """Extract the namespace of the resource element inside OAI metadata."""
+    resource = root.find('.//{*}resource')
+    if resource is None:
+        return None
+    return resource.nsmap.get(resource.prefix)
+
+def preprocess_xml(root: ET._Element) -> str:
+    result = _XSLT_TRANSFORM(root)
     return ET.tostring(result, encoding='unicode')
 
 
