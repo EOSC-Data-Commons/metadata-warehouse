@@ -324,7 +324,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite"}',
+    '{"metadata_prefix": "oai_datacite", "set" : ["pub", "raw_inv"]}',
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'PANOSC'
@@ -340,7 +340,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "set": ["openaire_data"]}',
+    '{"metadata_prefix": "oai_datacite4", "set": ["openaire_data"]}',
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'PANOSC'
