@@ -18,7 +18,7 @@ sys.path.append("..")
 sys.path.append("../..")
 
 from src.utils.normalize_datacite_json import normalize_datacite_json
-from src.utils.handle_xml import detect_metadata_namespace, preprocess_xml, OAI, KNOWN_DATACITE_NS, DATACITE_4, OAI_WRAPPER, OAI_PAYLOAD
+from src.utils.handle_xml import detect_metadata_namespace, preprocess_xml, OAI, get_resource
 
 def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: Optional[dict[Any, Any]], perform_validation: bool) -> None:
     try:
@@ -39,17 +39,14 @@ def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: 
         if normalize:
             metadata = converted[f'{OAI}:record'][f'{OAI}:metadata']
 
-            if metadata_ns is not None and metadata_ns in KNOWN_DATACITE_NS:
-                if OAI_WRAPPER in metadata and OAI_PAYLOAD in metadata[OAI_WRAPPER]:
-                    metadata = metadata[OAI_WRAPPER][OAI_PAYLOAD]
-                resource = metadata[f'{metadata_ns}:resource']
-                normalized = normalize_datacite_json(resource, metadata_ns)
-            elif metadata_ns is not None:
-                # e.g. HAL or other known formats
-                resource = metadata[f'{metadata_ns}:resource']
-                normalized = normalize_datacite_json(resource, DATACITE_4)
-            else:
+            result = get_resource(metadata, metadata_ns)
+
+            if result is None:
                 raise ValueError(f"Could not detect metadata namespace in {filepath}")
+
+            resource, metadata_namespace_for_access = result
+
+            normalized = normalize_datacite_json(resource, metadata_namespace_for_access)
 
             if schema is not None and perform_validation:
                 validate(instance=normalized, schema=schema)

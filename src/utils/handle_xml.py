@@ -1,8 +1,9 @@
 from lxml import etree as ET
+from typing import Any
 
 OAI = 'http://www.openarchives.org/OAI/2.0/'
 DATACITE_4 = 'http://datacite.org/schema/kernel-4'
-DATACITE_3 = 'http://datacite.org/schema/kernel-3/'
+DATACITE_3 = 'http://datacite.org/schema/kernel-3'
 
 OAI_WRAPPER = 'http://schema.datacite.org/oai/oai-1.1/:oai_datacite'
 OAI_PAYLOAD = 'http://schema.datacite.org/oai/oai-1.1/:payload'
@@ -49,3 +50,16 @@ def preprocess_xml(root: ET._Element) -> str:
     transform = ET.XSLT(xslt_tree)
     result = transform(root)
     return ET.tostring(result, encoding='unicode')
+
+
+def get_resource(metadata: dict[str, Any], metadata_namespace: str | None) -> tuple[dict[str, Any], str] | None:
+    if metadata_namespace is not None and metadata_namespace.rstrip('/') in KNOWN_DATACITE_NS:
+        if OAI_WRAPPER in metadata and OAI_PAYLOAD in metadata[OAI_WRAPPER]:
+            metadata = metadata[OAI_WRAPPER][OAI_PAYLOAD]
+        resource = metadata[f'{metadata_namespace}:resource']
+        return resource, metadata_namespace
+    elif metadata_namespace is not None:
+        # e.g. HAL or other known formats
+        resource = metadata[f'{metadata_namespace}:resource']
+        return resource, DATACITE_4
+    return None
