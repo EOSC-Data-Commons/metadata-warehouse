@@ -18,53 +18,7 @@ sys.path.append("..")
 sys.path.append("../..")
 
 from src.utils.normalize_datacite_json import normalize_datacite_json
-
-OAI = 'http://www.openarchives.org/OAI/2.0/'
-DATACITE_4 = 'http://datacite.org/schema/kernel-4'
-DATACITE_3 = 'http://datacite.org/schema/kernel-3/'
-
-KNOWN_DATACITE_NS = {DATACITE_3, DATACITE_4}
-
-def detect_metadata_namespace(root: ET._Element) -> str | None:
-    """Extract the namespace of the resource element inside OAI metadata."""
-    resource = root.find('.//{*}resource')
-    if resource is None:
-        return None
-    return resource.nsmap.get(resource.prefix)
-
-def preprocess_xml(root: ET._Element) -> str:
-    xslt_transform = b'''<?xml version="1.0" encoding="UTF-8"?>
-<xsl:stylesheet version="1.0"
-    xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
-
-    <!-- Identity transform -->
-    <xsl:template match="@*|node()">
-        <xsl:copy>
-            <xsl:apply-templates select="@*|node()"/>
-        </xsl:copy>
-    </xsl:template>
-
-    <!-- Re-home no-namespace elements that are inside a 'resource' element,
-         using whatever namespace 'resource' itself has -->
-    <xsl:template match="*[namespace-uri()='' and ancestor::*[local-name()='resource']]">
-        <xsl:element
-            name="{local-name()}"
-            namespace="{namespace-uri(ancestor::*[local-name()='resource'])}">
-            <xsl:apply-templates select="@*|node()"/>
-        </xsl:element>
-    </xsl:template>
-
-    <!-- Drop xmlns="" attributes -->
-    <xsl:template match="@xmlns"/>
-
-</xsl:stylesheet>
-
-    '''
-
-    xslt_tree = ET.fromstring(xslt_transform)
-    transform = ET.XSLT(xslt_tree)
-    result = transform(root)
-    return ET.tostring(result, encoding='unicode')
+from src.utils.handle_xml import detect_metadata_namespace, preprocess_xml, OAI, KNOWN_DATACITE_NS, DATACITE_4, OAI_WRAPPER, OAI_PAYLOAD
 
 def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: Optional[dict[Any, Any]], perform_validation: bool) -> None:
     try:
@@ -75,13 +29,19 @@ def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: 
 
         metadata_ns = detect_metadata_namespace(root)
 
+        print('+++++')
+        print(f'{filepath}')
+        print(metadata_ns)
+
         contents = preprocess_xml(root)
         converted = xmltodict.parse(contents, process_namespaces=True)
 
         if normalize:
             metadata = converted[f'{OAI}:record'][f'{OAI}:metadata']
 
-            if metadata_ns in KNOWN_DATACITE_NS:
+            if metadata_ns is not None and metadata_ns in KNOWN_DATACITE_NS:
+                if OAI_WRAPPER in metadata and OAI_PAYLOAD in metadata[OAI_WRAPPER]:
+                    metadata = metadata[OAI_WRAPPER][OAI_PAYLOAD]
                 resource = metadata[f'{metadata_ns}:resource']
                 normalized = normalize_datacite_json(resource, metadata_ns)
             elif metadata_ns is not None:
