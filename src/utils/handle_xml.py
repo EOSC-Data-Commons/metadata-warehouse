@@ -30,9 +30,15 @@ def preprocess_xml(root: ET._Element) -> str:
         </xsl:copy>
     </xsl:template>
 
-    <!-- Re-home no-namespace elements that are inside a 'resource' element,
-         using whatever namespace 'resource' itself has -->
-    <xsl:template match="*[namespace-uri()='' and ancestor::*[local-name()='resource']]">
+    <!-- Re-home any descendant of 'resource' whose namespace differs
+         from resource's own namespace, into resource's namespace.
+         Only applies when resource itself is not in the OAI namespace
+         (to avoid mangling HAL-style records where resource has no datacite ns) -->
+    <xsl:template match="*[
+        ancestor::*[local-name()='resource'] and
+        namespace-uri() != namespace-uri(ancestor::*[local-name()='resource']) and
+        namespace-uri(ancestor::*[local-name()='resource']) != 'http://www.openarchives.org/OAI/2.0/'
+    ]">
         <xsl:element
             name="{local-name()}"
             namespace="{namespace-uri(ancestor::*[local-name()='resource'])}">
