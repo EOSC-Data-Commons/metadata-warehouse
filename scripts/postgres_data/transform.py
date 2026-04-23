@@ -18,7 +18,7 @@ sys.path.append("..")
 sys.path.append("../..")
 
 from src.utils.normalize_datacite_json import normalize_datacite_json
-from src.utils.handle_xml import detect_metadata_namespace, preprocess_xml, OAI, get_resource
+from src.utils.handle_xml import detect_metadata_namespace, detect_payload_namespace, preprocess_xml, OAI, get_resource
 
 def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: Optional[dict[Any, Any]], perform_validation: bool) -> None:
     try:
@@ -28,10 +28,7 @@ def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: 
         root = ET.fromstring(contents.encode('utf-8'))
 
         metadata_ns = detect_metadata_namespace(root)
-
-        print('+++++')
-        print(f'{filepath}')
-        print(metadata_ns)
+        payload_ns = detect_payload_namespace(root)
 
         contents = preprocess_xml(root)
         converted = xmltodict.parse(contents, process_namespaces=True)
@@ -39,7 +36,7 @@ def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: 
         if normalize:
             metadata = converted[f'{OAI}:record'][f'{OAI}:metadata']
 
-            result = get_resource(metadata, metadata_ns)
+            result = get_resource(metadata, metadata_ns, payload_ns)
 
             if result is None:
                 raise ValueError(f"Could not detect metadata namespace in {filepath}")

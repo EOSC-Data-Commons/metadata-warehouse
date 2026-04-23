@@ -266,33 +266,34 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
 
             logger.debug(f'Processing {harvest_event}')
 
-            root = ET.fromstring(harvest_event.xml.encode('utf-8'))
-            metadata_ns = handle_xml.detect_metadata_namespace(root)
-            contents = handle_xml.preprocess_xml(root)
-
-            converted = xmltodict.parse(contents,
-                                        process_namespaces=True)
-
-            if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
-                metadata = converted[OAI_RECORD][OAI_METADATA]
-                result = handle_xml.get_resource(metadata, metadata_ns)
-
-                if result is None:
-                    # Converted JSON cannot be processed, log this
-                    logger.debug(f'Cannot access resource element in {metadata} {harvest_event.record_identifier}')
-                    continue
-
-                resource, metadata_namespace_for_access = result
-            else:
-                # Converted JSON cannot be processed, log this
-                logger.debug(f'Cannot access {OAI_METADATA} in: {converted}')
-                continue
-
-            logger.debug(contents)
-            logger.debug(metadata_ns)
-
             # Catch and log errors
             try:
+                root = ET.fromstring(harvest_event.xml.encode('utf-8'))
+                metadata_ns = handle_xml.detect_metadata_namespace(root)
+                contents = handle_xml.preprocess_xml(root)
+
+                converted = xmltodict.parse(contents,
+                                            process_namespaces=True)
+
+                if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
+                    metadata = converted[OAI_RECORD][OAI_METADATA]
+                    result = handle_xml.get_resource(metadata, metadata_ns)
+
+                    if result is None:
+                        # Converted JSON cannot be processed, log this
+                        logger.debug(f'Cannot access resource element in {metadata} {harvest_event.record_identifier}')
+                        continue
+
+                    resource, metadata_namespace_for_access = result
+                else:
+                    # Converted JSON cannot be processed, log this
+                    logger.debug(f'Cannot access {OAI_METADATA} in: {converted}')
+                    continue
+
+                logger.debug(contents)
+                logger.debug(metadata_ns)
+
+
                 normalized_record = normalize_datacite_json.normalize_datacite_json(resource, metadata_namespace_for_access)
                 validate(instance=normalized_record, schema=self.schema)
                 normalized.append(SourceWithEmbeddingText(src=normalized_record,

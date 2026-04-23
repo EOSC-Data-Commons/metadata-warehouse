@@ -6,9 +6,6 @@ DATACITE_4 = 'http://datacite.org/schema/kernel-4'
 DATACITE_4_2 = 'http://schema.datacite.org/meta/kernel-4.2'
 DATACITE_3 = 'http://datacite.org/schema/kernel-3'
 
-OAI_WRAPPER = 'http://schema.datacite.org/oai/oai-1.1/:oai_datacite'
-OAI_PAYLOAD = 'http://schema.datacite.org/oai/oai-1.1/:payload'
-
 KNOWN_DATACITE_NS = {DATACITE_3, DATACITE_4, DATACITE_4_2}
 
 XSLT_NS = b'''<?xml version="1.0" encoding="UTF-8"?>
@@ -54,15 +51,26 @@ def detect_metadata_namespace(root: ET._Element) -> str | None:
         return None
     return resource.nsmap.get(resource.prefix)
 
+def detect_payload_namespace(root: ET._Element) -> str | None:
+    """Extract the namespace of the resource element inside OAI metadata."""
+    resource = root.find('.//{*}payload')
+    if resource is None:
+        return None
+    return resource.nsmap.get(resource.prefix)
+
 def preprocess_xml(root: ET._Element) -> str:
     result = _XSLT_TRANSFORM(root)
     return ET.tostring(result, encoding='unicode')
 
 
-def get_resource(metadata: dict[str, Any], metadata_namespace: str | None) -> tuple[dict[str, Any], str] | None:
+def get_resource(metadata: dict[str, Any], metadata_namespace: str | None, payload_ns: str | None) -> tuple[dict[str, Any], str] | None:
     if metadata_namespace is not None and metadata_namespace.rstrip('/') in KNOWN_DATACITE_NS:
-        if OAI_WRAPPER in metadata and OAI_PAYLOAD in metadata[OAI_WRAPPER]:
+        if payload_ns is not None:
+            OAI_WRAPPER = f'{payload_ns.rstrip('/')}/:oai_datacite'
+            OAI_PAYLOAD = f'{payload_ns.rstrip('/')}/:payload'
+
             metadata = metadata[OAI_WRAPPER][OAI_PAYLOAD]
+
         resource = metadata[f'{metadata_namespace}:resource']
         return resource, metadata_namespace
     elif metadata_namespace is not None:

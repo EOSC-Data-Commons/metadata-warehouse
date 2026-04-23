@@ -181,8 +181,7 @@
     "required": [
         "id",
         "creators",
-        "titles",
-        "types"
+        "titles"
     ],
     "oneOf": [
         {
