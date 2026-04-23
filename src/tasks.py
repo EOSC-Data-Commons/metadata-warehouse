@@ -270,6 +270,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
             try:
                 root = ET.fromstring(harvest_event.xml.encode('utf-8'))
                 metadata_ns = handle_xml.detect_metadata_namespace(root)
+                payload_ns = handle_xml.detect_payload_namespace(root)
                 contents = handle_xml.preprocess_xml(root)
 
                 converted = xmltodict.parse(contents,
@@ -277,7 +278,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
 
                 if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
                     metadata = converted[OAI_RECORD][OAI_METADATA]
-                    result = handle_xml.get_resource(metadata, metadata_ns)
+                    result = handle_xml.get_resource(metadata, metadata_ns, payload_ns)
 
                     if result is None:
                         # Converted JSON cannot be processed, log this
