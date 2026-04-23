@@ -8,9 +8,12 @@ DOI_BASE = 'https://doi.org/'
 
 def get_identifier(entry: dict[str, Any], identifier_type: str, datacite_schema: str) -> Any | None:
     if identifier := entry.get(f'{datacite_schema}:identifier'):
-        if id_type := identifier.get(f'@identifierType'):
-            if id_type == identifier_type and '#text' in identifier:
-                return identifier['#text']
+        if isinstance(identifier, dict):
+            if id_type := identifier.get(f'@identifierType'):
+                if id_type == identifier_type and '#text' in identifier:
+                    return identifier['#text']
+        elif isinstance(identifier, str) and identifier_type == 'URL' and identifier.startswith('http'):
+            return identifier
 
     # print(f'No DOI given for {entry}')
     return None
