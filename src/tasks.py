@@ -143,7 +143,6 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                 ds_dabar = DabarXmlSrcDataset('', harvest_event.additional_metadata)
 
                 files.extend(self.collect_files(harvest_event, ds_dabar))
-                print(files)
 
             if len(files) == 0:
                 logger.debug(f'no files for {harvest_event.record_identifier}')
