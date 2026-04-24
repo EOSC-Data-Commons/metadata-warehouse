@@ -43,10 +43,10 @@ def harmonize_creator(entry: dict[str, Any]) -> dict[str, Any]:
 
     name_identifier_props = harmonize_props(cr, f'{DATACITE}:nameIdentifier', {'@nameIdentifierScheme': 'nameIdentifierScheme'}, {})
 
-    if f'{DATACITE}:nameIdentifier' in name_identifier_props and isinstance(name_identifier_props[f'{DATACITE}:nameIdentifier'], list):
+    if isinstance(value := name_identifier_props.get(f'{DATACITE}:nameIdentifier'), list):
         # list of name ids
-        name_id = {'nameIdentifiers': name_identifier_props[f'{DATACITE}:nameIdentifier']}
-    elif name_identifier_props:
+        name_id = {'nameIdentifiers': value}
+    elif isinstance(name_identifier_props, dict) and name_identifier_props:
         # single name id
         name_id = {'nameIdentifiers': [name_identifier_props]}
     else:
@@ -119,8 +119,7 @@ def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, 
         return merged
 
     else:
-        print(json.dumps(entry))
-        raise Exception(f'Neither string nor dict: {type(entry[field_name])}: {entry[field_name]}')
+        raise TypeError(f'Unexpected type for {field_name}: {type(entry[field_name])}: {entry[field_name]}')
 
 
 def make_object(subfield: list[dict[str, Any]] | dict[str, Any], subfield_name: str) -> list[dict[str, Any]]:
@@ -159,7 +158,7 @@ def make_array(field: dict[str, Any] | list[dict[str, Any]] | None, subfield_nam
         # field is a list
         return field
     else:
-        raise Exception('Neither dict nor list')
+        raise TypeError(f'Unexpected type {type(field)} for {field}: Neither dict nor list')
 
 
 def remove_empty_item(item: tuple[str, Any]) -> bool:
