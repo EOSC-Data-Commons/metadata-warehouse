@@ -13,17 +13,16 @@ from utils.queue_utils import HarvestEventQueue
 from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
     get_embedding_text_from_fields, OpenSearchSourceWithEmbedding
 from utils import normalize_datacite_json
-from typing import Any, cast
+from typing import Any
 from celery.utils.log import get_task_logger
 from celery.signals import after_setup_logger
 import datetime
 import psycopg
 from psycopg.rows import dict_row
-from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, HalJsonSrcDataset, resolve, FileEntry, Dataset
+from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, HalJsonSrcDataset, DabarXmlSrcDataset, FileEntry, Dataset
 import os
 from enum import Enum
-from lxml import etree as ET
-import requests
+
 
 @after_setup_logger.connect()  # type: ignore[untyped-decorator, unused-ignore]
 def configurate_celery_task_logger(**kwargs: Any) -> None:
@@ -41,8 +40,6 @@ DATACITE_RESOURCE = 'http://datacite.org/schema/kernel-4:resource'
 HAL_RESOURCE = f'{OAI}:resource'
 ONEDATA_WRAPPER = 'http://schema.datacite.org/oai/oai-1.1/:oai_datacite'
 ONEDATA_PAYLOAD = 'http://schema.datacite.org/oai/oai-1.1/:payload'
-NS = {"oai": "http://www.openarchives.org/OAI/2.0/", "datacite": "http://datacite.org/schema/kernel-4", "mods": "http://www.loc.gov/mods/v3"}
-
 
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
 if not EMBEDDING_MODEL:
@@ -85,7 +82,7 @@ class FileMetadataTask(Task):  # type: ignore
             harvest_event.harvest_url,  # harvest_url
             harvest_event.record_identifier,
             file.file_identifier or file.filename,
-            file.filename,
+            file.filename or file.file_identifier,
             'datahugger',
             harvest_event.identifier_type,
             'Dataset',
@@ -103,68 +100,6 @@ class FileMetadataTask(Task):  # type: ignore
         return [
             self.make_file_entry(harvest_event, file)
             for file in dataset.crawl_file()
-        ]
-
-    def make_file_entry_dabar(self, harvest_event: HarvestEventQueue, file_meta: ET._Element, record_identifier: ET._Element, location: str) -> tuple[Any, ...]:
-        file_identifier = file_meta.get('ID')
-
-        #file_description = file_meta.find('mods:abstract', namespaces=NS)
-
-        mime = file_meta.find('mods:physicalDescription/mods:internetMediaType', namespaces=NS)
-
-        if mime is None:
-            raise Exception(f'No mimetype for {harvest_event.record_identifier}')
-
-        if record_identifier.text is not None:
-            download_url = f'{location}/{file_identifier}/download'
-        else:
-            raise Exception(f'Could not built download URL for {harvest_event.record_identifier}')
-
-        return (
-            harvest_event.harvest_url,  # harvest_url
-            harvest_event.record_identifier,
-            file_meta.get('ID'),
-            file_meta.get('ID'),
-            'mods',
-            harvest_event.identifier_type,
-            'Dataset',
-            mime.text,
-            None,
-            None,
-            None,
-            None,
-            download_url,
-            None,
-            None,
-        )
-
-    def collect_files_dabar(self, harvest_event: HarvestEventQueue, root: ET._Element) -> list[tuple[Any, ...]] :
-        record_identifier = cast(list[ET._Element], root.xpath('/oai:record/oai:metadata//mods:identifier[@type="local"]', namespaces=NS))
-        record_url = cast(list[ET._Element], root.xpath('/oai:record/oai:metadata//mods:location/mods:url', namespaces=NS))
-
-        file_meta_ele = cast(list[ET._Element], root.xpath(
-            '/oai:record/oai:metadata//mods:mods[mods:physicalDescription/mods:internetMediaType]', namespaces=NS))
-
-        if len(record_identifier) == 0 or len(record_url) == 0:
-            return []
-
-        #logger.debug(record_identifier[0].text)
-        #logger.debug(record_url[0].text)
-
-        url = cast(list[ET._Element], root.xpath('/oai:record/oai:metadata//mods:location/mods:url[@displayLabel="URN:NBN"]', namespaces=NS))
-
-        if len(url) == 0:
-            raise Exception(f'No location url for {harvest_event.record_identifier}')
-
-        resolved = requests.head(url[0].text)
-
-        resolved.raise_for_status()
-
-        location = resolved.headers['location']
-
-        return [
-            self.make_file_entry_dabar(harvest_event, file_meta, record_identifier[0], location)
-            for file_meta in file_meta_ele
         ]
 
 @celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
@@ -205,10 +140,10 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
             elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.DABAR:
 
-                #logger.debug(harvest_event.additional_metadata)
-                root = ET.fromstring(bytes(harvest_event.additional_metadata, encoding='utf-8'))
+                ds_dabar = DabarXmlSrcDataset('', harvest_event.additional_metadata)
 
-                files.extend(self.collect_files_dabar(harvest_event, root))
+                files.extend(self.collect_files(harvest_event, ds_dabar))
+                print(files)
 
             if len(files) == 0:
                 logger.debug(f'no files for {harvest_event.record_identifier}')
