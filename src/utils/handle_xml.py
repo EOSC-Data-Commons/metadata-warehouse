@@ -66,10 +66,10 @@ def preprocess_xml(root: ET._Element) -> str:
 def get_resource(metadata: dict[str, Any], metadata_namespace: str | None, payload_ns: str | None) -> tuple[dict[str, Any], str] | None:
     if metadata_namespace is not None and metadata_namespace.rstrip('/') in KNOWN_DATACITE_NS:
         if payload_ns is not None:
-            OAI_WRAPPER = f'{payload_ns.rstrip('/')}/:oai_datacite'
-            OAI_PAYLOAD = f'{payload_ns.rstrip('/')}/:payload'
+            oai_wrapper = f'{payload_ns}:oai_datacite'
+            oai_payload = f'{payload_ns}:payload'
 
-            metadata = metadata[OAI_WRAPPER][OAI_PAYLOAD]
+            metadata = metadata[oai_wrapper][oai_payload]
 
         resource = metadata[f'{metadata_namespace}:resource']
         return resource, metadata_namespace
