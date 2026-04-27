@@ -51,9 +51,9 @@ def harmonize_creator(entry: dict[str, Any], datacite_schema: str) -> dict[str, 
 
     cr = entry[f'{datacite_schema}:creator']
 
-    name_identifier_props = harmonize_props(cr, f'{DATACITE}:nameIdentifier', {'@nameIdentifierScheme': 'nameIdentifierScheme'}, {})
+    name_identifier_props = harmonize_props(cr, f'{datacite_schema}:nameIdentifier', {'@nameIdentifierScheme': 'nameIdentifierScheme'}, {}, datacite_schema)
 
-    if isinstance(value := name_identifier_props.get(f'{DATACITE}:nameIdentifier'), list):
+    if isinstance(value := name_identifier_props.get(f'{datacite_schema}:nameIdentifier'), list):
         # list of name ids
         name_id = {'nameIdentifiers': value}
     elif isinstance(name_identifier_props, dict) and name_identifier_props:
@@ -118,7 +118,7 @@ def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, 
 
     elif isinstance(entry[field_name], list):
         results = [
-            harmonize_props({field_name: item}, field_name, attr_map, normalization)
+            harmonize_props({field_name: item}, field_name, attr_map, normalization, datacite_schema)
             for item in entry[field_name]
         ]
         merged: dict[str, list[dict[str, Any]]] = {field_name: []}

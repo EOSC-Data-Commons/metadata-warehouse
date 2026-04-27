@@ -201,7 +201,7 @@ class TestNormalizeDatacite(unittest.TestCase):
                 }
         }
 
-        res = normalize_datacite_json.harmonize_creator(data)
+        res = normalize_datacite_json.harmonize_creator(data, 'http://datacite.org/schema/kernel-4')
 
         self.assertEqual(res, {'creatorName': 'Topalović, Mateo',
                                'familyName': 'Topalović',
@@ -233,7 +233,7 @@ class TestNormalizeDatacite(unittest.TestCase):
                 }
         }
 
-        res = normalize_datacite_json.harmonize_creator(data)
+        res = normalize_datacite_json.harmonize_creator(data, 'http://datacite.org/schema/kernel-4')
 
         self.assertEqual(res, {'creatorName': 'Topalović, Mateo',
                                'familyName': 'Topalović',
