@@ -1,6 +1,7 @@
 import sys
 import datetime
 from typing import Any, Callable, Optional
+import json
 
 XML = 'http://www.w3.org/XML/1998/namespace'
 DATE_FORMAT = '%Y-%m-%d'
@@ -50,11 +51,23 @@ def harmonize_creator(entry: dict[str, Any], datacite_schema: str) -> dict[str, 
 
     cr = entry[f'{datacite_schema}:creator']
 
+    name_identifier_props = harmonize_props(cr, f'{datacite_schema}:nameIdentifier', {'@nameIdentifierScheme': 'nameIdentifierScheme'}, {}, datacite_schema)
+
+    if isinstance(value := name_identifier_props.get(f'{datacite_schema}:nameIdentifier'), list):
+        # list of name ids
+        name_id = {'nameIdentifiers': value}
+    elif isinstance(name_identifier_props, dict) and name_identifier_props:
+        # single name id
+        name_id = {'nameIdentifiers': [name_identifier_props]}
+    else:
+        # no name id
+        name_id = {}
+
     return {
         **harmonize_props(cr, f'{datacite_schema}:creatorName', {'@nameType': 'nameType'}, {}, datacite_schema),
         **harmonize_props(cr, f'{datacite_schema}:givenName', {}, {}, datacite_schema),
         **harmonize_props(cr, f'{datacite_schema}:familyName', {}, {}, datacite_schema),
-        **harmonize_props(cr, f'{datacite_schema}:nameIdentifier', {'@nameIdentifierScheme': 'nameIdentifierScheme'}, {}, datacite_schema)
+        **name_id
     }
 
 
@@ -103,8 +116,20 @@ def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, 
 
         return harmonized_entry
 
+    elif isinstance(entry[field_name], list):
+        results = [
+            harmonize_props({field_name: item}, field_name, attr_map, normalization, datacite_schema)
+            for item in entry[field_name]
+        ]
+        merged: dict[str, list[dict[str, Any]]] = {field_name: []}
+
+        for r in results:
+            merged[field_name].append(r)
+
+        return merged
+
     else:
-        raise Exception('Neither string nor dict')
+        raise TypeError(f'Unexpected type for {field_name}: {type(entry[field_name])}: {entry[field_name]}')
 
 
 def make_object(subfield: list[dict[str, Any]] | dict[str, Any], subfield_name: str) -> list[dict[str, Any]]:
@@ -143,7 +168,7 @@ def make_array(field: dict[str, Any] | list[dict[str, Any]] | None, subfield_nam
         # field is a list
         return field
     else:
-        raise Exception('Neither dict nor list')
+        raise TypeError(f'Unexpected type {type(field)} for {field}: Neither dict nor list')
 
 
 def remove_empty_item(item: tuple[str, Any]) -> bool:

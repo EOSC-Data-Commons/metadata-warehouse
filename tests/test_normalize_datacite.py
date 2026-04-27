@@ -176,6 +176,73 @@ class TestNormalizeDatacite(unittest.TestCase):
 
         self.assertEqual(res, {'creatorName': 'Pe\u0161un, Luka', 'nameType': 'personal'})
 
+    def test_harmonize_creator_object_with_several_name_identifiers(self):
+        data = {
+            "http://datacite.org/schema/kernel-4:creator":
+                {
+                    "http://datacite.org/schema/kernel-4:creatorName": {
+                        "@nameType": "Personal",
+                        "#text": "Topalovi\u0107, Mateo"
+                    },
+                    "http://datacite.org/schema/kernel-4:familyName": "Topalovi\u0107",
+                    "http://datacite.org/schema/kernel-4:givenName": "Mateo",
+                    "http://datacite.org/schema/kernel-4:nameIdentifier": [
+                        {
+                            "@nameIdentifierScheme": "MBZ",
+                            "#text": "408075"
+                        },
+                        {
+                            "@nameIdentifierScheme": "ORCID",
+                            "@schemeURI": "https://orcid.org/",
+                            "#text": "0009-0009-3399-3698"
+                        }
+                    ],
+                    "http://datacite.org/schema/kernel-4:affiliation": "Sveu\u010dili\u0161te Josipa Jurja Strossmayera u Osijeku, Odjel za fiziku / Josip Juraj Strossmayer University of Osijek, Department of Physics"
+                }
+        }
+
+        res = normalize_datacite_json.harmonize_creator(data, 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(res, {'creatorName': 'Topalović, Mateo',
+                               'familyName': 'Topalović',
+                               'givenName': 'Mateo',
+                               'nameIdentifiers': [{'nameIdentifier': '408075',
+                                                    'nameIdentifierScheme': 'MBZ'},
+                                                   {'nameIdentifier': '0009-0009-3399-3698',
+                                                    'nameIdentifierScheme': 'ORCID'}],
+                               'nameType': 'Personal'})
+
+    def test_harmonize_creator_object_with_single_name_identifiers(self):
+        data = {
+            "http://datacite.org/schema/kernel-4:creator":
+                {
+                    "http://datacite.org/schema/kernel-4:creatorName": {
+                        "@nameType": "Personal",
+                        "#text": "Topalovi\u0107, Mateo"
+                    },
+                    "http://datacite.org/schema/kernel-4:familyName": "Topalovi\u0107",
+                    "http://datacite.org/schema/kernel-4:givenName": "Mateo",
+                    "http://datacite.org/schema/kernel-4:nameIdentifier":
+                        {
+                            "@nameIdentifierScheme": "ORCID",
+                            "@schemeURI": "https://orcid.org/",
+                            "#text": "0009-0009-3399-3698"
+                        },
+
+                    "http://datacite.org/schema/kernel-4:affiliation": "Sveu\u010dili\u0161te Josipa Jurja Strossmayera u Osijeku, Odjel za fiziku / Josip Juraj Strossmayer University of Osijek, Department of Physics"
+                }
+        }
+
+        res = normalize_datacite_json.harmonize_creator(data, 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(res, {'creatorName': 'Topalović, Mateo',
+                               'familyName': 'Topalović',
+                               'givenName': 'Mateo',
+                               'nameIdentifiers': [
+                                                   {'nameIdentifier': '0009-0009-3399-3698',
+                                                    'nameIdentifierScheme': 'ORCID'}],
+                               'nameType': 'Personal'})
+
     def test_normalize_date_precision_with_day_precision(self):
         res = normalize_datacite_json.normalize_date_precision('2025-04-03')
         self.assertEqual(res, '2025-04-03')
