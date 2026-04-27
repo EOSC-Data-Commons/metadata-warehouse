@@ -75,11 +75,16 @@
                     "nameType": {
                         "type": "string"
                     },
-                    "nameIdentifierScheme": {
-                        "type": "string"
-                    },
-                    "nameIdentifier": {
-                        "type": "string"
+                    "nameIdentifiers": {
+                        "type": "array",
+                        "properties": {
+                            "nameIdentifierScheme": {
+                                "type": "string"
+                            },
+                            "nameIdentifier": {
+                                "type": "string"
+                            }
+                        }
                     },
                     "givenName": {
                         "type": "string"
