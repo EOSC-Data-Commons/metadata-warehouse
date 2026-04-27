@@ -5,6 +5,91 @@ from src.utils import normalize_datacite_json
 
 class TestNormalizeDatacite(unittest.TestCase):
 
+    def test_get_identifier_doi_attr(self):
+        data = {
+            "http://datacite.org/schema/kernel-4:identifier": {
+                "@identifierType": "DOI",
+                "#text": "10.34894/CKRZPV"
+            }
+        }
+
+        doi = normalize_datacite_json.get_identifier(data, 'DOI', 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(doi, '10.34894/CKRZPV')
+
+    def test_get_identifier_doi_no_attr(self):
+        data = {
+            "http://datacite.org/schema/kernel-4:identifier": "https://doi.org/10.34894/CKRZPV"
+        }
+
+        doi = normalize_datacite_json.get_identifier(data, 'DOI', 'http://datacite.org/schema/kernel-4')
+        url = normalize_datacite_json.get_identifier(data, 'URL', 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(doi, '10.34894/CKRZPV')
+        self.assertEqual(url, None)
+
+    def test_get_identifier_doi_no_attr1(self):
+        data = {
+            "http://datacite.org/schema/kernel-4:identifier": "http://doi.org/10.34894/CKRZPV"
+        }
+
+        doi = normalize_datacite_json.get_identifier(data, 'DOI', 'http://datacite.org/schema/kernel-4')
+        url = normalize_datacite_json.get_identifier(data, 'URL', 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(doi, '10.34894/CKRZPV')
+        self.assertEqual(url, None)
+
+    def test_get_identifier_url_attr(self):
+        data = {
+            "http://datacite.org/schema/kernel-4:identifier": {
+                "@identifierType": "URL",
+                "#text": "https://urn.nsk.hr/urn:nbn:hr:168:054069"
+            }
+        }
+
+        url = normalize_datacite_json.get_identifier(data, 'URL', 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(url, 'https://urn.nsk.hr/urn:nbn:hr:168:054069')
+
+    def test_get_identifier_url_no_attr(self):
+        data = {
+            "http://datacite.org/schema/kernel-4:identifier": "https://data.isis.stfc.ac.uk/browse/instrument/16/facilityCycle/115101366/investigation/42"
+        }
+
+        url = normalize_datacite_json.get_identifier(data, 'URL', 'http://datacite.org/schema/kernel-4')
+        doi = normalize_datacite_json.get_identifier(data, 'DOI', 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(url, 'https://data.isis.stfc.ac.uk/browse/instrument/16/facilityCycle/115101366/investigation/42')
+        self.assertEqual(doi, None)
+
+    def test_get_identifier_url_with_doi_like_path(self):
+        data = {
+            "http://datacite.org/schema/kernel-4:identifier": "https://data.example.com/10/dataset/123"
+        }
+        url = normalize_datacite_json.get_identifier(data, 'URL', 'http://datacite.org/schema/kernel-4')
+        doi = normalize_datacite_json.get_identifier(data, 'DOI', 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(url, 'https://data.example.com/10/dataset/123')  # not a DOI
+        self.assertEqual(doi, None)
+
+    def test_get_identifier_doi_bare(self):
+        data = {
+            "http://datacite.org/schema/kernel-4:identifier": "10.34894/CKRZPV"
+        }
+        doi = normalize_datacite_json.get_identifier(data, 'DOI', 'http://datacite.org/schema/kernel-4')
+        self.assertEqual(doi, '10.34894/CKRZPV')
+
+    def test_get_identifier_pseudo_doi_(self):
+        data = {
+            "http://datacite.org/schema/kernel-4:identifier": "https://example.com/10.34894/CKRZPV"
+        }
+
+        doi = normalize_datacite_json.get_identifier(data, 'DOI', 'http://datacite.org/schema/kernel-4')
+        url = normalize_datacite_json.get_identifier(data, 'URL', 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(url, None)
+        self.assertEqual(doi, None)
+
     def test_make_array_from_object(self):
         with open('tests/testdata/doi_10.17026_dans-2ab-dpmm.oai_datacite.xml.json') as f:
             data = json.load(f)['http://www.openarchives.org/OAI/2.0/:record'][
@@ -32,7 +117,7 @@ class TestNormalizeDatacite(unittest.TestCase):
             'http://datacite.org/schema/kernel-4:title': 'A title'
         }
 
-        res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:title', {}, {})
+        res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:title', {}, {}, 'http://datacite.org/schema/kernel-4')
 
         # print(res)
 
@@ -49,7 +134,7 @@ class TestNormalizeDatacite(unittest.TestCase):
         }
 
         res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:title',
-                                                      {'@titleType': 'titleType'}, {})
+                                                      {'@titleType': 'titleType'}, {}, 'http://datacite.org/schema/kernel-4')
 
         # print(res)
 
@@ -64,7 +149,7 @@ class TestNormalizeDatacite(unittest.TestCase):
         }
 
         res = normalize_datacite_json.harmonize_props(data, 'http://datacite.org/schema/kernel-4:rights',
-                                                      {'@rightsURI': 'rightsURI'}, {})
+                                                      {'@rightsURI': 'rightsURI'}, {}, 'http://datacite.org/schema/kernel-4')
 
         # print(res)
 
@@ -76,7 +161,7 @@ class TestNormalizeDatacite(unittest.TestCase):
                 {'http://datacite.org/schema/kernel-4:creatorName': 'Pe\u0161un, Luka'}
         }
 
-        res = normalize_datacite_json.harmonize_creator(data)
+        res = normalize_datacite_json.harmonize_creator(data, 'http://datacite.org/schema/kernel-4')
 
         self.assertEqual(res, {'creatorName': 'Pe\u0161un, Luka'})
 
@@ -87,7 +172,7 @@ class TestNormalizeDatacite(unittest.TestCase):
                                                                      '@nameType': 'personal'}}
         }
 
-        res = normalize_datacite_json.harmonize_creator(data)
+        res = normalize_datacite_json.harmonize_creator(data, 'http://datacite.org/schema/kernel-4')
 
         self.assertEqual(res, {'creatorName': 'Pe\u0161un, Luka', 'nameType': 'personal'})
 
@@ -151,7 +236,7 @@ class TestNormalizeDatacite(unittest.TestCase):
             }
         }
 
-        res = normalize_datacite_json.get_resource_type(test_res)
+        res = normalize_datacite_json.get_resource_type(test_res, 'http://datacite.org/schema/kernel-4')
 
         self.assertEqual(res,
                          {'resourceType': 'test', 'resourceTypeGeneral': 'Dataset'}
@@ -164,7 +249,7 @@ class TestNormalizeDatacite(unittest.TestCase):
             }
         }
 
-        res = normalize_datacite_json.get_resource_type(test_res)
+        res = normalize_datacite_json.get_resource_type(test_res, 'http://datacite.org/schema/kernel-4')
 
         self.assertEqual(res,
                          {'resourceTypeGeneral': 'Dataset'}
