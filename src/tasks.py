@@ -1,6 +1,4 @@
 import json
-import os
-from pathlib import Path
 from config.logging_config import LOGGING_CONFIG
 from logging.config import dictConfig
 from fastembed import TextEmbedding
@@ -15,14 +13,19 @@ from utils.queue_utils import HarvestEventQueue
 from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
     get_embedding_text_from_fields, OpenSearchSourceWithEmbedding
 from utils import normalize_datacite_json
+from utils import handle_xml
 from typing import Any
 from celery.utils.log import get_task_logger
 from celery.signals import after_setup_logger
 import datetime
 import psycopg
 from psycopg.rows import dict_row
+from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, HalJsonSrcDataset, DabarXmlSrcDataset, FileEntry, Dataset
+import os
+from enum import Enum
+from lxml import etree as ET
 
-@after_setup_logger.connect()  # type: ignore
+@after_setup_logger.connect()  # type: ignore[untyped-decorator, unused-ignore]
 def configurate_celery_task_logger(**kwargs: Any) -> None:
     # https://docs.celeryq.dev/en/latest/userguide/signals.html#after-setup-logger
     dictConfig(LOGGING_CONFIG)
@@ -31,13 +34,8 @@ def configurate_celery_task_logger(**kwargs: Any) -> None:
 logger = get_task_logger(__name__)
 
 # OAI-PMH XML namespaces
-OAI = 'http://www.openarchives.org/OAI/2.0/'
-OAI_RECORD = f'{OAI}:record'
-OAI_METADATA = f'{OAI}:metadata'
-DATACITE_RESOURCE = 'http://datacite.org/schema/kernel-4:resource'
-HAL_RESOURCE = f'{OAI}:resource'
-ONEDATA_WRAPPER = 'http://schema.datacite.org/oai/oai-1.1/:oai_datacite'
-ONEDATA_PAYLOAD = 'http://schema.datacite.org/oai/oai-1.1/:payload'
+OAI_RECORD = f'{handle_xml.OAI}:record'
+OAI_METADATA = f'{handle_xml.OAI}:metadata'
 
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
 if not EMBEDDING_MODEL:
@@ -48,6 +46,148 @@ celery_app = Celery('tasks')
 
 # celery_app.task_serializer = 'json'
 # celery_app.ignore_result = False
+
+class ProviderCode(str, Enum):
+    DANS = "DANS"
+    ZENODO = "ZENODO"
+    HAL = "HAL"
+    DABAR = "DABAR"
+
+class FileMetadataTask(Task):  # type: ignore
+
+    postgres_config: PostgresConfig
+
+    def __init__(self) -> None:
+        # TODO: how to configure DB and not hard code?
+        self.postgres_config = PostgresConfig(db=os.environ.get('FILE_DB'))
+
+    def parse_checksum(self, file: FileEntry) -> tuple[str | None, str | None]:
+        if not file.checksum:
+            return None, None
+
+        algo = file.checksum[0][0].replace("sha1", "sha-1").upper()
+        value = file.checksum[0][1]
+        return algo, value
+
+    def make_file_entry(self, harvest_event: HarvestEventQueue,
+                        file: FileEntry) -> tuple[Any, ...]:
+
+        checksum_type, checksum_value = self.parse_checksum(file)
+
+        return (
+            harvest_event.harvest_url,  # harvest_url
+            harvest_event.record_identifier,
+            file.file_identifier or file.filename,
+            file.filename or file.file_identifier,
+            'datahugger',
+            harvest_event.identifier_type,
+            'Dataset',
+            file.mimetype,
+            file.size,
+            checksum_type,
+            checksum_value,
+            file.version,
+            file.download_url,
+            file.creation_date,
+            file.last_modification_date
+        )
+
+    def collect_files(self, harvest_event: HarvestEventQueue, dataset: Dataset) -> list[tuple[Any, ...]]:
+        return [
+            self.make_file_entry(harvest_event, file)
+            for file in dataset.crawl_file()
+        ]
+
+@celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
+def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
+
+    success = 0
+
+    with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
+        cur = conn.cursor()
+
+        for ele in batch:
+            files = []
+            harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
+
+            if harvest_event.additional_metadata_API and harvest_event.additional_metadata and harvest_event.code == ProviderCode.DANS:
+                # this only covers dataverse for now
+
+                url = harvest_event.additional_metadata_API.replace('/api/datasets/:persistentId/versions/:latest-published',
+                                                                    f'/dataset.xhtml?persistentId=doi:{harvest_event.record_identifier}')
+
+                ds_dv = DataverseJsonSrcDataset(url, harvest_event.additional_metadata)
+
+                files.extend(self.collect_files(harvest_event, ds_dv))
+
+            elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.ZENODO:
+
+                # get id from DOI: 10.5281/zenodo.570959 -> 570959
+                ds_z = ZenodoJsonSrcDataset(harvest_event.record_identifier.split('.')[-1],harvest_event.additional_metadata)
+
+                files.extend(self.collect_files(harvest_event, ds_z))
+
+            elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.HAL:
+
+                # HAL IDs contain a version suffix, needs to be removed
+                ds_hal = HalJsonSrcDataset(harvest_event.record_identifier.split('v')[0],harvest_event.additional_metadata)
+
+                files.extend(self.collect_files(harvest_event, ds_hal))
+
+            elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.DABAR:
+
+                ds_dabar = DabarXmlSrcDataset('', harvest_event.additional_metadata)
+
+                files.extend(self.collect_files(harvest_event, ds_dabar))
+
+            if len(files) == 0:
+                logger.debug(f'no files for {harvest_event.record_identifier}')
+                continue
+            success += 1
+
+            # Delete existing file entries for this endpoint and endpoint
+            # A new version could provide fewer files
+            cur.execute(
+                """
+                DELETE FROM record_files
+                WHERE harvest_url = %s AND record_identifier = %s
+                """,
+                (harvest_event.harvest_url, harvest_event.record_identifier)
+            )
+
+            sql = """
+                    INSERT INTO record_files (
+                        harvest_url,
+                        record_identifier,
+                        file_identifier,
+                        file_name,
+                        file_information_method,
+                        identifier_type,
+                        identifier_granularity,
+                        file_type,
+                        file_size,
+                        checksum_type,
+                        checksum_value,
+                        file_version,
+                        download_url,
+                        file_created_at,
+                        file_last_modified_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s,
+                        %s::file_identifier_type,
+                        %s::identifier_granularity_level,
+                        %s, %s,
+                        %s::checksum_algorithm,
+                        %s, %s, %s,
+                        %s::timestamp with time zone,
+                        %s::timestamp with time zone
+                    )
+                """
+
+            cur.executemany(sql, files)
+
+    return success
+
 
 class TransformTask(Task):  # type: ignore
 
@@ -71,7 +211,7 @@ class TransformTask(Task):  # type: ignore
 
         self.postgres_config = PostgresConfig()
 
-        with open('config/schema.json') as f:
+        with open("../config/schema.json") as f:
             self.schema = json.load(f)
 
 
@@ -94,7 +234,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
         normalized: list[SourceWithEmbeddingText] = []
         for ele in batch:
 
-            harvest_event = HarvestEventQueue(*ele) # reconstruct HarvestEvent from serialized list
+            harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
 
             if harvest_event.is_deleted:
                 # find record in DB
@@ -117,7 +257,8 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                         self.client.delete(
                             index=index_name,
                             id=opensearch_id,
-                            ignore=404 # https://github.com/opensearch-project/opensearch-py/blob/4ef46e5c17234e3e9b09338c98a599e18d42f572/guides/document_lifecycle.md
+                            ignore=404
+                            # https://github.com/opensearch-project/opensearch-py/blob/4ef46e5c17234e3e9b09338c98a599e18d42f572/guides/document_lifecycle.md
                         )
                     except Exception as e:
                         logger.warning(f"Failed to delete {opensearch_id} from OpenSearch: {e}")
@@ -128,40 +269,40 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                     DELETE FROM records WHERE id = %s;
                     """, [id])
 
-
                 continue
 
             logger.debug(f'Processing {harvest_event}')
-            converted = xmltodict.parse(harvest_event.xml, process_namespaces=True)  # named tuple serialized as list in broker
-
-            if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
-                rec_id = converted[OAI_RECORD][f'{OAI}:header'][
-                    f'{OAI}:identifier']
-
-                logger.debug(f'{rec_id}')
-
-                metadata = converted[OAI_RECORD][OAI_METADATA]
-            else:
-                # Converted JSON cannot be processed, log this
-                logger.debug(f'Cannot access {OAI_METADATA} in : {converted}')
-                continue
-
-            if DATACITE_RESOURCE in metadata:
-                resource = metadata[DATACITE_RESOURCE]
-            elif HAL_RESOURCE in metadata:
-                # HAL
-                resource = metadata[HAL_RESOURCE]
-            elif ONEDATA_WRAPPER in metadata and ONEDATA_PAYLOAD in metadata[ONEDATA_WRAPPER] and DATACITE_RESOURCE in metadata[ONEDATA_WRAPPER][ONEDATA_PAYLOAD]:
-                # extra layer structure from Onedata
-                resource = metadata[ONEDATA_WRAPPER][ONEDATA_PAYLOAD][DATACITE_RESOURCE]
-            else:
-                # JSON cannot be processed, log this
-                logger.debug(f'Cannot access resource element {DATACITE_RESOURCE} or {HAL_RESOURCE} or {ONEDATA_WRAPPER}{ONEDATA_PAYLOAD} in : {metadata}')
-                continue
 
             # Catch and log errors
             try:
-                normalized_record = normalize_datacite_json.normalize_datacite_json(resource)
+                root = ET.fromstring(harvest_event.xml.encode('utf-8'))
+                metadata_ns = handle_xml.detect_metadata_namespace(root)
+                payload_ns = handle_xml.detect_payload_namespace(root)
+                contents = handle_xml.preprocess_xml(root)
+
+                converted = xmltodict.parse(contents,
+                                            process_namespaces=True)
+
+                if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
+                    metadata = converted[OAI_RECORD][OAI_METADATA]
+                    result = handle_xml.get_resource(metadata, metadata_ns, payload_ns)
+
+                    if result is None:
+                        # Converted JSON cannot be processed, log this
+                        logger.debug(f'Cannot access resource element in {metadata} {harvest_event.record_identifier}')
+                        continue
+
+                    resource, metadata_namespace_for_access = result
+                else:
+                    # Converted JSON cannot be processed, log this
+                    logger.debug(f'Cannot access {OAI_METADATA} in: {converted}')
+                    continue
+
+                logger.debug(contents)
+                logger.debug(metadata_ns)
+
+
+                normalized_record = normalize_datacite_json.normalize_datacite_json(resource, metadata_namespace_for_access)
                 validate(instance=normalized_record, schema=self.schema)
                 normalized.append(SourceWithEmbeddingText(src=normalized_record,
                                                           textToEmbed=get_embedding_text_from_fields(normalized_record),
@@ -169,7 +310,8 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                                                           ))
 
             except Exception as e:
-                logger.info(f'An error occurred for {rec_id} in harvest_event {harvest_event.id} during transformation or validation: {e}')
+                logger.info(
+                    f'An error occurred for {harvest_event.record_identifier} in harvest_event {harvest_event.id} during transformation or validation: {e}')
 
                 cur.execute(
                     """
@@ -183,7 +325,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
         try:
             logger.info(f'About to Calculate embeddings for {len(normalized)}')
             src_with_emb: list[OpenSearchSourceWithEmbedding] = add_embeddings_to_source(normalized,
-                                                                                       self.embedding_transformer)
+                                                                                         self.embedding_transformer)
             logger.info(f'Calculated embeddings for {len(src_with_emb)}')
             preprocessed = preprocess_batch([src_with_emb_ele.src for src_with_emb_ele in src_with_emb], index_name)
         except Exception as e:
@@ -193,7 +335,8 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
         try:
             success, failed = bulk(self.client, preprocessed)
             if success < len(src_with_emb):
-                logger.error(f'Normalized doc size was {len(src_with_emb)} but only {success} were imported into OpenSearch.')
+                logger.error(
+                    f'Normalized doc size was {len(src_with_emb)} but only {success} were imported into OpenSearch.')
 
             opensearch_synced_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f%z')
             logger.info(f'Bulk results: success {success} failed: {failed}')
@@ -205,7 +348,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 datestamp = rec.harvest_event.datestamp
                 repository_id = rec.harvest_event.repository_id
                 endpoint_id = rec.harvest_event.endpoint_id
-                resource_type = 'Dataset' # TODO: get this information from record
+                resource_type = 'Dataset'  # TODO: get this information from record
                 title = rec.src['titles'][0]['title']
                 xml = rec.harvest_event.xml
                 protocol = 'OAI-PMH'
@@ -242,7 +385,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                     )
                     ON CONFLICT (endpoint_id, record_identifier)
                     DO UPDATE SET resource_type = %s, title = %s, raw_metadata = XMLPARSE(DOCUMENT %s), doi = %s, url = %s, embeddings = %s, embedding_model = %s, datacite_json = %s, opensearch_synced_at = %s, additional_metadata = %s, datestamp = %s      
-                """, (record_identifier, # Insert
+                """, (record_identifier,  # Insert
                       repository_id,
                       endpoint_id,
                       resource_type,
@@ -258,7 +401,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                       opensearch_synced_at,
                       additional_metadata,
                       datestamp,
-                      resource_type, # Update
+                      resource_type,  # Update
                       title,
                       xml,
                       doi,
@@ -270,7 +413,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                       additional_metadata,
                       datestamp
                       )
-                )
+                            )
 
                 cur.execute(
                     """

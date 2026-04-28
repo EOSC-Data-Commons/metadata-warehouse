@@ -18,7 +18,7 @@ GET /test_datacite/_search
 }
 ```
 
-The sample queries are based on the OpenSearch [mapping](../src/config/opensearch_mapping.json).
+The sample queries are based on the OpenSearch [mapping](../config/opensearch_mapping.json).
 
 Local OpenSearch Dashboard URL: http://127.0.0.1:5601
 
