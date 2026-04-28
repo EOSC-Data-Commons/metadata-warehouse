@@ -7,8 +7,8 @@ services:
         networks:
             - warehouse-backend
         environment:
-            RABBITMQ_DEFAULT_USER: celery
-            RABBITMQ_DEFAULT_PASS: celery
+            RABBITMQ_DEFAULT_USER: "${RABBITMQ_ADMIN}"
+            RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PW}"
             RABBITMQ_DEFAULT_VHOST: /
         healthcheck:
             test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
@@ -32,7 +32,7 @@ services:
             #- ./data/results:/var/celery/results
             - flower-data:/data # persist flower db
         environment:
-            CELERY_BROKER_URL: amqp://celery:celery@broker:5672//
+            CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
         command:
           [
               "celery",
@@ -73,7 +73,7 @@ services:
         #- ./data/results:/var/celery/results
         environment:
             PYTHONPATH: /code/src:/code  # src for tasks.py, root for config/
-            CELERY_BROKER_URL: amqp://celery:celery@broker:5672//
+            CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
@@ -101,7 +101,7 @@ services:
             - warehouse-backend
         environment:
             PYTHONPATH: /code/src:/code
-            CELERY_BROKER_URL: amqp://celery:celery@broker:5672//
+            CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
             POSTGRES_DB: "${POSTGRES_DB}"
