@@ -83,9 +83,15 @@ def are_all_runs_closed() -> bool:
     return result
 
 
-def get_closed_run_ids() -> list[str]:
+def get_closed_run_ids(all_runs: bool = False) -> list[str]:
     """
     Fetch harvest runs closed in the last days.
+
+    Parameters
+    ----------
+    all_runs : bool, optional
+        If True, fetches runs from any time, not just the last 6 days.
+        Defaults to False.
 
     Returns
     -------
@@ -93,8 +99,12 @@ def get_closed_run_ids() -> list[str]:
         harvest_run ids
     """
 
-    logger.info("requesting closed runs")
-    r = requests.get(f"{WAREHOUSE_API_URL}/scheduler/closed-runs", timeout=30)
+    logger.info("requesting closed runs%s", " (all time)" if all_runs else "")
+    r = requests.get(
+        f"{WAREHOUSE_API_URL}/scheduler/closed-runs",
+        params={"all_runs": all_runs},
+        timeout=30,
+    )
 
     r.raise_for_status()
     data: Dict[str, Any] = r.json()
