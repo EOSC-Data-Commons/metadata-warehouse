@@ -1,15 +1,16 @@
 services:
     broker:
-        image: redis:8-alpine
+        image: rabbitmq:3-management-alpine
         restart: unless-stopped
-        command: redis-server /usr/local/etc/redis/redis.conf
         volumes:
-            - broker-data:/data
-            - ./etc/redis.conf:/usr/local/etc/redis/redis.conf
+            - broker-data:/var/lib/rabbitmq
         networks:
             - warehouse-backend
+        environment:
+            RABBITMQ_DEFAULT_USER: "${RABBITMQ_ADMIN}"
+            RABBITMQ_DEFAULT_PASS: "${RABBITMQ_PW}"
         healthcheck:
-            test: [ "CMD", "redis-cli", "ping" ]
+            test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
             interval: 10s
             timeout: 5s
             retries: 3
@@ -30,9 +31,7 @@ services:
             #- ./data/results:/var/celery/results
             - flower-data:/data # persist flower db
         environment:
-            CELERY_BROKER_URL: redis://broker:6379/0
-            #CELERY_RESULT_BACKEND: "file:///var/celery/results"
-            CELERY_RESULT_BACKEND: redis://broker:6379/0
+            CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
         command:
           [
               "celery",
@@ -73,9 +72,7 @@ services:
         #- ./data/results:/var/celery/results
         environment:
             PYTHONPATH: /code/src:/code  # src for tasks.py, root for config/
-            CELERY_BROKER_URL: redis://broker:6379/0
-            #CELERY_RESULT_BACKEND: "file:///var/celery/results"
-            CELERY_RESULT_BACKEND: redis://broker:6379/0
+            CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
@@ -103,9 +100,7 @@ services:
             - warehouse-backend
         environment:
             PYTHONPATH: /code/src:/code
-            CELERY_BROKER_URL: redis://broker:6379/0
-            #CELERY_RESULT_BACKEND: "file:///var/celery/results"
-            CELERY_RESULT_BACKEND: redis://broker:6379/0
+            CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
             POSTGRES_DB: "${POSTGRES_DB}"
