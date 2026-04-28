@@ -13,16 +13,17 @@ from utils.queue_utils import HarvestEventQueue
 from utils.embedding_utils import preprocess_batch, add_embeddings_to_source, SourceWithEmbeddingText, \
     get_embedding_text_from_fields, OpenSearchSourceWithEmbedding
 from utils import normalize_datacite_json
+from utils import handle_xml
 from typing import Any
 from celery.utils.log import get_task_logger
 from celery.signals import after_setup_logger
 import datetime
 import psycopg
 from psycopg.rows import dict_row
-from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, HalJsonSrcDataset, resolve, FileEntry, Dataset
+from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, HalJsonSrcDataset, DabarXmlSrcDataset, FileEntry, Dataset
 import os
 from enum import Enum
-
+from lxml import etree as ET
 
 @after_setup_logger.connect()  # type: ignore[untyped-decorator, unused-ignore]
 def configurate_celery_task_logger(**kwargs: Any) -> None:
@@ -33,13 +34,8 @@ def configurate_celery_task_logger(**kwargs: Any) -> None:
 logger = get_task_logger(__name__)
 
 # OAI-PMH XML namespaces
-OAI = 'http://www.openarchives.org/OAI/2.0/'
-OAI_RECORD = f'{OAI}:record'
-OAI_METADATA = f'{OAI}:metadata'
-DATACITE_RESOURCE = 'http://datacite.org/schema/kernel-4:resource'
-HAL_RESOURCE = f'{OAI}:resource'
-ONEDATA_WRAPPER = 'http://schema.datacite.org/oai/oai-1.1/:oai_datacite'
-ONEDATA_PAYLOAD = 'http://schema.datacite.org/oai/oai-1.1/:payload'
+OAI_RECORD = f'{handle_xml.OAI}:record'
+OAI_METADATA = f'{handle_xml.OAI}:metadata'
 
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
 if not EMBEDDING_MODEL:
@@ -55,6 +51,7 @@ class ProviderCode(str, Enum):
     DANS = "DANS"
     ZENODO = "ZENODO"
     HAL = "HAL"
+    DABAR = "DABAR"
 
 class FileMetadataTask(Task):  # type: ignore
 
@@ -81,7 +78,7 @@ class FileMetadataTask(Task):  # type: ignore
             harvest_event.harvest_url,  # harvest_url
             harvest_event.record_identifier,
             file.file_identifier or file.filename,
-            file.filename,
+            file.filename or file.file_identifier,
             'datahugger',
             harvest_event.identifier_type,
             'Dataset',
@@ -136,6 +133,12 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                 ds_hal = HalJsonSrcDataset(harvest_event.record_identifier.split('v')[0],harvest_event.additional_metadata)
 
                 files.extend(self.collect_files(harvest_event, ds_hal))
+
+            elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.DABAR:
+
+                ds_dabar = DabarXmlSrcDataset('', harvest_event.additional_metadata)
+
+                files.extend(self.collect_files(harvest_event, ds_dabar))
 
             if len(files) == 0:
                 logger.debug(f'no files for {harvest_event.record_identifier}')
@@ -269,39 +272,37 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 continue
 
             logger.debug(f'Processing {harvest_event}')
-            converted = xmltodict.parse(harvest_event.xml,
-                                        process_namespaces=True)  # named tuple serialized as list in broker
-
-            if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
-                rec_id = converted[OAI_RECORD][f'{OAI}:header'][
-                    f'{OAI}:identifier']
-
-                logger.debug(f'{rec_id}')
-
-                metadata = converted[OAI_RECORD][OAI_METADATA]
-            else:
-                # Converted JSON cannot be processed, log this
-                logger.debug(f'Cannot access {OAI_METADATA} in : {converted}')
-                continue
-
-            if DATACITE_RESOURCE in metadata:
-                resource = metadata[DATACITE_RESOURCE]
-            elif HAL_RESOURCE in metadata:
-                # HAL
-                resource = metadata[HAL_RESOURCE]
-            elif ONEDATA_WRAPPER in metadata and ONEDATA_PAYLOAD in metadata[ONEDATA_WRAPPER] and DATACITE_RESOURCE in \
-                metadata[ONEDATA_WRAPPER][ONEDATA_PAYLOAD]:
-                # extra layer structure from Onedata
-                resource = metadata[ONEDATA_WRAPPER][ONEDATA_PAYLOAD][DATACITE_RESOURCE]
-            else:
-                # JSON cannot be processed, log this
-                logger.debug(
-                    f'Cannot access resource element {DATACITE_RESOURCE} or {HAL_RESOURCE} or {ONEDATA_WRAPPER}{ONEDATA_PAYLOAD} in : {metadata}')
-                continue
 
             # Catch and log errors
             try:
-                normalized_record = normalize_datacite_json.normalize_datacite_json(resource)
+                root = ET.fromstring(harvest_event.xml.encode('utf-8'))
+                metadata_ns = handle_xml.detect_metadata_namespace(root)
+                payload_ns = handle_xml.detect_payload_namespace(root)
+                contents = handle_xml.preprocess_xml(root)
+
+                converted = xmltodict.parse(contents,
+                                            process_namespaces=True)
+
+                if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
+                    metadata = converted[OAI_RECORD][OAI_METADATA]
+                    result = handle_xml.get_resource(metadata, metadata_ns, payload_ns)
+
+                    if result is None:
+                        # Converted JSON cannot be processed, log this
+                        logger.debug(f'Cannot access resource element in {metadata} {harvest_event.record_identifier}')
+                        continue
+
+                    resource, metadata_namespace_for_access = result
+                else:
+                    # Converted JSON cannot be processed, log this
+                    logger.debug(f'Cannot access {OAI_METADATA} in: {converted}')
+                    continue
+
+                logger.debug(contents)
+                logger.debug(metadata_ns)
+
+
+                normalized_record = normalize_datacite_json.normalize_datacite_json(resource, metadata_namespace_for_access)
                 validate(instance=normalized_record, schema=self.schema)
                 normalized.append(SourceWithEmbeddingText(src=normalized_record,
                                                           textToEmbed=get_embedding_text_from_fields(normalized_record),
@@ -310,7 +311,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
 
             except Exception as e:
                 logger.info(
-                    f'An error occurred for {rec_id} in harvest_event {harvest_event.id} during transformation or validation: {e}')
+                    f'An error occurred for {harvest_event.record_identifier} in harvest_event {harvest_event.id} during transformation or validation: {e}')
 
                 cur.execute(
                     """
