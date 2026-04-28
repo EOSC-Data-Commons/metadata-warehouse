@@ -20,7 +20,7 @@ from celery.signals import after_setup_logger
 import datetime
 import psycopg
 from psycopg.rows import dict_row
-from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, HalJsonSrcDataset, resolve, FileEntry, Dataset
+from datahugger import DataverseJsonSrcDataset, ZenodoJsonSrcDataset, HalJsonSrcDataset, DabarXmlSrcDataset, FileEntry, Dataset
 import os
 from enum import Enum
 from lxml import etree as ET
@@ -51,6 +51,7 @@ class ProviderCode(str, Enum):
     DANS = "DANS"
     ZENODO = "ZENODO"
     HAL = "HAL"
+    DABAR = "DABAR"
 
 class FileMetadataTask(Task):  # type: ignore
 
@@ -77,7 +78,7 @@ class FileMetadataTask(Task):  # type: ignore
             harvest_event.harvest_url,  # harvest_url
             harvest_event.record_identifier,
             file.file_identifier or file.filename,
-            file.filename,
+            file.filename or file.file_identifier,
             'datahugger',
             harvest_event.identifier_type,
             'Dataset',
@@ -132,6 +133,12 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                 ds_hal = HalJsonSrcDataset(harvest_event.record_identifier.split('v')[0],harvest_event.additional_metadata)
 
                 files.extend(self.collect_files(harvest_event, ds_hal))
+
+            elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.DABAR:
+
+                ds_dabar = DabarXmlSrcDataset('', harvest_event.additional_metadata)
+
+                files.extend(self.collect_files(harvest_event, ds_dabar))
 
             if len(files) == 0:
                 logger.debug(f'no files for {harvest_event.record_identifier}')
