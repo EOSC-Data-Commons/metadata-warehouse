@@ -1,6 +1,6 @@
 services:
     broker:
-        image: rabbitmq:3-management-alpine
+        image: rabbitmq:4.2-management-alpine
         restart: unless-stopped
         volumes:
             - broker-data:/var/lib/rabbitmq
