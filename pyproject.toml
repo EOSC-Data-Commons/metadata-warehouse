@@ -30,7 +30,8 @@ dev = [
     "types-requests>=2.32.4.20260107",
     "lxml-stubs>=0.5.1",
     "python-dotenv>=1.2.2",
-    "celery-types>=0.24.0"
+    "celery-types>=0.24.0",
+    "ruff>=0.15.12",
 ]
 
 [build-system]
@@ -55,3 +56,48 @@ files = [
     "scheduler",
     "config"
 ]
+
+# https://docs.astral.sh/ruff/configuration
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+[tool.ruff.format]
+quote-style = "single"
+
+# https://docs.astral.sh/ruff/rules/
+[tool.ruff.lint]
+# select = ["ALL"]
+select = [
+    "I",     # isort
+    "N",     # pep8-naming
+    "S",     # bandit
+    "A",     # flake8-builtins
+    "YTT",   # flake8-2020
+    "B",     # flake8-bugbear
+    "C",     # flake8-comprehensions
+    "ICN",   # flake8-import-conventions
+    "SIM",   # flake8-simplify
+    "TID",   # flake8-tidy-imports
+    "Q",     # flake8-quotes
+    "FBT",   # flake8-boolean-trap
+    "T",     # flake8-debugger & flake8-print~
+    "F",     # pyflakes
+    "UP",    # pyupgrade
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "PLC",   # pylint convention
+    "PLE",   # pylint error
+    "PLW",   # pylint warning
+    "RUF",   # ruff specific
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Prevent __init__.py from being flagged for unused imports and sorted
+"__init__.py" = ["I", "F401"]
+# Tests can use assertions and magic values
+"tests/*" = ["PLR2004", "S101"]
+"e2e/*" = ["PLR2004", "S101"]
