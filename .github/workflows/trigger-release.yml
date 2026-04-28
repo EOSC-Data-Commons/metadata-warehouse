@@ -1,0 +1,44 @@
+name: trigger-release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set Git bot config
+        run: |
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Merge development into main
+        run: |
+          git fetch origin
+          git checkout main
+          git pull origin main
+          git merge origin/development --no-edit
+          git push origin main
+
+      - name: Run release-please
+        uses: google-github-actions/release-please-action@v3
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release-type: simple
+          package-name: release-please-action
+          default-branch: main
+          version-file: version.txt
+          bump-minor-pre-major: true
+          bump-patch-for-minor-pre-major: true
