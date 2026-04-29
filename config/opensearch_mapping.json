@@ -73,8 +73,13 @@
                             "_creator"
                         ]
                     },
-                    "nameIdentifier": {
-                        "type": "keyword"
+                    "nameIdentifiers": {
+                        "type": "nested",
+                        "properties": {
+                            "nameIdentifier": {
+                                "type": "keyword"
+                            }
+                        }
                     }
                 }
             },
