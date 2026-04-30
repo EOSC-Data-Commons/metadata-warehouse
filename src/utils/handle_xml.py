@@ -1,5 +1,6 @@
-from lxml import etree as ET
 from typing import Any
+
+from lxml import etree as ET
 
 OAI = 'http://www.openarchives.org/OAI/2.0/'
 DATACITE_4 = 'http://datacite.org/schema/kernel-4'

@@ -2,11 +2,11 @@ import json
 import os
 import time
 
-from dotenv import load_dotenv
 import httpx
-from opensearchpy import OpenSearch
 import psycopg
 import pytest
+from dotenv import load_dotenv
+from opensearchpy import OpenSearch
 
 load_dotenv('.env')
 

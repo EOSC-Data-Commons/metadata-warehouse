@@ -1,41 +1,42 @@
-import json
-from config.logging_config import LOGGING_CONFIG
-from logging.config import dictConfig
-from fastembed import TextEmbedding
-from celery import Celery, Task
-from jsonschema.validators import validate
-from opensearchpy import OpenSearch
-from opensearchpy.helpers import bulk, BulkIndexError
-import xmltodict
-from config.postgres_config import PostgresConfig
-from config.opensearch_config import OpenSearchConfig
-from utils.queue_utils import HarvestEventQueue
-from utils.embedding_utils import (
-    preprocess_batch,
-    add_embeddings_to_source,
-    SourceWithEmbeddingText,
-    get_embedding_text_from_fields,
-    OpenSearchSourceWithEmbedding,
-)
-from utils import normalize_datacite_json
-from utils import handle_xml
-from typing import Any
-from celery.utils.log import get_task_logger
-from celery.signals import after_setup_logger
 import datetime
-import psycopg
-from psycopg.rows import dict_row
-from datahugger import (
-    DataverseJsonSrcDataset,
-    ZenodoJsonSrcDataset,
-    HalJsonSrcDataset,
-    DabarXmlSrcDataset,
-    FileEntry,
-    Dataset,
-)
+import json
 import os
 from enum import Enum
+from logging.config import dictConfig
+from typing import Any
+
+import psycopg
+import xmltodict
+from celery import Celery, Task
+from celery.signals import after_setup_logger
+from celery.utils.log import get_task_logger
+from datahugger import (
+    DabarXmlSrcDataset,
+    Dataset,
+    DataverseJsonSrcDataset,
+    FileEntry,
+    HalJsonSrcDataset,
+    ZenodoJsonSrcDataset,
+)
+from fastembed import TextEmbedding
+from jsonschema.validators import validate
 from lxml import etree as ET
+from opensearchpy import OpenSearch
+from opensearchpy.helpers import BulkIndexError, bulk
+from psycopg.rows import dict_row
+
+from config.logging_config import LOGGING_CONFIG
+from config.opensearch_config import OpenSearchConfig
+from config.postgres_config import PostgresConfig
+from utils import handle_xml, normalize_datacite_json
+from utils.embedding_utils import (
+    OpenSearchSourceWithEmbedding,
+    SourceWithEmbeddingText,
+    add_embeddings_to_source,
+    get_embedding_text_from_fields,
+    preprocess_batch,
+)
+from utils.queue_utils import HarvestEventQueue
 
 
 @after_setup_logger.connect()  # type: ignore[untyped-decorator, unused-ignore]

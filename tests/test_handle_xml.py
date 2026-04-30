@@ -1,6 +1,8 @@
 import unittest
-from src.utils import handle_xml
+
 from lxml import etree as ET
+
+from src.utils import handle_xml
 
 DANS_XML = """
     <record xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">

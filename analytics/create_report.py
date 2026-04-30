@@ -1,8 +1,9 @@
 import os
+from datetime import UTC, datetime
+
 import psycopg
-from datetime import datetime, UTC
-from jinja2 import Template
 from dotenv import load_dotenv
+from jinja2 import Template
 
 load_dotenv()
 

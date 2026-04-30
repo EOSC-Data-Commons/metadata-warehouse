@@ -4,21 +4,22 @@ import argparse
 import json
 import os
 import sys
-from typing import Optional, Any
-import xmltodict
-from pathlib import Path
+import traceback
 from multiprocessing import Pool, cpu_count
+from pathlib import Path
+from typing import Any, Optional
+
+import xmltodict
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
-import traceback
 from lxml import etree as ET
 
 # setting path
 sys.path.append('..')
 sys.path.append('../..')
 
+from src.utils.handle_xml import OAI, detect_metadata_namespace, detect_payload_namespace, get_resource, preprocess_xml
 from src.utils.normalize_datacite_json import normalize_datacite_json
-from src.utils.handle_xml import detect_metadata_namespace, detect_payload_namespace, preprocess_xml, OAI, get_resource
 
 
 def transform_record(

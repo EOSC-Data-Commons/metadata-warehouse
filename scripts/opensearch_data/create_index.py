@@ -1,9 +1,10 @@
 #!/usr/bin/env -S uv run --script
 
-from opensearchpy import OpenSearch
 import json
-from dotenv import load_dotenv
 import os
+
+from dotenv import load_dotenv
+from opensearchpy import OpenSearch
 
 load_dotenv()
 

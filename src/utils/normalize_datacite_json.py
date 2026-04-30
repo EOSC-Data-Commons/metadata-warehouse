@@ -1,7 +1,7 @@
-import sys
 import datetime
-from typing import Any, Callable, Optional
 import json
+import sys
+from typing import Any, Callable, Optional
 
 XML = 'http://www.w3.org/XML/1998/namespace'
 DATE_FORMAT = '%Y-%m-%d'
