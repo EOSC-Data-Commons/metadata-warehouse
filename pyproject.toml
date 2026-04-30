@@ -82,7 +82,6 @@ select = [
     "ICN",   # flake8-import-conventions
     "SIM",   # flake8-simplify
     "TID",   # flake8-tidy-imports
-    "Q",     # flake8-quotes
     "FBT",   # flake8-boolean-trap
     "T",     # flake8-debugger & flake8-print~
     "F",     # pyflakes
