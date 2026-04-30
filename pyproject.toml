@@ -70,7 +70,12 @@ quote-style = "single"
 
 # https://docs.astral.sh/ruff/rules/
 [tool.ruff.lint]
-# select = ["ALL"]
+
+ignore = [
+    'E501', # formatter uses best-effort wrapping; avoid lint/format churn
+    'C417', # allow map() instead of list comprehensions
+]
+
 select = [
     "I",     # isort
     "N",     # pep8-naming
@@ -98,5 +103,4 @@ select = [
 # Prevent __init__.py from being flagged for unused imports and sorted
 "__init__.py" = ["I", "F401"]
 # Tests can use assertions and magic values
-"tests/*" = ["PLR2004", "S101"]
-"e2e/*" = ["PLR2004", "S101"]
+'**/{tests,e2e}/*' = ['S101']
