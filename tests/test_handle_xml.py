@@ -2,7 +2,7 @@ import unittest
 from src.utils import handle_xml
 from lxml import etree as ET
 
-DANS_XML = '''
+DANS_XML = """
     <record xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <header>
     <identifier>doi:10.34894/CKRZPV</identifier>
@@ -17,9 +17,9 @@ DANS_XML = '''
     </resource>
    </metadata> 
    </record>
-'''
+"""
 
-HAL_XML = '''
+HAL_XML = """
     <record xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <header status="">
     <identifier>oai:HAL:hal-03456211v1</identifier>
@@ -34,9 +34,9 @@ HAL_XML = '''
     </resource>
     </metadata>
     </record>
-'''
+"""
 
-ONEDATA_XML = '''
+ONEDATA_XML = """
     <record xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" >
     <header>
         <identifier>oai:demo.onedata.org:2fd07bf5f3314cd9ce4c574342ddca86ch0dd1</identifier>
@@ -59,9 +59,9 @@ ONEDATA_XML = '''
     </metadata>
 </record>
             
-'''
+"""
 
-HZDR_XML = '''
+HZDR_XML = """
     <record xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <header>
     <identifier>oai:rodare.hzdr.de:2082</identifier>
@@ -83,10 +83,10 @@ HZDR_XML = '''
         </oai_datacite>
         </metadata>
         </record>    
-'''
+"""
+
 
 class TestHandleXml(unittest.TestCase):
-
     def test_detect_metadata_namespace_DANS(self):
         root = ET.fromstring(DANS_XML)
 
@@ -105,7 +105,6 @@ class TestHandleXml(unittest.TestCase):
         self.assertEqual(meta_ns, 'http://www.openarchives.org/OAI/2.0/')
         self.assertEqual(payload_ns, None)
 
-
     def test_detect_metadata_namespace_ONEDATA(self):
         root = ET.fromstring(ONEDATA_XML)
 
@@ -114,7 +113,6 @@ class TestHandleXml(unittest.TestCase):
 
         self.assertEqual(meta_ns, 'http://datacite.org/schema/kernel-4')
         self.assertEqual(payload_ns, 'http://schema.datacite.org/oai/oai-1.1/')
-
 
     def test_detect_metadata_namespace_HZDR(self):
         root = ET.fromstring(HZDR_XML)

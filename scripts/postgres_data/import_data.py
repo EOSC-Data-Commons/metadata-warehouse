@@ -13,7 +13,7 @@ import json
 
 load_dotenv()
 
-NS = {"oai": "http://www.openarchives.org/OAI/2.0/", "datacite": "http://datacite.org/schema/kernel-4"}
+NS = {'oai': 'http://www.openarchives.org/OAI/2.0/', 'datacite': 'http://datacite.org/schema/kernel-4'}
 
 FASTAPI_ADDRESS = os.environ.get('FASTAPI_ADDRESS', '127.0.0.1')
 FASTAPI_PORT = os.environ.get('FASTAPI_PORT', '8080')
@@ -22,7 +22,10 @@ TIMEOUT_FASTAPI = 30
 TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S.%f%z'
 BULK_SIZE = 50
 
-def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_file: Optional[Path], limit: Optional[int]) -> None:
+
+def import_data(
+    repo_code: str, harvest_url: str, data_file: Path, additional_file: Optional[Path], limit: Optional[int]
+) -> None:
     harvest_run_id = None
     bulk = []
 
@@ -32,9 +35,11 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_fi
             additional_metadata_lookup = json.load(f)
 
     try:
-        harvest_run = requests.post(f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_run', json={
-            'harvest_url': harvest_url
-        }, timeout=TIMEOUT_FASTAPI)
+        harvest_run = requests.post(
+            f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_run',
+            json={'harvest_url': harvest_url},
+            timeout=TIMEOUT_FASTAPI,
+        )
 
         harvest_run.raise_for_status()
 
@@ -48,7 +53,7 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_fi
     except Exception as e:
         print(f'An error occurred when creating a harvest run: {e}', file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
-        raise # preserves original traceback
+        raise  # preserves original traceback
 
     started = datetime.now(timezone.utc)
 
@@ -63,7 +68,6 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_fi
 
         count = 0
         for record in records:
-
             prefix = 'datacite' if repo_code != 'HAL' else 'oai'
 
             oai_id = record.find(f'./oai:header/oai:identifier', namespaces=NS)
@@ -73,9 +77,13 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_fi
 
             oai_id_without_prefix = oai_id.text.split(':')[-1]
 
-            identifier = record.find(f'./oai:metadata/{prefix}:resource/datacite:identifier[@identifierType="DOI"]', namespaces=NS)
+            identifier = record.find(
+                f'./oai:metadata/{prefix}:resource/datacite:identifier[@identifierType="DOI"]', namespaces=NS
+            )
             if identifier is None:
-                identifier = record.find(f'./oai:metadata/{prefix}:resource/datacite:identifier[@identifierType="URL"]', namespaces=NS)
+                identifier = record.find(
+                    f'./oai:metadata/{prefix}:resource/datacite:identifier[@identifierType="URL"]', namespaces=NS
+                )
             datestamp = record.find('./oai:header/oai:datestamp', namespaces=NS)
 
             if identifier is None or datestamp is None:
@@ -93,13 +101,15 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_fi
                 'harvest_url': harvest_url,
                 'repo_code': repo_code,
                 'harvest_run_id': harvest_run_id,
-                'is_deleted': False
+                'is_deleted': False,
             }
 
             bulk.append(payload)
 
             if len(bulk) >= BULK_SIZE:
-                res = requests.post(f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_event_bulk', json=bulk, timeout=TIMEOUT_FASTAPI)
+                res = requests.post(
+                    f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_event_bulk', json=bulk, timeout=TIMEOUT_FASTAPI
+                )
                 res.raise_for_status()
                 bulk = []
                 print('registered bulk')
@@ -110,44 +120,79 @@ def import_data(repo_code: str, harvest_url: str, data_file: Path, additional_fi
                 break
 
         if len(bulk) > 0:
-            res = requests.post(f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_event_bulk', json=bulk,
-                                timeout=TIMEOUT_FASTAPI)
+            res = requests.post(
+                f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_event_bulk', json=bulk, timeout=TIMEOUT_FASTAPI
+            )
             res.raise_for_status()
 
     except Exception as e:
         print(f'An error occurred when creating harvest event: {e}', file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
 
-
     completed = datetime.now(timezone.utc)
 
     try:
-        res = requests.put(f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_run', json={
-            'id': harvest_run_id,
-            'success': True,
-            'started_at': started.strftime(TIMESTAMP_FORMAT),
-            'completed_at': completed.strftime(TIMESTAMP_FORMAT)
-        }, timeout=TIMEOUT_FASTAPI)
+        res = requests.put(
+            f'http://{FASTAPI_ADDRESS}:{FASTAPI_PORT}/harvest_run',
+            json={
+                'id': harvest_run_id,
+                'success': True,
+                'started_at': started.strftime(TIMESTAMP_FORMAT),
+                'completed_at': completed.strftime(TIMESTAMP_FORMAT),
+            },
+            timeout=TIMEOUT_FASTAPI,
+        )
 
         res.raise_for_status()
 
     except Exception as e:
         print(f'An error occurred when closing the harvest run: {e}', file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
-        raise # preserves original traceback
+        raise  # preserves original traceback
+
 
 HARVEST_ENDPOINTS = [
-    ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/dans_arch/dans_arch.xml'), Path('doi_dataverse/lookup.json'), None),
-    ('DANS', 'https://ssh.datastations.nl/oai', Path('data/dans_soc/dans_soc.xml'), Path('doi_dataverse/lookup.json'), None),
-    ('DANS', 'https://lifesciences.datastations.nl/oai', Path('data/dans_life/dans_life.xml'), Path('doi_dataverse/lookup.json'), None),
-    ('DANS', 'https://phys-techsciences.datastations.nl/oai', Path('data/dans_phystec/dans_phystec.xml'), Path('doi_dataverse/lookup.json'), None),
+    (
+        'DANS',
+        'https://archaeology.datastations.nl/oai',
+        Path('data/dans_arch/dans_arch.xml'),
+        Path('doi_dataverse/lookup.json'),
+        None,
+    ),
+    (
+        'DANS',
+        'https://ssh.datastations.nl/oai',
+        Path('data/dans_soc/dans_soc.xml'),
+        Path('doi_dataverse/lookup.json'),
+        None,
+    ),
+    (
+        'DANS',
+        'https://lifesciences.datastations.nl/oai',
+        Path('data/dans_life/dans_life.xml'),
+        Path('doi_dataverse/lookup.json'),
+        None,
+    ),
+    (
+        'DANS',
+        'https://phys-techsciences.datastations.nl/oai',
+        Path('data/dans_phystec/dans_phystec.xml'),
+        Path('doi_dataverse/lookup.json'),
+        None,
+    ),
     ('DANS', 'https://dataverse.nl/oai', Path('data/dans_gen/dans_gen.xml'), Path('doi_dataverse/lookup.json'), None),
-    #('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('doi_dataverse'), None),
-    #('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
-    ('HAL', 'https://api.archives-ouvertes.fr/oai/hal', Path('data/hal/linked_research_outputs.xml'), Path('meta_hal/lookup.json'), None),
-    #('ZENODO', 'https://zenodo.org/oai2d', Path('data/zenodo/zenodo_parts.xml'), Path('meta_zenodo'), 200)
+    # ('SWISS', 'https://www.swissubase.ch/oai-pmh/v1/oai', Path('doi_dataverse'), None),
+    # ('DABAR', 'https://dabar.srce.hr/oai/', Path('data/harvests_DABAR'), Path('data/harvests_DABAR_additional')),
+    (
+        'HAL',
+        'https://api.archives-ouvertes.fr/oai/hal',
+        Path('data/hal/linked_research_outputs.xml'),
+        Path('meta_hal/lookup.json'),
+        None,
+    ),
+    # ('ZENODO', 'https://zenodo.org/oai2d', Path('data/zenodo/zenodo_parts.xml'), Path('meta_zenodo'), 200)
 ]
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     for repo, harvest_url_repo, path, add, lim in HARVEST_ENDPOINTS:
         import_data(repo, harvest_url_repo, path, add, lim)

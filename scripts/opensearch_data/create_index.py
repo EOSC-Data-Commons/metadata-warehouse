@@ -13,18 +13,16 @@ ADDRESS = os.environ.get('OPENSEARCH_ADDRESS')
 PORT = os.environ.get('OPENSEARCH_PORT')
 
 if not INDEX_NAME or not embedding_dims:
-    raise ValueError("Missing INDEX_NAME or EMBEDDING_DIMS environment variable")
+    raise ValueError('Missing INDEX_NAME or EMBEDDING_DIMS environment variable')
 
 client = OpenSearch(
     hosts=[{'host': ADDRESS if ADDRESS else '127.0.0.1', 'port': int(PORT) if PORT else 9200}],
     http_auth=None,
-    use_ssl=False
+    use_ssl=False,
 )
 
 try:
-    client.indices.delete(
-        index=INDEX_NAME
-    )
+    client.indices.delete(index=INDEX_NAME)
     print(f'index {INDEX_NAME} deleted')
 except Exception as e:
     print(e)
