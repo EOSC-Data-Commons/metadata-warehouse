@@ -4,25 +4,29 @@ import argparse
 import json
 import os
 import sys
-from typing import Optional, Any
-import xmltodict
-from pathlib import Path
+import traceback
 from multiprocessing import Pool, cpu_count
+from pathlib import Path
+from typing import Any, Optional
+
+import xmltodict
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
-import traceback
 from lxml import etree as ET
 
 # setting path
-sys.path.append("..")
-sys.path.append("../..")
+sys.path.append('..')
+sys.path.append('../..')
 
+from src.utils.handle_xml import OAI, detect_metadata_namespace, detect_payload_namespace, get_resource, preprocess_xml
 from src.utils.normalize_datacite_json import normalize_datacite_json
-from src.utils.handle_xml import detect_metadata_namespace, detect_payload_namespace, preprocess_xml, OAI, get_resource
 
-def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: Optional[dict[Any, Any]], perform_validation: bool) -> None:
+
+def transform_record(
+    filepath: Path, output_dir: Path, normalize: bool, schema: Optional[dict[Any, Any]], perform_validation: bool
+) -> None:
     try:
-        with open(filepath, encoding="utf-8") as f:
+        with open(filepath, encoding='utf-8') as f:
             contents = f.read()
 
         root = ET.fromstring(contents.encode('utf-8'))
@@ -39,7 +43,7 @@ def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: 
             result = get_resource(metadata, metadata_ns, payload_ns)
 
             if result is None:
-                raise ValueError(f"Could not detect metadata namespace in {filepath}")
+                raise ValueError(f'Could not detect metadata namespace in {filepath}')
 
             resource, metadata_namespace_for_access = result
 
@@ -59,21 +63,30 @@ def transform_record(filepath: Path, output_dir: Path, normalize: bool, schema: 
         print(f'Transformation failed for {filepath}: {e}', file=sys.stderr)
         traceback.print_exc()
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', help='input directory', type=str, required=True)
     parser.add_argument('-o', help='output directory', type=str, required=True)
-    parser.add_argument('-s', help='path to schema file if normalized output should be validated (requires flag -n)', type=str)
+    parser.add_argument(
+        '-s', help='path to schema file if normalized output should be validated (requires flag -n)', type=str
+    )
     parser.add_argument('-n', help='If set, output JSON is normalized', action='store_true')
     parser.add_argument('-v', help='If set, output JSON is validated', action='store_true')
 
     args = parser.parse_args()
 
-    if args.i is None or not os.path.isdir(args.i) or args.o is None or not os.path.isdir(args.o) or (args.s and not os.path.isfile(args.s)):
+    if (
+        args.i is None
+        or not os.path.isdir(args.i)
+        or args.o is None
+        or not os.path.isdir(args.o)
+        or (args.s and not os.path.isfile(args.s))
+    ):
         parser.print_help()
         exit(1)
 
-    files: list[Path] = (list(Path(args.i).rglob("*.xml")))
+    files: list[Path] = list(Path(args.i).rglob('*.xml'))
 
     schema = None
     if args.s is not None:

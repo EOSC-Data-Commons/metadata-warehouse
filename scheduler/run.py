@@ -27,19 +27,18 @@ dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Scheduler pipeline entrypoint")
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Scheduler pipeline entrypoint')
     parser.add_argument(
-        "--all-runs",
-        action="store_true",
+        '--all-runs',
+        action='store_true',
         default=False,
-        help="Retrieve closed runs from any time, not just the last 6 days",
+        help='Retrieve closed runs from any time, not just the last 6 days',
     )
     args = parser.parse_args()
 
-    logger.info("scheduler job started")
+    logger.info('scheduler job started')
 
     run_pipeline(all_runs=args.all_runs)
 
-    logger.info("scheduler job finished")
-    
+    logger.info('scheduler job finished')
