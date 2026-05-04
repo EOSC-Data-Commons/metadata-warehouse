@@ -1,5 +1,6 @@
-from lxml import etree as ET
 from typing import Any
+
+from lxml import etree as ET
 
 OAI = 'http://www.openarchives.org/OAI/2.0/'
 DATACITE_4 = 'http://datacite.org/schema/kernel-4'
@@ -8,7 +9,7 @@ DATACITE_3 = 'http://datacite.org/schema/kernel-3'
 
 KNOWN_DATACITE_NS = {DATACITE_3, DATACITE_4, DATACITE_4_2}
 
-XSLT_NS = b'''<?xml version="1.0" encoding="UTF-8"?>
+XSLT_NS = b"""<?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet version="1.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 
@@ -40,9 +41,10 @@ XSLT_NS = b'''<?xml version="1.0" encoding="UTF-8"?>
 
 </xsl:stylesheet>
 
-    '''
+    """
 
 _XSLT_TRANSFORM = ET.XSLT(ET.fromstring(XSLT_NS))
+
 
 def detect_metadata_namespace(root: ET._Element) -> str | None:
     """Extract the namespace of the resource element inside OAI metadata."""
@@ -51,6 +53,7 @@ def detect_metadata_namespace(root: ET._Element) -> str | None:
         return None
     return resource.nsmap.get(resource.prefix)
 
+
 def detect_payload_namespace(root: ET._Element) -> str | None:
     """Extract the namespace of the resource element inside OAI metadata."""
     resource = root.find('.//{*}payload')
@@ -58,12 +61,15 @@ def detect_payload_namespace(root: ET._Element) -> str | None:
         return None
     return resource.nsmap.get(resource.prefix)
 
+
 def preprocess_xml(root: ET._Element) -> str:
     result = _XSLT_TRANSFORM(root)
     return ET.tostring(result, encoding='unicode')
 
 
-def get_resource(metadata: dict[str, Any], metadata_namespace: str | None, payload_ns: str | None) -> tuple[dict[str, Any], str] | None:
+def get_resource(
+    metadata: dict[str, Any], metadata_namespace: str | None, payload_ns: str | None
+) -> tuple[dict[str, Any], str] | None:
     if metadata_namespace is not None and metadata_namespace.rstrip('/') in KNOWN_DATACITE_NS:
         if payload_ns is not None:
             oai_wrapper = f'{payload_ns}:oai_datacite'

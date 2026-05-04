@@ -1,7 +1,7 @@
 import os
 
-class OpenSearchConfig:
 
+class OpenSearchConfig:
     host: str
     port: int
 

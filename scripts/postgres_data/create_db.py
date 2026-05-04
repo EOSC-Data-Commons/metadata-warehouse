@@ -1,10 +1,11 @@
 #!/usr/bin/env -S uv run --script
-import sys
-import os
 import argparse
-from dotenv import load_dotenv
-import psycopg
+import os
+import sys
 import traceback
+
+import psycopg
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -28,8 +29,16 @@ if not os.path.isdir(SQL_FOLDER):
     print(f'Error: SQL folder "{SQL_FOLDER}" does not exist.', file=sys.stderr)
     sys.exit(1)
 
-sql_files = ['types.sql', 'tables.sql', 'indexes.sql', 'triggers.sql', 'seed.sql', 'views.sql', 'permissions.sql',
-             'verify.sql']
+sql_files = [
+    'types.sql',
+    'tables.sql',
+    'indexes.sql',
+    'triggers.sql',
+    'seed.sql',
+    'views.sql',
+    'permissions.sql',
+    'verify.sql',
+]
 
 host = ADDRESS if ADDRESS else '127.0.0.1'
 port = int(PORT) if PORT else 5432
@@ -38,10 +47,9 @@ try:
     # Step 1: Create DB if it doesn't exist, or reset if --reset flag is set
     proceed = False
 
-    with psycopg.connect(dbname='postgres', user=USER, host=host, password=PW, port=port,
-                         autocommit=True) as conn:
+    with psycopg.connect(dbname='postgres', user=USER, host=host, password=PW, port=port, autocommit=True) as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (DB,))
+            cur.execute('SELECT 1 FROM pg_database WHERE datname = %s', (DB,))
             exists = cur.fetchone()
             if not exists:
                 cur.execute(f'CREATE DATABASE "{DB}"')
@@ -58,8 +66,8 @@ try:
     if proceed:
         with psycopg.connect(dbname=DB, user=USER, host=host, password=PW, port=port) as conn:
             with conn.cursor() as cur:
-                cur.execute("DROP SCHEMA IF EXISTS public CASCADE")
-                cur.execute("CREATE SCHEMA public")
+                cur.execute('DROP SCHEMA IF EXISTS public CASCADE')
+                cur.execute('CREATE SCHEMA public')
                 print('Schema "public" reset.')
 
                 for sql_f in sql_files:
