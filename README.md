@@ -196,6 +196,13 @@ Optionally add the following env variables (not needed for local dev):
 - `WAREHOUSE_API_URL` (default "http://transform:80")
 - `INDEX_NAME` (default "test_datacite")
 
+## Linting
+
+To format all files properly, run:
+
+- `uv run ruff format`
+- `uv run ruff check --select I --fix`
+
 ## Run E2E Tests
 
 Before running the e2e tests locally, the env var `POSTGRES_DB` needs to be set to "testdb" 
