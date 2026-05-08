@@ -1,11 +1,12 @@
-import sys
 import datetime
-from typing import Any, Callable, Optional
 import json
+import sys
+from typing import Any, Callable, Optional
 
 XML = 'http://www.w3.org/XML/1998/namespace'
 DATE_FORMAT = '%Y-%m-%d'
 DOI_BASE = 'https://doi.org/'
+
 
 def get_identifier(entry: dict[str, Any], identifier_type: str, datacite_schema: str) -> Any | None:
     if identifier := entry.get(f'{datacite_schema}:identifier'):
@@ -27,6 +28,7 @@ def get_identifier(entry: dict[str, Any], identifier_type: str, datacite_schema:
     # print(f'No DOI given for {entry}')
     return None
 
+
 def get_resource_type(entry: dict[str, Any], datacite_schema: str) -> Optional[dict[str, Any]]:
 
     res = {}
@@ -41,6 +43,7 @@ def get_resource_type(entry: dict[str, Any], datacite_schema: str) -> Optional[d
 
     return None
 
+
 def harmonize_creator(entry: dict[str, Any], datacite_schema: str) -> dict[str, Any]:
     """
     Given an entry of 'datacite_creators', harmonizes its structure.
@@ -51,7 +54,9 @@ def harmonize_creator(entry: dict[str, Any], datacite_schema: str) -> dict[str, 
 
     cr = entry[f'{datacite_schema}:creator']
 
-    name_identifier_props = harmonize_props(cr, f'{datacite_schema}:nameIdentifier', {'@nameIdentifierScheme': 'nameIdentifierScheme'}, {}, datacite_schema)
+    name_identifier_props = harmonize_props(
+        cr, f'{datacite_schema}:nameIdentifier', {'@nameIdentifierScheme': 'nameIdentifierScheme'}, {}, datacite_schema
+    )
 
     if isinstance(value := name_identifier_props.get(f'{datacite_schema}:nameIdentifier'), list):
         # list of name ids
@@ -67,12 +72,17 @@ def harmonize_creator(entry: dict[str, Any], datacite_schema: str) -> dict[str, 
         **harmonize_props(cr, f'{datacite_schema}:creatorName', {'@nameType': 'nameType'}, {}, datacite_schema),
         **harmonize_props(cr, f'{datacite_schema}:givenName', {}, {}, datacite_schema),
         **harmonize_props(cr, f'{datacite_schema}:familyName', {}, {}, datacite_schema),
-        **name_id
+        **name_id,
     }
 
 
-def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, str],
-                    normalization: dict[str, Callable[[Any], Any]], datacite_schema: str) -> dict[str, Any]:
+def harmonize_props(
+    entry: dict[str, Any],
+    field_name: str,
+    attr_map: dict[str, str],
+    normalization: dict[str, Callable[[Any], Any]],
+    datacite_schema: str,
+) -> dict[str, Any]:
     """
     Give a dict and a field_name, returns a dict with that field's value in a harmonized format.
 
@@ -88,16 +98,12 @@ def harmonize_props(entry: dict[str, Any], field_name: str, attr_map: dict[str, 
     if field_name not in entry or entry[field_name] is None:
         return {}
 
-    name = field_name[len(datacite_schema) + 1:]
+    name = field_name[len(datacite_schema) + 1 :]
     if isinstance(entry[field_name], str):
         if name in normalization:
-            return {
-                name: normalization[name](entry[field_name])
-            }
+            return {name: normalization[name](entry[field_name])}
         else:
-            return {
-                name: entry[field_name]
-            }
+            return {name: entry[field_name]}
     elif isinstance(entry[field_name], dict):
         harmonized_entry = {}
 
@@ -217,11 +223,12 @@ def normalize_date_precision(date_str: str) -> str:
 
         try:
             normalized_date = datetime.datetime(year, month, day).strftime(DATE_FORMAT)
-            #print(f'{date_str}, {parts}, {normalized_date}')
+            # print(f'{date_str}, {parts}, {normalized_date}')
         except Exception as e:
             print(f'Could not normalize date: {date_str}, {parts} {e}', file=sys.stderr)
             raise e
         return normalized_date
+
 
 def normalize_date_string(date_str: str) -> str:
     """
@@ -240,6 +247,7 @@ def normalize_date_string(date_str: str) -> str:
         # date may not have day precision
         return normalize_date_precision(date_str)
 
+
 def normalize_lang_string(lang: str) -> str:
     """
     Normalizes lang strings to 2-char strings.
@@ -252,6 +260,7 @@ def normalize_lang_string(lang: str) -> str:
         return lang[0:2]
     else:
         return lang
+
 
 def make_id(res: dict[Any, Any]) -> Optional[str]:
     """
@@ -266,42 +275,97 @@ def make_id(res: dict[Any, Any]) -> Optional[str]:
 def normalize_datacite_json(res: dict[str, Any], datacite_schema: str) -> dict[str, Any]:
     # print(json.dumps(input))
 
-
-
     try:
-        url = get_identifier(res, 'URL', datacite_schema) # I originally wanted to go for the walrus operator here ...
+        url = get_identifier(res, 'URL', datacite_schema)  # I originally wanted to go for the walrus operator here ...
 
         res = {
             'doi': get_identifier(res, 'DOI', datacite_schema),
-            'url': url if url is not None else get_identifier(res, 'URN', datacite_schema), # fall back to URN if URL is not present
-            'titles': list(map(lambda el: harmonize_props(el, f'{datacite_schema}:title',
-                                                          {f'@{XML}:lang': 'lang', '@titleType': 'titleType'}, {f'@{XML}:lang': normalize_lang_string}, datacite_schema),
-                               make_array(res.get(f'{datacite_schema}:titles'), f'{datacite_schema}:title'))),
-            'subjects': list(map(lambda el: harmonize_props(el, f'{datacite_schema}:subject',
-                                                            {f'@{XML}:lang': 'lang', '@subjectScheme': 'subjectScheme',
-                                                             '@schemeURI': 'schemaUri', '@valueURI': 'valueUri',
-                                                             '@classificationCode': 'classificationCode'}, {f'@{XML}:lang': normalize_lang_string}, datacite_schema),
-                                 make_array(res.get(f'{datacite_schema}:subjects'), f'{datacite_schema}:subject'))),
-            'creators': list(map(lambda cr: harmonize_creator(cr, datacite_schema),
-                                 make_array(res.get(f'{datacite_schema}:creators'), f'{datacite_schema}:creator'))),
+            'url': url
+            if url is not None
+            else get_identifier(res, 'URN', datacite_schema),  # fall back to URN if URL is not present
+            'titles': list(
+                map(
+                    lambda el: harmonize_props(
+                        el,
+                        f'{datacite_schema}:title',
+                        {f'@{XML}:lang': 'lang', '@titleType': 'titleType'},
+                        {f'@{XML}:lang': normalize_lang_string},
+                        datacite_schema,
+                    ),
+                    make_array(res.get(f'{datacite_schema}:titles'), f'{datacite_schema}:title'),
+                )
+            ),
+            'subjects': list(
+                map(
+                    lambda el: harmonize_props(
+                        el,
+                        f'{datacite_schema}:subject',
+                        {
+                            f'@{XML}:lang': 'lang',
+                            '@subjectScheme': 'subjectScheme',
+                            '@schemeURI': 'schemaUri',
+                            '@valueURI': 'valueUri',
+                            '@classificationCode': 'classificationCode',
+                        },
+                        {f'@{XML}:lang': normalize_lang_string},
+                        datacite_schema,
+                    ),
+                    make_array(res.get(f'{datacite_schema}:subjects'), f'{datacite_schema}:subject'),
+                )
+            ),
+            'creators': list(
+                map(
+                    lambda cr: harmonize_creator(cr, datacite_schema),
+                    make_array(res.get(f'{datacite_schema}:creators'), f'{datacite_schema}:creator'),
+                )
+            ),
             'publicationYear': res.get(f'{datacite_schema}:publicationYear'),
-            'descriptions': list(map(lambda el: harmonize_props(el, f'{datacite_schema}:description',
-                                                                {'@descriptionType': 'descriptionType',
-                                                                 f'@{XML}:lang': 'lang'}, {f'@{XML}:lang': normalize_lang_string}, datacite_schema),
-                                     make_array(res.get(f'{datacite_schema}:descriptions'), f'{datacite_schema}:description'))),
-            'dates': list(map(lambda el: harmonize_props(el, f'{datacite_schema}:date', {'@dateType': 'dateType'},
-                                                         {'date': normalize_date_string}, datacite_schema),
-                              make_array(res.get(f'{datacite_schema}:dates'), f'{datacite_schema}:date'))),
-            'formats': list(map(lambda el: el['format'], map(lambda el: harmonize_props(el, f'{datacite_schema}:format', {}, {}, datacite_schema),
-                              make_array(res.get(f'{datacite_schema}:formats'), f'{datacite_schema}:format')))),
-            'rightsList': list(map(lambda el: harmonize_props(el, f'{datacite_schema}:rights', {'@rightsURI': 'rightsURI'},
-                                                         {}, datacite_schema),
-                              make_array(res.get(f'{datacite_schema}:rightsList'), f'{datacite_schema}:rights'))),
-            'types': get_resource_type(res, datacite_schema)
+            'descriptions': list(
+                map(
+                    lambda el: harmonize_props(
+                        el,
+                        f'{datacite_schema}:description',
+                        {'@descriptionType': 'descriptionType', f'@{XML}:lang': 'lang'},
+                        {f'@{XML}:lang': normalize_lang_string},
+                        datacite_schema,
+                    ),
+                    make_array(res.get(f'{datacite_schema}:descriptions'), f'{datacite_schema}:description'),
+                )
+            ),
+            'dates': list(
+                map(
+                    lambda el: harmonize_props(
+                        el,
+                        f'{datacite_schema}:date',
+                        {'@dateType': 'dateType'},
+                        {'date': normalize_date_string},
+                        datacite_schema,
+                    ),
+                    make_array(res.get(f'{datacite_schema}:dates'), f'{datacite_schema}:date'),
+                )
+            ),
+            'formats': list(
+                map(
+                    lambda el: el['format'],
+                    map(
+                        lambda el: harmonize_props(el, f'{datacite_schema}:format', {}, {}, datacite_schema),
+                        make_array(res.get(f'{datacite_schema}:formats'), f'{datacite_schema}:format'),
+                    ),
+                )
+            ),
+            'rightsList': list(
+                map(
+                    lambda el: harmonize_props(
+                        el, f'{datacite_schema}:rights', {'@rightsURI': 'rightsURI'}, {}, datacite_schema
+                    ),
+                    make_array(res.get(f'{datacite_schema}:rightsList'), f'{datacite_schema}:rights'),
+                )
+            ),
+            'types': get_resource_type(res, datacite_schema),
         }
 
         # remove None values and empty lists
-        cleaned =  dict(filter(remove_empty_item, res.items()))
+        cleaned = dict(filter(remove_empty_item, res.items()))
 
         return {'id': make_id(cleaned), **cleaned}
 
