@@ -554,6 +554,10 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str) -> int:
                     doc.get('harvest_params', {}).get('additional_metadata_params', {}).get('endpoint')
                 )
 
+                additional_metadata_protocol = (
+                    doc.get('harvest_params', {}).get('additional_metadata_params', {}).get('protocol')
+                )
+
                 batch.append(
                     HarvestEventQueue(
                         id=str(doc['id']),
@@ -566,6 +570,7 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str) -> int:
                         harvest_url=doc['harvest_url'],
                         additional_metadata=doc['additional_metadata'],
                         additional_metadata_API=additional_metadata_API,
+                        additional_metadata_protocol=additional_metadata_protocol,
                         is_deleted=doc['is_deleted'],
                         datestamp=doc['datestamp'].strftime('%Y-%m-%d %H:%M:%S.%f%z'),
                     )
