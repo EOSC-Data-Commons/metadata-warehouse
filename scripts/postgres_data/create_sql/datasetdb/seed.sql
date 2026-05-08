@@ -422,7 +422,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite"}',
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://dv.dataverse.lv/api/datasets/:persistentId/versions/:latest-published", "protocol": "DATAVERSE_API", "format": "dataverse_json"}}',
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DATAVERSELV'
@@ -438,7 +438,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite"}',
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://dv.dataverse.lv/api/datasets/:persistentId/versions/:latest-published", "protocol": "DATAVERSE_API", "format": "dataverse_json"}}',
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DATAVERSELV'
