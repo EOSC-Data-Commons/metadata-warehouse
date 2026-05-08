@@ -125,7 +125,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
             if (
                 harvest_event.additional_metadata_API
                 and harvest_event.additional_metadata
-                and harvest_event.code == ProviderCode.DANS
+                and harvest_event.additional_metadata_protocol == 'DATAVERSE_API'
             ):
                 # this only covers dataverse for now
 
