@@ -17,5 +17,6 @@ class HarvestEventQueue(NamedTuple):
     harvest_url: str  # 7
     additional_metadata: Optional[str]  # 8
     additional_metadata_API: Optional[str]  # 9
-    is_deleted: bool  # 10
-    datestamp: str  # 11
+    additional_metadata_protocol: Optional[str]  # 10
+    is_deleted: bool  # 11
+    datestamp: str  # 12
