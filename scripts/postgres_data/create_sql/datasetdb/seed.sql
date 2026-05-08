@@ -11,7 +11,10 @@ VALUES
     ('HAL Science', 'HAL', 'French open archive', 'https://hal.science', true),
     ('Onedata', 'ONE', 'Onedata demo repository', 'https://demo.onedata.org', true),
     ('FinBIF', 'FINBIF', 'Finnish Biodiversity Information Facility', 'https://laji.fi', true),
-    ('Zenodo', 'ZENODO', 'Zenodo repository', 'https://zenodo.org', true)
+    ('Zenodo', 'ZENODO', 'Zenodo repository', 'https://zenodo.org', true),
+    ('PaNOSC', 'PANOSC', 'Scientific data infrastructure repository', 'https://www.panosc.eu/', true),
+    ('Dataverse Latvia EOSC Node', 'DATAVERSELV', 'Latvian research data repository', 'https://dataverse.lv/', true)
+
 ON CONFLICT (code) DO NOTHING;
 
 
@@ -215,6 +218,198 @@ SELECT
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'ZENODO'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- PaNOSc ALBA
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'ALBA',
+    'https://data.cells.es/iws/icat_plus/oaipmh/request',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_datacite"}',
+    INTERVAL '52 week'
+FROM repositories r
+WHERE r.code = 'PANOSC'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- PaNOSc DESY
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'DESY',
+    'https://public-data.desy.de/oaipmh/oai',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_dc"}',
+    INTERVAL '52 week'
+FROM repositories r
+WHERE r.code = 'PANOSC'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- PaNOSc Elettra
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'Elettra',
+    'https://api.opendata.elettra.eu/oaipmh/',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_dc"}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'PANOSC'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- PaNOSc ESRF
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'ESRF',
+    'https://icatplus.esrf.fr/oaipmh/request',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_datacite"}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'PANOSC'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- PaNOSc ESS
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'ESS',
+    'https://oai.panosc.ess.eu/openaire/oai',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_datacite"}',
+    INTERVAL '52 week'
+FROM repositories r
+WHERE r.code = 'PANOSC'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- PaNOSc EuXFEL
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'EuXFEL',
+    'https://in.xfel.eu/metadata/oai-pmh/oai2',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_datacite"}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'PANOSC'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- PaNOSc HZB
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'HZB',
+    'https://data.helmholtz-berlin.de/oaipmh/request',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_datacite", "set" : ["pub"]}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'PANOSC'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- PaNOSc HZDR
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'HZDR',
+    'https://rodare.hzdr.de/oai2d',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_datacite4", "set": ["openaire_data"]}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'PANOSC'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- PaNOSc ILL
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'ILL',
+    'https://fairdata.ill.fr/openaire/oai',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_datacite"}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'PANOSC'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- PaNOSc ISIS
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'ISIS',
+    'https://icat.isis.stfc.ac.uk/oaipmh/request',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_datacite"}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'PANOSC'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- PaNOSc MAX IV
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'MAX IV',
+    'https://scicat.maxiv.lu.se/openaire/oai',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_datacite"}',
+    INTERVAL '52 week'
+FROM repositories r
+WHERE r.code = 'PANOSC'
+ON CONFLICT (name) DO NOTHING;
+
+
+-- PaNOSc PSI
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'PSI',
+    'https://doi.psi.ch/oaipmh/oai',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_dc"}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
 
 
