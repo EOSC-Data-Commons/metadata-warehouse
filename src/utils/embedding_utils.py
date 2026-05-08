@@ -1,13 +1,16 @@
 from pathlib import Path
 from typing import Any, NamedTuple, Optional
+
 from fastembed import TextEmbedding
 from numpy import ndarray
+
 from .queue_utils import HarvestEventQueue
 
+
 class SourceWithEmbeddingText(NamedTuple):
-    src: dict[str, Any] # 0, source document
-    textToEmbed: str # 1, text to be embedded
-    event: HarvestEventQueue # 2, original harvest event
+    src: dict[str, Any]  # 0, source document
+    textToEmbed: str  # 1, text to be embedded
+    event: HarvestEventQueue  # 2, original harvest event
 
 
 class OpenSearchSourceWithEmbedding(NamedTuple):
@@ -22,9 +25,11 @@ def get_embedding_text_from_fields(source: dict[str, Any]) -> str:
     :param source: the source document.
     :return: the string to be embedded.
     """
-    return ' '.join(extract_fields_from_source(source, 'titles', 'title') + extract_fields_from_source(source, 'subjects',
-                                                                                       'subject') + extract_fields_from_source(
-        source, 'descriptions', 'description'))
+    return ' '.join(
+        extract_fields_from_source(source, 'titles', 'title')
+        + extract_fields_from_source(source, 'subjects', 'subject')
+        + extract_fields_from_source(source, 'descriptions', 'description')
+    )
 
 
 def extract_fields_from_source(source: dict[str, Any], field_name: str, subfield_name: str) -> list[str]:
@@ -42,8 +47,10 @@ def extract_fields_from_source(source: dict[str, Any], field_name: str, subfield
     else:
         return []
 
-def create_opensearch_source(src: dict[str, Any], embedding: ndarray[Any], batch_ele: SourceWithEmbeddingText,
-                             embedding_field_name: str) -> OpenSearchSourceWithEmbedding:
+
+def create_opensearch_source(
+    src: dict[str, Any], embedding: ndarray[Any], batch_ele: SourceWithEmbeddingText, embedding_field_name: str
+) -> OpenSearchSourceWithEmbedding:
     """
 
 
@@ -53,16 +60,21 @@ def create_opensearch_source(src: dict[str, Any], embedding: ndarray[Any], batch
     :param embedding_field_name: name to be used for embedding field
     """
 
-    return OpenSearchSourceWithEmbedding(src={
-        **src,
-        embedding_field_name: embedding.tolist(),
-        '_additional_metadata': batch_ele.event.additional_metadata,
-        '_repo': batch_ele.event.code,
-        '_harvest_url': batch_ele.event.harvest_url
-    }, harvest_event=batch_ele.event)
+    return OpenSearchSourceWithEmbedding(
+        src={
+            **src,
+            embedding_field_name: embedding.tolist(),
+            '_additional_metadata': batch_ele.event.additional_metadata,
+            '_repo': batch_ele.event.code,
+            '_harvest_url': batch_ele.event.harvest_url,
+        },
+        harvest_event=batch_ele.event,
+    )
 
 
-def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_model: TextEmbedding, embedding_field_name: str = 'emb') -> list[OpenSearchSourceWithEmbedding]:
+def add_embeddings_to_source(
+    batch: list[SourceWithEmbeddingText], embedding_model: TextEmbedding, embedding_field_name: str = 'emb'
+) -> list[OpenSearchSourceWithEmbedding]:
     """
     Given a batch of `SourceWithEmbeddingText`, calculates the embeddings and returns the documents with the embeddings (integrated).
 
@@ -74,12 +86,15 @@ def add_embeddings_to_source(batch: list[SourceWithEmbeddingText], embedding_mod
     embeddings = list(embedding_model.embed(embedding_texts))
 
     if len(embeddings) != len(batch):
-        raise ValueError("Embedding model returned an unexpected number of vectors.")
+        raise ValueError('Embedding model returned an unexpected number of vectors.')
 
-    return [create_opensearch_source(batch_ele.src, emb_ele, batch_ele, embedding_field_name) for batch_ele, emb_ele in zip(
-        batch, # original batch
-        embeddings  # embeddings
-    )]
+    return [
+        create_opensearch_source(batch_ele.src, emb_ele, batch_ele, embedding_field_name)
+        for batch_ele, emb_ele in zip(
+            batch,  # original batch
+            embeddings,  # embeddings
+        )
+    ]
 
 
 def preprocess_batch(batch: list[dict[str, Any]], index_name: str) -> list[dict[str, Any]]:
@@ -90,7 +105,4 @@ def preprocess_batch(batch: list[dict[str, Any]], index_name: str) -> list[dict[
     :param index_name: name of the OpenSearch index.
     :return: a list of prepared documents for import.
     """
-    return [
-        {'_op_type': 'index', '_id': ele['id'], '_index': index_name, '_source': ele}
-        for ele in batch
-    ]
+    return [{'_op_type': 'index', '_id': ele['id'], '_index': index_name, '_source': ele} for ele in batch]

@@ -1,8 +1,8 @@
 import os
 from typing import Any, Optional
 
-class PostgresConfig:
 
+class PostgresConfig:
     user: str
     db: str
     password: str
@@ -23,7 +23,9 @@ class PostgresConfig:
             self.address = address if address else 'postgres'
             self.port = int(port) if port else 5432
         else:
-            raise ValueError('Missing POSTGRES_USER or POSTGRES_PASSWORD or POSTGRES_DB in environment (docker-compose.yml).')
+            raise ValueError(
+                'Missing POSTGRES_USER or POSTGRES_PASSWORD or POSTGRES_DB in environment (docker-compose.yml).'
+            )
 
     @property
     def connection_params(self) -> dict[str, Any]:
@@ -33,5 +35,5 @@ class PostgresConfig:
             'user': self.user,
             'host': self.address,
             'password': self.password,
-            'port': self.port
+            'port': self.port,
         }
