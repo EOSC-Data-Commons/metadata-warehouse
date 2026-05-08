@@ -229,7 +229,7 @@ SELECT
     'Multidisciplinary',
     true,
     '{"metadata_prefix": "oai_datacite"}',
-    INTERVAL '1 week'
+    INTERVAL '52 week'
 FROM repositories r
 WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
@@ -245,7 +245,7 @@ SELECT
     'Multidisciplinary',
     true,
     '{"metadata_prefix": "oai_dc"}',
-    INTERVAL '1 week'
+    INTERVAL '52 week'
 FROM repositories r
 WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
@@ -293,7 +293,7 @@ SELECT
     'Multidisciplinary',
     true,
     '{"metadata_prefix": "oai_datacite"}',
-    INTERVAL '1 week'
+    INTERVAL '52 week'
 FROM repositories r
 WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
@@ -389,7 +389,7 @@ SELECT
     'Multidisciplinary',
     true,
     '{"metadata_prefix": "oai_datacite"}',
-    INTERVAL '1 week'
+    INTERVAL '52 week'
 FROM repositories r
 WHERE r.code = 'PANOSC'
 ON CONFLICT (name) DO NOTHING;
