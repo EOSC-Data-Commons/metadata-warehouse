@@ -11,8 +11,7 @@ VALUES
     ('HAL Science', 'HAL', 'French open archive', 'https://hal.science', true),
     ('Onedata', 'ONE', 'Onedata demo repository', 'https://demo.onedata.org', true),
     ('FinBIF', 'FINBIF', 'Finnish Biodiversity Information Facility', 'https://laji.fi', true),
-    ('Zenodo', 'ZENODO', 'Zenodo repository', 'https://zenodo.org', true),
-    ('Dataverse Latvia EOSC Node', 'DATAVERSELV', 'Latvian research data repository', 'https://dataverse.lv/', true)
+    ('Zenodo', 'ZENODO', 'Zenodo repository', 'https://zenodo.org', true)
 ON CONFLICT (code) DO NOTHING;
 
 
