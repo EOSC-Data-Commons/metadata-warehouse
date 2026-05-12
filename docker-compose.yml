@@ -215,11 +215,34 @@ services:
         depends_on:
             opensearch:
                 condition: service_healthy
+            # coordinator:
+            #     condition: service_healthy
         command: npm run prod
         environment:
             - NODE_ENV=production
             - SEARCH_API_URL=http://search-api:8000
-            - PLAYER_API_URL=https://dev1.player.eosc-data-commons.eu
+            # - PLAYER_GRPC_TARGET=http://coordinator:50051
+            - PLAYER_GRPC_TARGET=https://eosc-coordinator.ethz.ch:443
+        networks:
+            - warehouse-backend
+            
+    #https://github.com/EOSC-Data-Commons/req-packager/pkgs/container/coordinator
+    coordinator:
+        image: ghcr.io/eosc-data-commons/coordinator:v0.1.0
+        restart: unless-stopped
+        depends_on:
+            postgres:
+                condition: service_healthy
+        command: 
+            ["rp"]
+        environment:
+            POSTGRES_USER: "${POSTGRES_ADMIN}"
+            POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+            POSTGRES_DB: "${POSTGRES_DB}"
+            POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
+            POSTGRES_PORT: "${POSTGRES_PORT}"
+            FILE_DB: "${FILE_DB}"
+            TOOL_REGISTRY_API: "https://dev.tools-registry.eosc-data-commons.eu/api/v1"
         networks:
             - warehouse-backend
 
