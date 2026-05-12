@@ -182,7 +182,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite", "set": ["2a3d4828965cf74d7fc00d19c15715e7ch3d8e"]}',
+    '{"metadata_prefix": "oai_datacite", "set": ["2a3d4828965cf74d7fc00d19c15715e7ch3d8e", "a93d0c2877c38910bd10bc458e266debch24b6"]}',
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'ONE'
