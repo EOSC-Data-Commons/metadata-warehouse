@@ -1,0 +1,2 @@
+-- Tables for this database are defined using SQLalchemy in:
+-- https://github.com/EOSC-Data-Commons/data-commons-search/blob/main/src/data_commons_search/db.py

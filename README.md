@@ -58,7 +58,7 @@ In development, it may be more convenient to load pre-harvested static data:
   ```
 - fetch additional metadata using `scripts/postgres_data/dataverse.py` (Dataverse) or `scripts/postgres_data/get_meta.py` (HAL, Zenodo)
   Combine additional metadata files in one virtual structure using 
-   
+  
   Dataverse:
    ```python
     import json, glob
@@ -73,7 +73,7 @@ In development, it may be more convenient to load pre-harvested static data:
     # Optionally save it
     with open('lookup.json', 'w') as out:
         json.dump(lookup, out)
-  ```
+   ```
 
   HAL:
   ```python
@@ -98,7 +98,7 @@ In development, it may be more convenient to load pre-harvested static data:
   ```python
   HARVEST_ENDPOINTS = [
     ('DANS', 'https://archaeology.datastations.nl/oai', Path('data/dans_arch/dans_arch.xml'), Path('doi_dataverse/lookup.json'), None)
-  ``` 
+  ```
   where `data/dans_arch/dans_arch.xml` contains the OAI-PMH records and `doi_dataverse/lookup.json` the additional metadata.
 
 ## Create Postgres DB and Load and Transform Data
@@ -111,10 +111,17 @@ In development, it may be more convenient to load pre-harvested static data:
   ```sh
   uv run create_db.py --db $dbname [--reset]
   ```
-  This will create and init the specified DB if it does not exist yet.
-  If it already exists and should be **dropped and reinitialized**, 
-  additionally provide the flag --reset. 
+  This will create and init the specified DB if it does not exist yet. If it already exists and should be **dropped and reinitialized**, additionally provide the flag `--reset`.
+  
+  Example to create a new `appdb` in the staging db:
 
+  ```sh
+  POSTGRES_ADMIN=postgres \
+  POSTGRES_PASSWORD=YOURPASSWORD \
+  POSTGRES_ADDRESS=XX.XX.XX.XX \
+  uv run create_db.py --db appdb
+  ```
+  
 - load XML data from `scripts/postgres_data/data` (populates table `harvest_events`):
   ```sh
    uv run import_data.py
