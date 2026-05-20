@@ -4,6 +4,7 @@
 
 This repo contains a `docker-compose.yml` file which configures the containers and their interaction.
 To run the containers:
+
 - users and passwords (adjust env variables as needed and set new passwords):
   ```sh
   cp env.template .env
@@ -113,13 +114,10 @@ In development, it may be more convenient to load pre-harvested static data:
   ```
   This will create and init the specified DB if it does not exist yet. If it already exists and should be **dropped and reinitialized**, additionally provide the flag `--reset`.
   
-  Example to create a new `appdb` in the staging db:
+  You can also provide a specific env file for different environment, e.g. here for staging, with a `.staging.env` in the `scripts/postgres_data` folder:
 
   ```sh
-  POSTGRES_ADMIN=postgres \
-  POSTGRES_PASSWORD=YOURPASSWORD \
-  POSTGRES_ADDRESS=XX.XX.XX.XX \
-  uv run create_db.py --db appdb
+  uv run --env-file .staging.env create_db.py --db $dbname --reset
   ```
   
 - load XML data from `scripts/postgres_data/data` (populates table `harvest_events`):
