@@ -2,19 +2,13 @@
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app') THEN
-        CREATE USER app WITH PASSWORD 'raw_password';
+        CREATE USER app WITH PASSWORD 'app_password';
     END IF;
 END
 $$;
 
--- Update password:
+-- TODO: update password with:
 -- ALTER USER app WITH PASSWORD 'newpassword';
-
--- By default PostgreSQL grants CONNECT on every db to PUBLIC,
--- so any role (including app) can connect to any db unless we revoke it
-REVOKE CONNECT ON DATABASE datasetdb FROM PUBLIC;
-REVOKE CONNECT ON DATABASE filedb FROM PUBLIC;
-REVOKE CONNECT ON DATABASE tooldb FROM PUBLIC;
 
 -- Grant connect and usage on appdb only
 GRANT CONNECT ON DATABASE appdb TO app;
