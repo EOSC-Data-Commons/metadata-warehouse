@@ -877,15 +877,15 @@ def get_closed_runs(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get('/init_subjects', tags=['enrichment'], summary='Create initial raw_subjects and enriched_subjects.')
+@app.post('/init_subjects', tags=['enrichment'], summary='Create initial raw_subjects and enriched_subjects.')
 def init_record_subjects() -> bool:
     """
-    Create 'raw_subjects' and 'enriched_subjects' fields in the record table.  
-    Fill them for all current records.
+    Initialize 'raw_subjects' and 'enriched_subjects' fields in the record table for all current records.
 
     If the columns don't exist, they will be created.  
-    If they exist, they will be re-initialized. 'raw_subjects' is gathered from 'raw_metadata'.  
-    'enriched_subjects' will be an empty array, to be extended with additional subjects.
+    If they exist, they will be re-initialized.  
+    'raw_subjects' will be filled based on 'raw_metadata'.  
+    'enriched_subjects' will be set to an empty array, to be extended with additional subjects.
 
     A record's subjects will be recognised if they exist in any of the structures defined in
     the various xpath() calls in the SQL query.  
@@ -978,7 +978,8 @@ def init_record_subjects() -> bool:
                 )
                 UPDATE records a
                 SET
-                    raw_subjects = raw_subjects_extraction.subjects
+                    raw_subjects = raw_subjects_extraction.subjects,
+                    enriched_subjects = ARRAY[]::text[]
                 FROM raw_subjects_extraction
                 WHERE a.id = raw_subjects_extraction.id;
             """)
