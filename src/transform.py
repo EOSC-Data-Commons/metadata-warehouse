@@ -885,8 +885,7 @@ def init_record_subjects() -> bool:
 
     If the columns don't exist, they will be created.  
     If they exist, they will be re-initialized. 'raw_subjects' is gathered from 'raw_metadata'.  
-    'enriched_subjects' will be identical to 'raw_subjects'! Further enrichment methods will
-    extend them with additional subjects.
+    'enriched_subjects' will be an empty array, to be extended with additional subjects.
 
     A record's subjects will be recognised if they exist in any of the structures defined in
     the various xpath() calls in the SQL query.  
@@ -917,7 +916,7 @@ def init_record_subjects() -> bool:
                 ) THEN
                     ALTER TABLE records ADD COLUMN raw_subjects text[];
                         -- add empty array as default value for new rows
-                    ALTER TABLE records ALTER COLUMN raw_subjects SET DEFAULT '{}';                        
+                    ALTER TABLE records ALTER COLUMN raw_subjects SET DEFAULT ARRAY[]::text[];                        
                 END IF;
                 END;
                 $$;
@@ -935,7 +934,7 @@ def init_record_subjects() -> bool:
                 ) THEN
                     ALTER TABLE records ADD COLUMN enriched_subjects text[];
                         -- add empty array as default value for new rows
-                    ALTER TABLE records ALTER COLUMN enriched_subjects SET DEFAULT '{}';       
+                    ALTER TABLE records ALTER COLUMN enriched_subjects SET DEFAULT ARRAY[]::text[];       
                 END IF;
                 END;
                 $$;
@@ -980,9 +979,7 @@ def init_record_subjects() -> bool:
                 )
                 UPDATE records a
                 SET
-                    raw_subjects = raw_subjects_extraction.subjects,
-                    -- the enriched field will start the same as raw, and then get expanded with more subjects later
-                    enriched_subjects = raw_subjects_extraction.subjects
+                    raw_subjects = raw_subjects_extraction.subjects
                 FROM raw_subjects_extraction
                 WHERE a.id = raw_subjects_extraction.id;
             """)
