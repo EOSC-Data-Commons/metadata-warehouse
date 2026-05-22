@@ -881,6 +881,8 @@ def get_closed_runs(
 def init_record_subjects() -> bool:
     """
     Create 'raw_subjects' and 'enriched_subjects' fields in the record table.  
+    Fill them for all current records.
+
     If the columns don't exist, they will be created.  
     If they exist, they will be re-initialized. 'raw_subjects' is gathered from 'raw_metadata'.  
     'enriched_subjects' will be identical to 'raw_subjects'! Further enrichment methods will
@@ -889,7 +891,7 @@ def init_record_subjects() -> bool:
     A record's subjects will be recognised if they exist in any of the structures defined in
     the various xpath() calls in the SQL query.  
     The fields will be arrays of text values. So a record with no subjects will have an array length
-    of zero. Using array_to_string will concatenate them into a single string.
+    of zero. Use array_to_string() to concatenate them into a single string.
 
     Returns
     -------
@@ -914,6 +916,8 @@ def init_record_subjects() -> bool:
                     AND column_name = 'raw_subjects'
                 ) THEN
                     ALTER TABLE records ADD COLUMN raw_subjects text[];
+                        -- add empty array as default value for new rows
+                    ALTER TABLE records ALTER COLUMN raw_subjects SET DEFAULT '{}';                        
                 END IF;
                 END;
                 $$;
@@ -930,10 +934,13 @@ def init_record_subjects() -> bool:
                     AND column_name = 'enriched_subjects'
                 ) THEN
                     ALTER TABLE records ADD COLUMN enriched_subjects text[];
+                        -- add empty array as default value for new rows
+                    ALTER TABLE records ALTER COLUMN enriched_subjects SET DEFAULT '{}';       
                 END IF;
                 END;
                 $$;
             """)
+            
 
             # Fill the columns with subjects extracted from raw_metadata.
             # Both column will have the same values!
