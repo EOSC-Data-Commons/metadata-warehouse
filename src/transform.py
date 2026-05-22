@@ -941,8 +941,7 @@ def init_record_subjects() -> bool:
             """)
             
 
-            # Fill the columns with subjects extracted from raw_metadata.
-            # Both column will have the same values!
+            # Fill raw_subjects with subjects extracted from raw_metadata.
 
             cur.execute("""
                 WITH raw_subjects_extraction AS (
