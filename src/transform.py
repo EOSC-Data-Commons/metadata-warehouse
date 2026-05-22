@@ -639,6 +639,112 @@ def are_all_runs_closed_in_db() -> bool:
 
         return not result['has_open_runs']
 
+def init_record_subjects() -> bool:
+    """
+    Create 'raw_subjects' and 'enriched_subjects' fields in the record table.  
+    If the columns don't exist, they will be created.  
+    If they exist, they will be re-initialized. 'raw_subjects' is gathered from 'raw_metadata'.  
+    'enriched_subjects' will be identical to 'raw_subjects'! Further enrichment methods will
+    extend them with additional subjects.
+
+    A record's subjects will be recognised if they exist in any of the structures defined in
+    the various xpath() calls in the SQL query.  
+    The fields will be arrays of text values. So a record with no subjects will have an array length
+    of zero. Using array_to_string will concatenate them into a single string.
+
+    Returns
+    -------
+    bool
+        True if the initialization is completed successfuly.
+    """
+    with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
+        cur = conn.cursor()
+
+        # Altering the records schema if the columns don't exist.
+        # If they exist, the queries don't change anything
+
+        # Column raw_subjects
+        cur.execute("""
+            DO $$
+            BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'records'
+                AND column_name = 'raw_subjects'
+            ) THEN
+                ALTER TABLE records ADD COLUMN raw_subjects text[];
+            END IF;
+            END;
+            $$;
+        """)
+
+        
+        # Column enriched_subjects
+        cur.execute("""
+            DO $$
+            BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'records'
+                AND column_name = 'enriched_subjects'
+            ) THEN
+                ALTER TABLE records ADD COLUMN enriched_subjects text[];
+            END IF;
+            END;
+            $$;
+        """)
+
+        # Fill the columns with subjects extracted from raw_metadata.
+        # Both column will have the same values!
+
+        cur.execute("""
+            WITH raw_subjects_extraction AS (
+                SELECT
+                    id,
+                    (
+                        xpath('oai:record/oai:metadata/datacite:resource/datacite:subjects/datacite:subject/text()', raw_metadata,
+                            '{{datacite, http://datacite.org/schema/kernel-4},
+                            {oai, http://www.openarchives.org/OAI/2.0/}}'
+                        )::text[] ||
+                        xpath('oai:record/oai:metadata/oaidc:oai_datacite/oaidc:payload/datacite:resource/datacite:subjects/datacite:subject/text()', raw_metadata,
+                            '{{datacite, http://datacite.org/schema/kernel-4},
+                            {oai, http://www.openarchives.org/OAI/2.0/},
+                            {oaidc, http://schema.datacite.org/oai/oai-1.1/}}'
+                        )::text[] ||
+                        xpath('oai:record/oai:metadata/oai:resource/datacite:subjects/datacite:subject/text()', raw_metadata,
+                            '{{datacite, http://datacite.org/schema/kernel-4},
+                            {oai, http://www.openarchives.org/OAI/2.0/}}'
+                        )::text[] ||
+                        xpath('oai:record/oai:metadata/oad:oai_datacite/oad:payload/datacite:resource/datacite:subjects/datacite:subject/text()', raw_metadata,
+                        -- note the 3 in datacite
+                            '{{datacite, http://datacite.org/schema/kernel-3},
+                            {oai, http://www.openarchives.org/OAI/2.0/},
+                            {oad, http://schema.datacite.org/oai/oai-1.0/}}'
+                        )::text[] ||
+                        -- same path as previous but uses kernel-4 namespace
+                        xpath('oai:record/oai:metadata/oad:oai_datacite/oad:payload/datacite:resource/datacite:subjects/datacite:subject/text()', raw_metadata,
+                            '{{datacite, http://datacite.org/schema/kernel-4},
+                            {oai, http://www.openarchives.org/OAI/2.0/},
+                            {oad, http://schema.datacite.org/oai/oai-1.0/}}'
+                        )::text[]
+                    ) AS subjects
+                FROM public.records
+            )
+            UPDATE records a
+            SET
+                raw_subjects = raw_subjects_extraction.subjects,
+                -- the enriched field will start the same as raw, and then get expanded with more subjects later
+                enriched_subjects = raw_subjects_extraction.subjects
+            FROM raw_subjects_extraction
+            WHERE a.id = raw_subjects_extraction.id;
+        """)
+                    
+
+        result = cur.fetchone()
+        if result is None:
+            raise RuntimeError('Query failed')
+
+        return True
 
 @app.get('/index', tags=['index'])
 def init_index(
