@@ -33,6 +33,19 @@ def openaire_doi_get_info(doi):
         return results[0]
 
 def _opeanaire_get_subjects(response):
+    """
+    Get the list of subjects from an OpenAIRE response.
+    If the response had no data for given DOI, or if the response is present but has no subject, return an empty list.
+
+    :param response: Dictionary gathered from openaire_doi_get_info() for a single DOI.
+    :return: a list of dicts, one element for each subject gathered.
+        The dicts are of a format:
+        {
+        'subject': {'scheme': 'keyword', 'value': 'keyword text'},
+        'provenance': None
+        }
+        We are primarily interested in ['subject']['value']
+    """
     if response == {}:
         # list of subjects for this record: empty
         return []
@@ -43,3 +56,11 @@ def _opeanaire_get_subjects(response):
         subjects = []
 
     return subjects
+
+
+def _opeanaire_subjects_to_list(subjects_list):
+    """
+    Turn the list of subjects recieved from _opeanaire_get_subjects() into
+    a list of strings.
+    """
+    return [sub['subject']['value'] for sub in subjects_list if sub != []]
