@@ -877,10 +877,10 @@ def get_closed_runs(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post('/init_subjects', tags=['enrichment'], summary='Create initial raw_subjects and enriched_subjects.')
-def init_record_subjects() -> bool:
+@app.post('/init_subjects', tags=['enrichment'], summary='Create initial raw_subjects and empty enriched_subjects.')
+def init_record_subjects(from_date: str) -> bool:
     """
-    Initialize 'raw_subjects' and 'enriched_subjects' fields in the record table for all current records.
+    Initialize 'raw_subjects' and 'enriched_subjects' fields in the record table for records updated at or after the specified date.
 
     If the columns don't exist, they will be created.  
     If they exist, they will be re-initialized.  
@@ -891,7 +891,15 @@ def init_record_subjects() -> bool:
     the various xpath() calls in the SQL query.  
     The fields will be arrays of text values. So a record with no subjects will have an array length
     of zero. Use array_to_string() to concatenate them into a single string.
-
+    
+    Parameters
+    ----------
+    from_date : str to be converted into datetime.date
+        "%Y-%m-%d" format
+        Re-initialize record subjects for records whose "updated_at" date is equal or later than `from_date`.
+        So after new harvests we can initialize only recent records and not all in database.
+        To re-initialize all record set a date before any harvesting, e.g. "2020-01-01".
+    
     Returns
     -------
     bool
@@ -941,8 +949,14 @@ def init_record_subjects() -> bool:
             """)
             
 
+
             # Fill raw_subjects with subjects extracted from raw_metadata.
 
+            start_date = datetime.strptime(from_date, "%Y-%m-%d")
+
+            # For SQL: same format of date enclosed by single quotations
+            sql_date = "'" + start_date.strftime("%Y-%m-%d") + "'"
+            
             cur.execute("""
                 WITH raw_subjects_extraction AS (
                     SELECT
@@ -981,8 +995,10 @@ def init_record_subjects() -> bool:
                     raw_subjects = raw_subjects_extraction.subjects,
                     enriched_subjects = ARRAY[]::text[]
                 FROM raw_subjects_extraction
-                WHERE a.id = raw_subjects_extraction.id;
-            """)
+                WHERE a.id = raw_subjects_extraction.id
+                    AND a.updated_at::date >= %(start_date)s;
+            """,
+            {"start_date": sql_date})
 
             return True
         
