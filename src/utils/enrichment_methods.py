@@ -2,8 +2,33 @@
 # A single method is not guaranteed to obtain new data for a specific record,
 # a sequence of different attempts might yield best results
 import requests
+from lxml import etree as ET
 
-def openaire_doi_get_info(doi):
+def get_doi(raw_metadata: str):
+    """
+    Get DOI from raw_metadata XML, if available
+    
+    :param raw_metadata: string obtained from records.raw_metadata
+    :return: a string with the record's DOI, like '10.15151/ESRF-ES-1872173799'
+    """
+    # raw_metadata gets treated as string, transform into XML tree
+    rec = ET.ElementTree(ET.fromstring(raw_metadata))
+    doi = rec.xpath("//*[local-name()='identifier'][@identifierType='DOI']/text()")
+
+    if doi == []:
+        return None
+    else: 
+        return doi[0]
+
+# Enrich via OpenAIRE API, resolve record's DOI ----
+
+def enrich_subjects_from_openaire(doi):
+    api_result = _openaire_doi_resolve(doi)
+    subjects = _opeanaire_get_subjects(api_result)
+
+    return _opeanaire_subjects_to_list(subjects)
+
+def _openaire_doi_resolve(doi):
     """
     Query the OpenAIRE API to obtain more metadata for a given DOI.
     The API used: https://api.openaire.eu/graph/
