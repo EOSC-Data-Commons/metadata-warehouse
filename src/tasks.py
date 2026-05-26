@@ -11,12 +11,13 @@ from celery import Celery, Task
 from celery.signals import after_setup_logger
 from celery.utils.log import get_task_logger
 from datahugger import (
+    resolve,
     DabarXmlSrcDataset,
-    Dataset,
     DataverseJsonSrcDataset,
     FileEntry,
     HalJsonSrcDataset,
     ZenodoJsonSrcDataset,
+    Dataset
 )
 from fastembed import TextEmbedding
 from jsonschema.validators import validate
@@ -67,6 +68,7 @@ class ProviderCode(str, Enum):
     ZENODO = 'ZENODO'
     HAL = 'HAL'
     DABAR = 'DABAR'
+    SWISSUBASE = 'SWISS'
 
 
 class FileMetadataTask(Task):  # type: ignore
@@ -159,8 +161,32 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
                 files.extend(self.collect_files(harvest_event, ds_dabar))
 
+            elif harvest_event.code == ProviderCode.SWISSUBASE:
+                logger.debug(harvest_event.record_identifier)
+                ds_swiss = resolve(f'https://www.swissubase.ch/en/catalogue/studies/1223/latest/datasets/114/{harvest_event.record_identifier}/overview')
+
+                for zip_file in ds_swiss.crawl():
+                    logger.debug(f'Zip: {zip_file.download_url}')
+                    files.append((
+                        harvest_event.harvest_url,  # harvest_url
+                        harvest_event.record_identifier,
+                        harvest_event.record_identifier,
+                        harvest_event.record_identifier,
+                        'datahugger',
+                        harvest_event.identifier_type,
+                        'Dataset',
+                        'application/zip',
+                        None,
+                        zip_file.checksum[0][0].upper(),
+                        zip_file.checksum[0][1],
+                        zip_file.version,
+                        zip_file.download_url,
+                        zip_file.creation_date,
+                        None,
+                    ))
+
             if len(files) == 0:
-                logger.debug(f'no files for {harvest_event.record_identifier}')
+                logger.debug(f'no files for {harvest_event.record_identifier} in {harvest_event.code}')
                 continue
             success += 1
 
