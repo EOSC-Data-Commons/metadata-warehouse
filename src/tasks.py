@@ -15,6 +15,7 @@ from datahugger import (
     DabarXmlSrcDataset,
     DataverseJsonSrcDataset,
     FileEntry,
+    ZipEntry,
     HalJsonSrcDataset,
     ZenodoJsonSrcDataset,
     Dataset
@@ -78,7 +79,7 @@ class FileMetadataTask(Task):  # type: ignore
         # TODO: how to configure DB and not hard code?
         self.postgres_config = PostgresConfig(db=os.environ.get('FILE_DB'))
 
-    def parse_checksum(self, file: FileEntry) -> tuple[str | None, str | None]:
+    def parse_checksum(self, file: FileEntry | ZipEntry) -> tuple[str | None, str | None]:
         if not file.checksum:
             return None, None
 
@@ -107,6 +108,28 @@ class FileMetadataTask(Task):  # type: ignore
             file.creation_date,
             file.last_modification_date,
         )
+
+    def make_zip_entry(self, harvest_event: HarvestEventQueue, zip_file: ZipEntry) -> tuple[Any, ...]:
+        checksum_type, checksum_value = self.parse_checksum(zip_file)
+
+        return (
+            harvest_event.harvest_url,  # harvest_url
+            harvest_event.record_identifier,
+            harvest_event.record_identifier,
+            harvest_event.record_identifier,
+            'datahugger',
+            harvest_event.identifier_type,
+            'Dataset',
+            'application/zip',
+            None,
+            checksum_type,
+            checksum_value,
+            zip_file.version,
+            zip_file.download_url,
+            zip_file.creation_date,
+            None,
+        )
+
 
     def collect_files(self, harvest_event: HarvestEventQueue, dataset: Dataset) -> list[tuple[Any, ...]]:
         return [self.make_file_entry(harvest_event, file) for file in dataset.crawl_file()]
@@ -166,24 +189,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                 ds_swiss = resolve(f'https://www.swissubase.ch/en/catalogue/studies/1223/latest/datasets/114/{harvest_event.record_identifier}/overview')
 
                 for zip_file in ds_swiss.crawl():
-                    logger.debug(f'Zip: {zip_file.download_url}')
-                    files.append((
-                        harvest_event.harvest_url,  # harvest_url
-                        harvest_event.record_identifier,
-                        harvest_event.record_identifier,
-                        harvest_event.record_identifier,
-                        'datahugger',
-                        harvest_event.identifier_type,
-                        'Dataset',
-                        'application/zip',
-                        None,
-                        zip_file.checksum[0][0].upper(),
-                        zip_file.checksum[0][1],
-                        zip_file.version,
-                        zip_file.download_url,
-                        zip_file.creation_date,
-                        None,
-                    ))
+                    files.append(self.make_zip_entry(harvest_event, zip_file))
 
             if len(files) == 0:
                 logger.debug(f'no files for {harvest_event.record_identifier} in {harvest_event.code}')
