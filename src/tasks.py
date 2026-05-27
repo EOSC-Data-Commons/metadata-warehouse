@@ -11,14 +11,14 @@ from celery import Celery, Task
 from celery.signals import after_setup_logger
 from celery.utils.log import get_task_logger
 from datahugger import (
-    resolve,
     DabarXmlSrcDataset,
+    Dataset,
     DataverseJsonSrcDataset,
     FileEntry,
-    ZipEntry,
     HalJsonSrcDataset,
     ZenodoJsonSrcDataset,
-    Dataset
+    ZipEntry,
+    resolve,
 )
 from fastembed import TextEmbedding
 from jsonschema.validators import validate
@@ -130,7 +130,6 @@ class FileMetadataTask(Task):  # type: ignore
             None,
         )
 
-
     def collect_files(self, harvest_event: HarvestEventQueue, dataset: Dataset) -> list[tuple[Any, ...]]:
         return [self.make_file_entry(harvest_event, file) for file in dataset.crawl_file()]
 
@@ -186,7 +185,9 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
             elif harvest_event.code == ProviderCode.SWISSUBASE:
                 logger.debug(harvest_event.record_identifier)
-                ds_swiss = resolve(f'https://www.swissubase.ch/en/catalogue/studies/1223/latest/datasets/114/{harvest_event.record_identifier}/overview')
+                ds_swiss = resolve(
+                    f'https://www.swissubase.ch/en/catalogue/studies/1223/latest/datasets/114/{harvest_event.record_identifier}/overview'
+                )
 
                 for zip_file in ds_swiss.crawl():
                     files.append(self.make_zip_entry(harvest_event, zip_file))
