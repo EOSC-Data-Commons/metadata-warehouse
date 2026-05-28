@@ -124,9 +124,11 @@ In development, it may be more convenient to load pre-harvested static data:
 - transform data from `scripts/postgres_data/data` to a local dir
   (to test transformation, alternative to using the Celery process):
   ```sh
-  uv run transform.py -i harvests_{repo_suffix} -o {repo_suffix}_json -s JSON_schema_file [-n]
+  uv run transform.py -i harvests_{repo_suffix} -o {repo_suffix}_json -s JSON_schema_file [-n] [-v]
   ```
-  If the -n flag is provided, the JSON data will also be normalized and validated against the JSON schema file `utils/schema.json`.
+  If the -n flag is provided, the JSON data will be normalized 
+  (the raw JSON may look differently based on the input XML, see these [specs](https://www.xml.com/pub/a/2006/05/31/converting-between-xml-and-json.html])).
+  If the -v flag is set, the JSON will be validated against the JSON schema file `utils/schema.json`
 
 ## Create OpenSearch Index
 
