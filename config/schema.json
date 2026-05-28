@@ -99,6 +99,22 @@
                 "additionalProperties": false
             }
         },
+        "alternateIdentifiers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "properties": {
+                        "alternateIdentifier": {
+                            "type": "string"
+                        },
+                        "alternateIdentifierType": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "publicationYear": {
             "type": "string",
             "pattern": "^[0-9]{4}$"
