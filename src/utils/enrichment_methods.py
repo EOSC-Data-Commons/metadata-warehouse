@@ -89,3 +89,48 @@ def _opeanaire_subjects_to_list(subjects_list):
     a list of strings.
     """
     return [sub['subject']['value'] for sub in subjects_list if sub != []]
+
+
+# ALTERNATIVE - BATCH OpenAIRE requests
+
+# A GET request to the API can process multiple DOI pids at once - so we'll get results faster
+# and avoid getting rate limited
+# There is a complication that multiple DOIs can be linked to a single OpenAIRE id, so if we make
+# a request with 100 DOIs we could get a resultset of 20 results.  
+# Therefore, an additional step is needed where each resultset's subjects are
+# linked to the original DOIs.
+
+
+
+def _opeanaire_get_doi_subjects(response):
+    """
+    Get a batch of DOIS and their subjects for all API response elements.
+
+    # TODO empty response format
+    
+    :param response: List[Dictionary response for a given openAIRE id]
+    :return: List[dict]
+        dict:
+            [DOIs] - all DOIs linked to a single OpenAIRE id, for later joining
+            [Subjects] - all subjects for those DOIs
+    """
+    if response == {}:
+        # list of subjects for this record: empty
+        return []
+    
+    subjects = response["subjects"]
+    if subjects is None:
+        # also an empty list, for consistency
+        subjects = []
+
+    return subjects
+
+def batch_enrich_subjects_from_openaire(doi_list):
+    api_results = _openaire_batch_doi_resolve(doi_list)
+    # TODO - implement subjects to list for batch method
+    openaire_subjects = _opeanaire_batch_get_subjects(api_result)
+    
+    # TODO - append relevant subjects to individual DOIs in list
+
+    # Return a list
+    return subjects_list
