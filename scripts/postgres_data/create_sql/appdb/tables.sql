@@ -29,3 +29,9 @@ CREATE TABLE messages (
 	PRIMARY KEY (id),
 	FOREIGN KEY(user_id, thread_id) REFERENCES conversations (user_id, thread_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+    key TEXT PRIMARY KEY,
+    count INTEGER NOT NULL,
+    window_end TIMESTAMPTZ NOT NULL
+);
