@@ -414,33 +414,44 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 # https://neon.com/postgresql/postgresql-tutorial/postgresql-upsert
                 cur.execute(
                     """
-                INSERT INTO records 
-                (   
-                    record_identifier,
-                    repository_id,
-                    endpoint_id,
-                    resource_type,
-                    title,
-                    raw_metadata,
-                    metadata_protocol,
-                    doi,
-                    url,
-                    embeddings,
-                    embedding_model,
-                    datacite_json,
-                    opensearch_synced,
-                    opensearch_synced_at,
-                    additional_metadata,
-                    datestamp
+                    INSERT INTO records 
+                    (   
+                        record_identifier,
+                        repository_id,
+                        endpoint_id,
+                        resource_type,
+                        title,
+                        raw_metadata,
+                        metadata_protocol,
+                        doi,
+                        url,
+                        embeddings,
+                        embedding_model,
+                        datacite_json,
+                        opensearch_synced,
+                        opensearch_synced_at,
+                        additional_metadata,
+                        datestamp
                     ) 
-                VALUES (
-                    %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    VALUES (
+                        %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     ON CONFLICT (endpoint_id, record_identifier)
-                    DO UPDATE SET resource_type = %s, title = %s, raw_metadata = XMLPARSE(DOCUMENT %s), doi = %s, url = %s, embeddings = %s, embedding_model = %s, datacite_json = %s, opensearch_synced_at = %s, additional_metadata = %s, datestamp = %s      
-                """,
+                    DO UPDATE SET 
+                        resource_type = EXCLUDED.resource_type,
+                        title = EXCLUDED.title,
+                        raw_metadata = EXCLUDED.raw_metadata,
+                        doi = EXCLUDED.doi,
+                        url = EXCLUDED.url,
+                        embeddings = EXCLUDED.embeddings,
+                        embedding_model = EXCLUDED.embedding_model,
+                        datacite_json = EXCLUDED.datacite_json,
+                        opensearch_synced_at = EXCLUDED.opensearch_synced_at,
+                        additional_metadata = EXCLUDED.additional_metadata,
+                        datestamp = EXCLUDED.datestamp
+                    """,
                     (
-                        record_identifier,  # Insert
+                        record_identifier,
                         repository_id,
                         endpoint_id,
                         resource_type,
@@ -453,17 +464,6 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                         EMBEDDING_MODEL,
                         datacite_json,
                         opensearch_synced,
-                        opensearch_synced_at,
-                        additional_metadata,
-                        datestamp,
-                        resource_type,  # Update
-                        title,
-                        xml,
-                        doi,
-                        url,
-                        embeddings,
-                        EMBEDDING_MODEL,
-                        datacite_json,
                         opensearch_synced_at,
                         additional_metadata,
                         datestamp,
