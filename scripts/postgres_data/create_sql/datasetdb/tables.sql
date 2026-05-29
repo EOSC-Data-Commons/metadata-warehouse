@@ -148,6 +148,8 @@ CREATE TABLE IF NOT EXISTS records (
     opensearch_synced_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    raw_subjects text[] DEFAULT ARRAY[]::text[],
+    enriched_subjects text[] DEFAULT ARRAY[]::text[],
     CONSTRAINT records_pkey PRIMARY KEY (id),
     CONSTRAINT records_endpoint_id_record_identifier_key UNIQUE (endpoint_id, record_identifier),
     CONSTRAINT records_doi_or_url_check CHECK (doi IS NOT NULL OR url IS NOT NULL),
@@ -176,6 +178,8 @@ COMMENT ON COLUMN records.datestamp IS 'From OAI-PMH header';
 COMMENT ON COLUMN records.version IS 'Version number';
 COMMENT ON COLUMN records.opensearch_synced IS 'Whether synced to OpenSearch';
 COMMENT ON COLUMN records.opensearch_synced_at IS 'When last synced to OpenSearch';
+COMMENT ON COLUMN records.raw_subjects IS 'Subjects present in the metadata';
+COMMENT ON COLUMN records.enriched_subjects IS 'Subjects gathered from metadata enrichment methods';
 
 
 
