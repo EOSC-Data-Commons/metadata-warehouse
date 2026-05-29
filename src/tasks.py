@@ -386,6 +386,8 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 datacite_json = json.dumps({**rec.src, 'emb': None})
                 opensearch_synced = True
                 additional_metadata = rec.harvest_event.additional_metadata
+                # multiple subjects should result in a list of strings
+                raw_subjects = [s['subject'] for s in rec.src.get('subjects', [])]
 
                 # https://neon.com/postgresql/postgresql-tutorial/postgresql-upsert
                 cur.execute(
@@ -407,13 +409,14 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                     opensearch_synced,
                     opensearch_synced_at,
                     additional_metadata,
-                    datestamp
+                    datestamp,
+                    raw_subjects
                     ) 
                 VALUES (
-                    %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     ON CONFLICT (endpoint_id, record_identifier)
-                    DO UPDATE SET resource_type = %s, title = %s, raw_metadata = XMLPARSE(DOCUMENT %s), doi = %s, url = %s, embeddings = %s, embedding_model = %s, datacite_json = %s, opensearch_synced_at = %s, additional_metadata = %s, datestamp = %s      
+                    DO UPDATE SET resource_type = %s, title = %s, raw_metadata = XMLPARSE(DOCUMENT %s), doi = %s, url = %s, embeddings = %s, embedding_model = %s, datacite_json = %s, opensearch_synced_at = %s, additional_metadata = %s, datestamp = %s, raw_subjects = %s   
                 """,
                     (
                         record_identifier,  # Insert
@@ -432,6 +435,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                         opensearch_synced_at,
                         additional_metadata,
                         datestamp,
+                        raw_subjects,
                         resource_type,  # Update
                         title,
                         xml,
@@ -443,6 +447,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                         opensearch_synced_at,
                         additional_metadata,
                         datestamp,
+                        raw_subjects,
                     ),
                 )
 
