@@ -37,3 +37,26 @@ try:
         print(f'index {INDEX_NAME} created')
 except Exception as e:
     print(e)
+
+# Hybrid search RRF reranking pipeline (semantic kNN + BM25)
+try:
+    client.search_pipeline.put(
+        id='rrf-pipeline',
+        body={
+            'description': 'Post processor for hybrid RRF search (semantic + BM25)',
+            'phase_results_processors': [
+                {
+                    'score-ranker-processor': {
+                        'combination': {
+                            'technique': 'rrf',
+                            'rank_constant': 40,
+                            'parameters': {'weights': [0.7, 0.3]},
+                        }
+                    }
+                }
+            ],
+        },
+    )
+    print('search pipeline rrf-pipeline created')
+except Exception as e:
+    print(e)
