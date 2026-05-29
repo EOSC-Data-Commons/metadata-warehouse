@@ -363,12 +363,17 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                     row = cur.fetchone()
                     if row is None:
                         raise ValueError(
-                            f'No existing embeddings found for {ele.event.record_identifier} on endpoint {ele.event.endpoint_id}')
+                            f'No existing embeddings found for {ele.event.record_identifier} on endpoint {ele.event.endpoint_id}'
+                        )
                     src_with_emb.append(
                         OpenSearchSourceWithEmbedding(
-                            src={**ele.src, 'emb': row['embeddings'],
-                                 '_additional_metadata': ele.event.additional_metadata, '_repo': ele.event.code,
-                                 '_harvest_url': ele.event.harvest_url},
+                            src={
+                                **ele.src,
+                                'emb': row['embeddings'],
+                                '_additional_metadata': ele.event.additional_metadata,
+                                '_repo': ele.event.code,
+                                '_harvest_url': ele.event.harvest_url,
+                            },
                             harvest_event=ele.event,
                         )
                     )
