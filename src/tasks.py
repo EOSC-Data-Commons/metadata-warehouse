@@ -234,7 +234,7 @@ class TransformTask(Task):  # type: ignore
 
 
 @celery_app.task(base=TransformTask, bind=True, ignore_result=True)
-def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, reuse_embeddings: bool = False) -> Any:
+def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, reuse_embeddings: bool) -> Any:
     if not self.client.indices.exists(index=index_name):
         raise ValueError(f'Index {index_name} does not exist in OpenSearch')
 
