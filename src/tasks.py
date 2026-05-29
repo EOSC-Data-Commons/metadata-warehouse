@@ -234,7 +234,7 @@ class TransformTask(Task):  # type: ignore
 
 
 @celery_app.task(base=TransformTask, bind=True, ignore_result=True)
-def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) -> Any:
+def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, reuse_embeddings: bool = False) -> Any:
     if not self.client.indices.exists(index=index_name):
         raise ValueError(f'Index {index_name} does not exist in OpenSearch')
 
@@ -349,11 +349,35 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 continue
 
         try:
-            logger.info(f'About to Calculate embeddings for {len(normalized)}')
-            src_with_emb: list[OpenSearchSourceWithEmbedding] = add_embeddings_to_source(
-                normalized, self.embedding_transformer
-            )
-            logger.info(f'Calculated embeddings for {len(src_with_emb)}')
+            if reuse_embeddings:
+                logger.info(f'Reusing embeddings from DB for {len(normalized)} records')
+                src_with_emb: list[OpenSearchSourceWithEmbedding] = []
+                for ele in normalized:
+                    cur.execute(
+                        """
+                        SELECT embeddings FROM records
+                        WHERE endpoint_id = %s AND record_identifier = %s
+                        """,
+                        (ele.event.endpoint_id, ele.event.record_identifier),
+                    )
+                    row = cur.fetchone()
+                    if row is None:
+                        raise ValueError(
+                            f'No existing embeddings found for {ele.event.record_identifier} on endpoint {ele.event.endpoint_id}')
+                    src_with_emb.append(
+                        OpenSearchSourceWithEmbedding(
+                            src={**ele.src, 'emb': row['embeddings'],
+                                 '_additional_metadata': ele.event.additional_metadata, '_repo': ele.event.code,
+                                 '_harvest_url': ele.event.harvest_url},
+                            harvest_event=ele.event,
+                        )
+                    )
+            else:
+                logger.info(f'About to Calculate embeddings for {len(normalized)}')
+                src_with_emb: list[OpenSearchSourceWithEmbedding] = add_embeddings_to_source(
+                    normalized, self.embedding_transformer
+                )
+                logger.info(f'Calculated embeddings for {len(src_with_emb)}')
             preprocessed = preprocess_batch([src_with_emb_ele.src for src_with_emb_ele in src_with_emb], index_name)
         except Exception as e:
             logger.error(f'Could not calculate embeddings: {e}')
