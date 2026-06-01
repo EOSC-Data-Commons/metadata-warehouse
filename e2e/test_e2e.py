@@ -324,7 +324,7 @@ def test_create_and_close_harvest_run(
         '/index',
         params={
             'harvest_run_id': create_response['id'],
-            'index_name': 'da',
+            'index_name': TEST_INDEX,
         },
     )
 
