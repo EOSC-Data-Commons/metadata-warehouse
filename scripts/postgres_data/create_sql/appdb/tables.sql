@@ -1,5 +1,12 @@
 -- AUTO-GENERATED FILE. DO NOT EDIT MANUALLY.
 -- Generated from https://github.com/EOSC-Data-Commons/data-commons-search/blob/main/src/data_commons_search/db.py
+CREATE TABLE rate_limits (
+	key VARCHAR(255) NOT NULL,
+	count INTEGER NOT NULL,
+	window_end TIMESTAMP WITH TIME ZONE NOT NULL,
+	PRIMARY KEY (key)
+);
+
 CREATE TABLE users (
 	sub VARCHAR(255) NOT NULL,
 	email VARCHAR(320),
@@ -28,10 +35,4 @@ CREATE TABLE messages (
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
 	PRIMARY KEY (id),
 	FOREIGN KEY(user_id, thread_id) REFERENCES conversations (user_id, thread_id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS rate_limits (
-    key TEXT PRIMARY KEY,
-    count INTEGER NOT NULL,
-    window_end TIMESTAMPTZ NOT NULL
 );
