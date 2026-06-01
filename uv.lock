@@ -255,20 +255,20 @@ wheels = [
 
 [[package]]
 name = "datahugger-ng"
-version = "0.6.1"
+version = "0.6.3"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/af/0c/d3b340ceef3884ab699bbcdb61b79d0f3c39e1ee665402d908448fab2ce8/datahugger_ng-0.6.1-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:8ffc412463c0efadfc6f9aaf89ace5db6539ced2b785a9c19b751a4b3bfa05e2", size = 4156501, upload-time = "2026-04-24T08:18:12.744Z" },
-    { url = "https://files.pythonhosted.org/packages/f3/3f/9072799816acde7b1a79705b1dfcd937974abfeb50fa611019267eba355b/datahugger_ng-0.6.1-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:bd04f9b7cd94a825e804027edfa1dc4c1cb2c6aa27efee2c72d19f97e1f9578a", size = 6881477, upload-time = "2026-04-24T08:17:42.93Z" },
-    { url = "https://files.pythonhosted.org/packages/c7/5f/3cefed95aeaae53e3e98a9569138d656f0f2ab96c0a8a07187e3e94d4565/datahugger_ng-0.6.1-cp310-abi3-manylinux_2_28_armv7l.whl", hash = "sha256:cda787e2cb90498449693c05790fef416599a789f7223a63d906d8b7a20585d6", size = 5791052, upload-time = "2026-04-24T08:17:45.219Z" },
-    { url = "https://files.pythonhosted.org/packages/95/63/54fa8fa0c9cd2e49fb8002be55cc247ab65cae307831453959ebb2e1bf6d/datahugger_ng-0.6.1-cp310-abi3-manylinux_2_28_i686.whl", hash = "sha256:8a16ad8569d3f35a17b3de0c7c4aec843bfdb166c5aad84c675bb30d514e79e8", size = 6112484, upload-time = "2026-04-24T08:17:49.578Z" },
-    { url = "https://files.pythonhosted.org/packages/ae/79/223081dbcec802c6962f8394a6727e12625a3889a483d6870934b3e01ce5/datahugger_ng-0.6.1-cp310-abi3-manylinux_2_28_ppc64le.whl", hash = "sha256:bc4f3f85a7d742264c3dacfab930eb7f5d74f2c126bddb96d619af9e48df0803", size = 6967377, upload-time = "2026-04-24T08:17:47.527Z" },
-    { url = "https://files.pythonhosted.org/packages/e1/b2/45bf5fb067bcc6d3578c1e1b11c224a7ca5eab91c26d57169926d58ecdae/datahugger_ng-0.6.1-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:9245f90b9450419083938b225a79217b5baaae2da78d90ab71322031051cdf23", size = 6299164, upload-time = "2026-04-24T08:17:51.449Z" },
-    { url = "https://files.pythonhosted.org/packages/02/69/2a4f51cc0f7d446eeb4df06e88b23a4fdf40a2ed93d258549aa22069c765/datahugger_ng-0.6.1-cp310-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:552af9309363dadf9644dd18f4926b40bfc071ee855cc57cf8e154eff9d46f4d", size = 7231088, upload-time = "2026-04-24T08:18:14.844Z" },
-    { url = "https://files.pythonhosted.org/packages/93/1b/e51f59d628af1fda1c88011a99eea0c9714bb318a97979357562448f0a9c/datahugger_ng-0.6.1-cp310-abi3-musllinux_1_2_armv7l.whl", hash = "sha256:792e85e48224fa4f9267b50a77b2e95212b13ca0bacee89a227f63c7044cdab2", size = 6003925, upload-time = "2026-04-24T08:18:16.78Z" },
-    { url = "https://files.pythonhosted.org/packages/8b/03/c9b7e13722767167f234efd1ac8147cdc6f5110c779729d9dbff3230b32c/datahugger_ng-0.6.1-cp310-abi3-musllinux_1_2_i686.whl", hash = "sha256:970c4a9e3d3df1709876bfd2597d34d7d5fc45411c715d2d9b8625b4596870d4", size = 6585436, upload-time = "2026-04-24T08:18:18.954Z" },
-    { url = "https://files.pythonhosted.org/packages/18/9f/f8424d39f91c1e2c6e5ff48fe8b82a344849097a4328fee48851082ef351/datahugger_ng-0.6.1-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:69ed7d9bdb171fd85d74ab1b2ad6f1fd003bcebd6428221c7e4deec4990db60f", size = 7106168, upload-time = "2026-04-24T08:18:20.921Z" },
-    { url = "https://files.pythonhosted.org/packages/13/90/049104a07935d3681d75dfcb30c35ae4db95e74315d6a95313cdec4eb148/datahugger_ng-0.6.1-cp310-abi3-win_amd64.whl", hash = "sha256:7c582c7676b3610f89f2d6199346ba8f6e9c0c29dd7c0c3a98d18d74f0d98a40", size = 3600759, upload-time = "2026-04-24T08:18:23.183Z" },
+    { url = "https://files.pythonhosted.org/packages/03/47/ae97aaa17ca2ffb982fdfe4d21926841e6217800c3dd4a4393a0d03a4e66/datahugger_ng-0.6.3-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:39af5757897ae0bebbea70ee1b35afcdcb828f180750214127035061c519a36a", size = 4211819, upload-time = "2026-05-27T12:46:20.712Z" },
+    { url = "https://files.pythonhosted.org/packages/94/9e/c2c824ecf192520c7677af372a148006e5fb5bf136965f082105fb4be959/datahugger_ng-0.6.3-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:62227f4e5fd75161913963914b7dc7784af72e5f1b9405a869272dca190bc64d", size = 6947524, upload-time = "2026-05-27T12:46:11.82Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/ea/2b89621ff71e4f40ab19b7dcf4148888912cb4de65c028116fa0419e3008/datahugger_ng-0.6.3-cp310-abi3-manylinux_2_28_armv7l.whl", hash = "sha256:c5bad63320191672b8cd76ee5bde6db28150d9135ab5d3caf7fa5bdf12d783c9", size = 5854124, upload-time = "2026-05-27T12:46:13.612Z" },
+    { url = "https://files.pythonhosted.org/packages/f0/8a/3909af94038f3638b93825f9bee259a6fd8ba37109024483637f3694e6ea/datahugger_ng-0.6.3-cp310-abi3-manylinux_2_28_i686.whl", hash = "sha256:7e7d9a4a37897c59f72439ba9b11c021c04e3323a04fa80e32ac7f6d64fcdbd1", size = 6173373, upload-time = "2026-05-27T12:46:17.52Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/43/b930cb168ebf998ba97c537aa64243a73d50ab16f698a9e0229402a28ee5/datahugger_ng-0.6.3-cp310-abi3-manylinux_2_28_ppc64le.whl", hash = "sha256:1253e890b9704b5174b163a102503d82ecd48c03fd29ec3fc37384487ab8bb91", size = 7048048, upload-time = "2026-05-27T12:46:15.771Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/9d/3000b581e69394043b3ff564cc0e6d03620d74fb6c8efe53a0d8ad607208/datahugger_ng-0.6.3-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:9dea6c333ea68ca93efaedf90c35c528bb1f80c69565cda2f62dce06874dd7f4", size = 6357787, upload-time = "2026-05-27T12:46:19.273Z" },
+    { url = "https://files.pythonhosted.org/packages/00/f2/e109cdfb4da78bbd2dbd1b44dfedd8d2a7b04134c3d5d60673dcdee1684a/datahugger_ng-0.6.3-cp310-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:8fecf587af80e3e0477765e8cf656c79af1ab9ad039d8e61263297a5b96d8616", size = 7296872, upload-time = "2026-05-27T12:46:22.468Z" },
+    { url = "https://files.pythonhosted.org/packages/04/07/117625398ae5feb13eef3e2f93d8055879983ba701ee75d70977b3815bdc/datahugger_ng-0.6.3-cp310-abi3-musllinux_1_2_armv7l.whl", hash = "sha256:aee1408dd57a602cf245dacd327a4f8b98878a7a3ec1a0124584e9581d8a3f4e", size = 6069724, upload-time = "2026-05-27T12:46:24.001Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/70/6268ca195ccaf773d20379cc0c0592d54ad49e9aa684d172e882e6c752b0/datahugger_ng-0.6.3-cp310-abi3-musllinux_1_2_i686.whl", hash = "sha256:099fe03b5ca24babe5ea6992bfa53566e55e10fbcaefd183bc874216a933f27c", size = 6638758, upload-time = "2026-05-27T12:46:25.908Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/fd/e6cdf8acebbb770d6d021bf002d630761f00866cbe0fb6246f697419beb4/datahugger_ng-0.6.3-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:afc6f70890c64ef43ae55c4fdc14e463df731238bbe39ed36b0f6a10c5441f4d", size = 7173487, upload-time = "2026-05-27T12:46:27.873Z" },
+    { url = "https://files.pythonhosted.org/packages/78/e5/b85521a7b6d832a18b1e38124ad1dceab4b0a67e9ce1cf0aa21fd42d3e70/datahugger_ng-0.6.3-cp310-abi3-win_amd64.whl", hash = "sha256:f4d99f8112f72a13ac7321e27df3332c59e905fdb04dcfdb276406bbf96410a3", size = 3667544, upload-time = "2026-05-27T12:46:29.381Z" },
 ]
 
 [[package]]
@@ -1014,7 +1014,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "celery", specifier = ">=5.6.2" },
-    { name = "datahugger-ng", specifier = ">=0.6.1" },
+    { name = "datahugger-ng", specifier = ">=0.6.3" },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.135.1" },
     { name = "fastembed", specifier = ">=0.7.4" },
