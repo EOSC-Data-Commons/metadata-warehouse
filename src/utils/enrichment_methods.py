@@ -163,12 +163,13 @@ def _opeanaire_get_doi_subjects(response):
             continue
 
         current_pids = el["pids"]
-        current_dois = [pid['value'] for pid in current_pids if pid['scheme'] == 'doi']
+        # lowercase DOIs for correct comparison with DOIs from database
+        current_dois = [pid['value'].lower() for pid in current_pids if pid['scheme'] == 'doi']
 
         enriched_dois.append(current_dois)
 
         # subjects have multiple fields, we are interested in text values
-        print(res_subjects)
+        
         #subjects_list = [sub['subject']['value'] for sub in res_subjects if sub != []]
         subjects_list = [sub['subject']['value'] for sub in res_subjects]
 
@@ -186,6 +187,23 @@ def _opeanaire_get_doi_subjects(response):
             doi_subjects.append(doi_sub_pair)
 
     return doi_subjects
+
+def _ids_with_openaire_subjects(id_dois, doi_subjects):
+    output_list = id_dois
+
+    for ix in range(len(id_dois)):
+        current_doi = id_dois[ix]['doi']
+
+        matched_subjects = next(
+        # Generator expression, next() stops at the first match
+            (item['subjects'] for item in doi_subjects if item['doi'] == current_doi),
+            None
+        )
+        # Add a new key to the dicts with database ID
+        output_list[ix]['enriched_subjects'] = matched_subjects
+    
+    return(output_list)
+
 
 def batch_enrich_subjects_from_openaire(doi_list):
     api_results = _openaire_batch_doi_resolve(doi_list)
