@@ -65,7 +65,7 @@ services:
             #"-Q",
             #"batches",
               "-E",
-              "--concurrency=1"
+              "--concurrency=1",
               "--pool=prefork",
               "--loglevel=INFO"
           ]
