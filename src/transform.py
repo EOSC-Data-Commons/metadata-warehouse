@@ -663,6 +663,8 @@ def init_index(
     # this way, it does not block the server
     try:
         results = create_jobs_in_queue(harvest_run_id, index_name)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception('Indexing failed')
         raise HTTPException(status_code=500, detail=str(e))
