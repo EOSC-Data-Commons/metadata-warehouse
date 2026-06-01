@@ -184,7 +184,6 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                 files.extend(self.collect_files(harvest_event, ds_dabar))
 
             elif harvest_event.code == ProviderCode.SWISSUBASE:
-                logger.debug(harvest_event.record_identifier)
                 ds_swiss = resolve(
                     f'https://www.swissubase.ch/en/catalogue/studies/1223/latest/datasets/114/{harvest_event.record_identifier}/overview'
                 )
