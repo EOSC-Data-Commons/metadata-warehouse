@@ -92,7 +92,7 @@ class FileMetadataTask(Task):  # type: ignore
         checksum_type, checksum_value = self.parse_checksum(file)
 
         return (
-            harvest_event.harvest_url,  # harvest_url
+            harvest_event.harvest_url,
             harvest_event.record_identifier,
             file.file_identifier or file.filename,
             file.filename or file.file_identifier,
@@ -113,7 +113,7 @@ class FileMetadataTask(Task):  # type: ignore
         checksum_type, checksum_value = self.parse_checksum(zip_file)
 
         return (
-            harvest_event.harvest_url,  # harvest_url
+            harvest_event.harvest_url,
             harvest_event.record_identifier,
             harvest_event.record_identifier,
             harvest_event.record_identifier,
