@@ -17,6 +17,8 @@ from datahugger import (
     FileEntry,
     HalJsonSrcDataset,
     ZenodoJsonSrcDataset,
+    ZipEntry,
+    resolve,
 )
 from fastembed import TextEmbedding
 from jsonschema.validators import validate
@@ -67,6 +69,7 @@ class ProviderCode(str, Enum):
     ZENODO = 'ZENODO'
     HAL = 'HAL'
     DABAR = 'DABAR'
+    SWISSUBASE = 'SWISS'
 
 
 class FileMetadataTask(Task):  # type: ignore
@@ -76,7 +79,7 @@ class FileMetadataTask(Task):  # type: ignore
         # TODO: how to configure DB and not hard code?
         self.postgres_config = PostgresConfig(db=os.environ.get('FILE_DB'))
 
-    def parse_checksum(self, file: FileEntry) -> tuple[str | None, str | None]:
+    def parse_checksum(self, file: FileEntry | ZipEntry) -> tuple[str | None, str | None]:
         if not file.checksum:
             return None, None
 
@@ -89,7 +92,7 @@ class FileMetadataTask(Task):  # type: ignore
         checksum_type, checksum_value = self.parse_checksum(file)
 
         return (
-            harvest_event.harvest_url,  # harvest_url
+            harvest_event.harvest_url,
             harvest_event.record_identifier,
             file.file_identifier or file.filename,
             file.filename or file.file_identifier,
@@ -104,6 +107,27 @@ class FileMetadataTask(Task):  # type: ignore
             file.download_url,
             file.creation_date,
             file.last_modification_date,
+        )
+
+    def make_zip_entry(self, harvest_event: HarvestEventQueue, zip_file: ZipEntry) -> tuple[Any, ...]:
+        checksum_type, checksum_value = self.parse_checksum(zip_file)
+
+        return (
+            harvest_event.harvest_url,
+            harvest_event.record_identifier,
+            harvest_event.record_identifier,
+            harvest_event.record_identifier,
+            'datahugger',
+            harvest_event.identifier_type,
+            'Dataset',
+            'application/zip',
+            None,
+            checksum_type,
+            checksum_value,
+            zip_file.version,
+            zip_file.download_url,
+            zip_file.creation_date,
+            None,
         )
 
     def collect_files(self, harvest_event: HarvestEventQueue, dataset: Dataset) -> list[tuple[Any, ...]]:
@@ -159,8 +183,16 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
                 files.extend(self.collect_files(harvest_event, ds_dabar))
 
+            elif harvest_event.code == ProviderCode.SWISSUBASE:
+                ds_swiss = resolve(
+                    f'https://www.swissubase.ch/en/catalogue/studies/1223/latest/datasets/114/{harvest_event.record_identifier}/overview'
+                )
+
+                for zip_file in ds_swiss.crawl():
+                    files.append(self.make_zip_entry(harvest_event, zip_file))
+
             if len(files) == 0:
-                logger.debug(f'no files for {harvest_event.record_identifier}')
+                logger.debug(f'no files for {harvest_event.record_identifier} in {harvest_event.code}')
                 continue
             success += 1
 
