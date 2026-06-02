@@ -8,8 +8,7 @@ from fastapi import FastAPI, HTTPException, Query
 from psycopg import errors as psycopg_errors
 from psycopg.rows import dict_row
 
-from config.logging_config import LOGGING_CONFIG
-from db_methods import (
+from api_classes import (
     Config,
     HarvestEventCreateRequest,
     HarvestEventCreateResponse,
@@ -22,6 +21,9 @@ from db_methods import (
     IndexGetResponse,
     SchedulerClosedRunsResponse,
     SchedulerRunsResponse,
+)
+from config.logging_config import LOGGING_CONFIG
+from db_methods import (
     are_all_runs_closed_in_db,
     close_harvest_run_in_db,
     connection_params,
