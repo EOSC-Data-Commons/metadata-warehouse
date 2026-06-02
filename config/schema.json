@@ -104,15 +104,17 @@
             "items": {
                 "type": "object",
                 "properties": {
-                    "properties": {
-                        "alternateIdentifier": {
-                            "type": "string"
-                        },
-                        "alternateIdentifierType": {
-                            "type": "string"
-                        }
+                    "alternateIdentifier": {
+                        "type": "string"
+                    },
+                    "alternateIdentifierType": {
+                        "type": "string"
                     }
-                }
+                },
+                "required": [
+                    "alternateIdentifier"
+                ],
+                "additionalProperties": false
             }
         },
         "publicationYear": {
@@ -173,8 +175,8 @@
                 }
             },
             "required": [
-                    "resourceTypeGeneral"
-                ],
+                "resourceTypeGeneral"
+            ],
             "additionalProperties": false
         },
         "formats": {
