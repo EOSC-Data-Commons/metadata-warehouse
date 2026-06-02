@@ -1,7 +1,5 @@
-import logging
 from datetime import datetime, timezone
-from logging.config import dictConfig
-from typing import Any, Optional
+from typing import Optional
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query
@@ -22,7 +20,6 @@ from api_classes import (
     SchedulerClosedRunsResponse,
     SchedulerRunsResponse,
 )
-from config.logging_config import LOGGING_CONFIG
 from db_methods import (
     are_all_runs_closed_in_db,
     close_harvest_run_in_db,
@@ -33,9 +30,7 @@ from db_methods import (
     get_config_from_db,
     get_latest_harvest_run_in_db,
 )
-
-dictConfig(LOGGING_CONFIG)
-logger = logging.getLogger(__name__)
+from setup_logger import logger
 
 tags_metadata = [
     {'name': 'health', 'description': 'Health route'},

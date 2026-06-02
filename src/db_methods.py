@@ -1,11 +1,9 @@
-import logging
 import os
 from json import JSONDecodeError
-from logging.config import dictConfig
 from typing import Any, Optional
 
 import psycopg
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import HTTPException
 from psycopg.rows import dict_row
 
 from api_classes import (
@@ -19,13 +17,10 @@ from api_classes import (
     HarvestRunCreateResponse,
     HarvestRunGetResponse,
 )
-from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
+from setup_logger import logger
 from tasks import add_file_metadata, transform_batch
 from utils.queue_utils import HarvestEventQueue, detect_identifier_type
-
-dictConfig(LOGGING_CONFIG)
-logger = logging.getLogger(__name__)
 
 postgres_config: PostgresConfig = PostgresConfig()
 connection_params = postgres_config.connection_params
