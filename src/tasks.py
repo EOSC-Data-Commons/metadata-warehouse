@@ -387,7 +387,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 opensearch_synced = True
                 additional_metadata = rec.harvest_event.additional_metadata
                 # multiple subjects should result in a list of strings
-                raw_subjects = [s['subject'] for s in rec.src.get('subjects', [])]
+                raw_subjects = [s['subject'] for s in rec.src.get('subjects')]
 
                 # https://neon.com/postgresql/postgresql-tutorial/postgresql-upsert
                 cur.execute(
