@@ -192,11 +192,11 @@ def _ids_with_openaire_subjects(id_dois, doi_subjects):
     output_list = id_dois
 
     for ix in range(len(id_dois)):
-        current_doi = id_dois[ix]['doi']
+        current_doi = id_dois[ix]['doi'].lower()
 
         matched_subjects = next(
         # Generator expression, next() stops at the first match
-            (item['subjects'] for item in doi_subjects if item['doi'] == current_doi),
+            (item['subjects'] for item in doi_subjects if item['doi'].lower() == current_doi),
             None
         )
         # Add a new key to the dicts with database ID
@@ -205,18 +205,29 @@ def _ids_with_openaire_subjects(id_dois, doi_subjects):
     return(output_list)
 
 
-def batch_enrich_subjects_from_openaire(doi_list):
-    api_results = _openaire_batch_doi_resolve(doi_list)
-    # TODO - implement subjects to list for batch method
-    openaire_subjects = _opeanaire_batch_get_subjects(api_result)
+def batch_enrich_subjects_from_openaire(records_id_doi):
+    """
+    :param records_id_doi: List[dict: 
+        {'id': str, record id from database,
+        'doi': str, record DOI
+        }
+    ]
+    :return: List[dict] like input, with new key:
+            'enriched_subjects' None/List[str]
+    """
     
-    # TODO - append relevant subjects to individual DOIs in list
+    dois_to_enrich = [rec['doi'] for rec in records_id_doi]
+    api_result = _openaire_batch_doi_resolve(dois_to_enrich)
+
+    doi_subjects = _opeanaire_get_doi_subjects(api_result)
+
+    output_list = records_id_doi
+    output_list = _ids_with_openaire_subjects(output_list, doi_subjects)
 
     # List of following:
     #[
+    # id: str
     # doi: str
-    # subjects: [str]
+    # enriched_subjects: [str]
     #]
-
-    # Return a list
-    return doi_subjects_list
+    return output_list
