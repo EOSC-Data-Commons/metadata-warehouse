@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.1.0...v1.2.0) (2026-06-03)
+
+
+### Features
+
+* enhance docker publish workflow with manual input ([#123](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/123)) ([bc3928c](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/bc3928c7e39be9b7362bc534c0b418c44daa78c5))
+
 ## [1.1.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.0.0...v1.1.0) (2026-06-03)
 
 
