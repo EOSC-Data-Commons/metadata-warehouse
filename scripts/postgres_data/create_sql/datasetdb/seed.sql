@@ -194,7 +194,7 @@ INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_di
 SELECT
     r.id,
     'FinBIF',
-    'https://api.laji.fi',
+    'https://api.gbif.org',
     'FINBIF_API',
     'Biology',
     true,
