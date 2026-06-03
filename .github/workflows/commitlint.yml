@@ -1,0 +1,24 @@
+name: Lint Commit Messages
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: '3.12'
+      - run: uv tool install conventional-pre-commit
+      - run: |
+          git log origin/${{ github.base_ref }}..HEAD --format="%s" --no-merges | \
+          while read msg; do
+            echo "Checking: $msg"
+            tmpfile=$(mktemp)
+            echo "$msg" > "$tmpfile"
+            conventional-pre-commit feat fix docs style refactor test chore ci build "$tmpfile" || exit 1
+            rm "$tmpfile"
+          done
