@@ -2,12 +2,20 @@ name: Lint Commit Messages
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
-
 jobs:
   commitlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: wagoid/commitlint-github-action@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: uv tool install conventional-pre-commit
+      - run: |
+          git log origin/${{ github.base_ref }}..HEAD --format="%s" | \
+          while read msg; do
+            echo "Checking: $msg"
+            echo "$msg" | conventional-pre-commit feat fix docs style refactor test chore ci build || exit 1
+          done
