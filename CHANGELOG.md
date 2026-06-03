@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.0.0...v1.1.0) (2026-06-03)
+
+
+### Features
+
+* add tool registry ([#88](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/88)) ([6d49e54](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/6d49e544c8d97d325409c6f2009fb411b3d81024))
+* commitlint gh action ([#118](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/118)) ([a830f7e](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/a830f7e06eee8b2e0f879618db3291f9c8bdf112))
+* **precommit:** add check to prevent invalid commit message formats ([#119](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/119)) ([4d8316f](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/4d8316f77f58705fe89d35b1b57391a9f814b6ae))
+
+
+### Bug Fixes
+
+* **deps:** remove old redis dep ([#111](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/111)) ([3932945](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/3932945d908fb08d2a1d639ec29c17ba7eeef241))
+
 ## 1.0.0 (2026-04-28)
 
 
