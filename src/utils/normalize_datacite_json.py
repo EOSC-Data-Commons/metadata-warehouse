@@ -319,6 +319,20 @@ def normalize_datacite_json(res: dict[str, Any], datacite_schema: str) -> dict[s
                     make_array(res.get(f'{datacite_schema}:creators'), f'{datacite_schema}:creator'),
                 )
             ),
+            'alternateIdentifiers': list(
+                map(
+                    lambda el: harmonize_props(
+                        el,
+                        f'{datacite_schema}:alternateIdentifier',
+                        {'@alternateIdentifierType': 'alternateIdentifierType'},
+                        {},
+                        datacite_schema,
+                    ),
+                    make_array(
+                        res.get(f'{datacite_schema}:alternateIdentifiers'), f'{datacite_schema}:alternateIdentifier'
+                    ),
+                )
+            ),
             'publicationYear': res.get(f'{datacite_schema}:publicationYear'),
             'descriptions': list(
                 map(
