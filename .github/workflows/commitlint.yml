@@ -14,8 +14,11 @@ jobs:
           python-version: '3.12'
       - run: uv tool install conventional-pre-commit
       - run: |
-          git log origin/${{ github.base_ref }}..HEAD --format="%s" | \
+          git log origin/${{ github.base_ref }}..HEAD --format="%s" --no-merges | \
           while read msg; do
             echo "Checking: $msg"
-            echo "$msg" | conventional-pre-commit feat fix docs style refactor test chore ci build || exit 1
+            tmpfile=$(mktemp)
+            echo "$msg" > "$tmpfile"
+            conventional-pre-commit feat fix docs style refactor test chore ci build "$tmpfile" || exit 1
+            rm "$tmpfile"
           done
