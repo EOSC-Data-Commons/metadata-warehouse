@@ -99,6 +99,24 @@
                 "additionalProperties": false
             }
         },
+        "alternateIdentifiers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "alternateIdentifier": {
+                        "type": "string"
+                    },
+                    "alternateIdentifierType": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "alternateIdentifier"
+                ],
+                "additionalProperties": false
+            }
+        },
         "publicationYear": {
             "type": "string",
             "pattern": "^[0-9]{4}$"
@@ -157,8 +175,8 @@
                 }
             },
             "required": [
-                    "resourceTypeGeneral"
-                ],
+                "resourceTypeGeneral"
+            ],
             "additionalProperties": false
         },
         "formats": {
