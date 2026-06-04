@@ -1,6 +1,7 @@
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 COPY ./pyproject.toml /code/pyproject.toml
+COPY ./uv.lock /code/uv.lock
 
 WORKDIR /code/src
 
