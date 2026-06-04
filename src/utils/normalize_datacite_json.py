@@ -30,7 +30,6 @@ def get_identifier(entry: dict[str, Any], identifier_type: str, datacite_schema:
 
 
 def get_resource_type(entry: dict[str, Any], datacite_schema: str) -> Optional[dict[str, Any]]:
-
     res = {}
 
     if res_type := entry.get(f'{datacite_schema}:resourceType'):
@@ -98,7 +97,7 @@ def harmonize_props(
     if field_name not in entry or entry[field_name] is None:
         return {}
 
-    name = field_name[len(datacite_schema) + 1 :]
+    name = field_name[len(datacite_schema) + 1:]
     if isinstance(entry[field_name], str):
         if name in normalization:
             return {name: normalization[name](entry[field_name])}
@@ -205,7 +204,7 @@ def normalize_date_precision(date_str: str) -> str:
             datetime.datetime.strptime(date_str[0:10], DATE_FORMAT)
         except ValueError as e:
             print(f'Date {date_str} invalid: {e}', file=sys.stderr)
-            raise e
+            raise
         return date_str[0:10]
     elif len(date_str) == 7:
         # month precision
@@ -226,7 +225,7 @@ def normalize_date_precision(date_str: str) -> str:
             # print(f'{date_str}, {parts}, {normalized_date}')
         except Exception as e:
             print(f'Could not normalize date: {date_str}, {parts} {e}', file=sys.stderr)
-            raise e
+            raise
         return normalized_date
 
 
@@ -276,13 +275,11 @@ def normalize_datacite_json(res: dict[str, Any], datacite_schema: str) -> dict[s
     # print(json.dumps(input))
 
     try:
-        url = get_identifier(res, 'URL', datacite_schema)  # I originally wanted to go for the walrus operator here ...
-
         res = {
             'doi': get_identifier(res, 'DOI', datacite_schema),
-            'url': url
-            if url is not None
-            else get_identifier(res, 'URN', datacite_schema),  # fall back to URN if URL is not present
+                'url': get_identifier(res, 'URL', datacite_schema)
+                       or get_identifier(res, 'URN', datacite_schema)
+                       or get_identifier(res, 'ARK', datacite_schema),
             'titles': list(
                 map(
                     lambda el: harmonize_props(
@@ -383,6 +380,6 @@ def normalize_datacite_json(res: dict[str, Any], datacite_schema: str) -> dict[s
 
         return {'id': make_id(cleaned), **cleaned}
 
-    except Exception as e:
+    except Exception:
         # print(f'Error {str(e)} when processing {input}', file=sys.stderr)
-        raise e
+        raise
