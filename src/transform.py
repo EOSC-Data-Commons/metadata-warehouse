@@ -64,6 +64,7 @@ class AdditionalMetadataParams(BaseModel):
 class HarvestParams(BaseModel):
     metadata_prefix: str
     set: Optional[list[str]]
+    ids: Optional[list[str]]
     additional_metadata_params: Optional[AdditionalMetadataParams]
 
 
@@ -345,6 +346,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                 harvest_params=HarvestParams(
                     metadata_prefix=new_harvest_run['harvest_params'].get('metadata_prefix'),
                     set=new_harvest_run['harvest_params'].get('set'),
+                    ids=new_harvest_run['harvest_params'].get('ids'),
                     additional_metadata_params=new_harvest_run['harvest_params'].get('additional_metadata_params'),
                 ),
             ),
@@ -484,6 +486,7 @@ JOIN repositories r ON e.repository_id = r.id
                         harvest_params=HarvestParams(
                             metadata_prefix=doc['harvest_params'].get('metadata_prefix'),
                             set=doc['harvest_params'].get('set'),
+                            ids=doc['harvest_params'].get('ids'),
                             additional_metadata_params=doc['harvest_params'].get('additional_metadata_params'),
                         ),
                     )
