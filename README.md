@@ -39,7 +39,7 @@ To run the containers:
   ```
 - Install [uv](https://docs.astral.sh/uv/) and run
   ```sh
-  uv sync
+  uv sync --frozen
   ```
 
 ## Prepare Data For Local Import
@@ -220,8 +220,9 @@ uv run pytest -s e2e
 ## Commit Message Conventions
 
 Keep to this commit message [style](https://www.conventionalcommits.org/en/v1.0.0/#summary). 
+For semantic versioning, see these [release-please](https://github.com/googleapis/release-please#how-should-i-write-my-commits).
 Set up pre-commit hooks to check your messages before commiting them to the repo:
-- `uv sync --all-extras --dev`
+- `uv sync --frozen --all-extras --dev`
 - `uv run pre-commit install --hook-type commit-msg`
 
 See `.pre-commit-config.yaml` for further details.

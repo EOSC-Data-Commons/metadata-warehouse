@@ -5,5 +5,5 @@ COPY ./pyproject.toml ./uv.lock /code/
 WORKDIR /code/src
 
 ENV UV_LINK_MODE=copy
-RUN uv sync --no-dev
+RUN uv sync --frozen --no-dev
 ENV PATH="/code/.venv/bin:$PATH"
