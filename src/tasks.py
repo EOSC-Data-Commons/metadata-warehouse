@@ -57,6 +57,8 @@ EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
 if not EMBEDDING_MODEL:
     raise ValueError('Missing EMBEDDING_MODEL environment variable')
 
+FASTEMBED_CACHE_DIR = os.environ.get('FASTEMBED_CACHE_DIR', '/root/.cache/fastembed')
+
 celery_app = Celery('tasks')
 
 
@@ -248,7 +250,7 @@ class TransformTask(Task):  # type: ignore
 
     def __init__(self) -> None:
         if EMBEDDING_MODEL:
-            self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL)
+            self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL, cache_dir=FASTEMBED_CACHE_DIR)
             logger.info(f'Setting up embedding transformer with model {EMBEDDING_MODEL}')
 
         opensearch_config = OpenSearchConfig()
