@@ -97,7 +97,7 @@ def harmonize_props(
     if field_name not in entry or entry[field_name] is None:
         return {}
 
-    name = field_name[len(datacite_schema) + 1:]
+    name = field_name[len(datacite_schema) + 1 :]
     if isinstance(entry[field_name], str):
         if name in normalization:
             return {name: normalization[name](entry[field_name])}
@@ -277,9 +277,9 @@ def normalize_datacite_json(res: dict[str, Any], datacite_schema: str) -> dict[s
     try:
         res = {
             'doi': get_identifier(res, 'DOI', datacite_schema),
-                'url': get_identifier(res, 'URL', datacite_schema)
-                       or get_identifier(res, 'URN', datacite_schema)
-                       or get_identifier(res, 'ARK', datacite_schema),
+            'url': get_identifier(res, 'URL', datacite_schema)
+            or get_identifier(res, 'URN', datacite_schema)
+            or get_identifier(res, 'ARK', datacite_schema),
             'titles': list(
                 map(
                     lambda el: harmonize_props(
