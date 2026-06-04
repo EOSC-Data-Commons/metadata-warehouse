@@ -13,7 +13,8 @@ VALUES
     ('FinBIF', 'FINBIF', 'Finnish Biodiversity Information Facility', 'https://laji.fi', true),
     ('Zenodo', 'ZENODO', 'Zenodo repository', 'https://zenodo.org', true),
     ('PaNOSC', 'PANOSC', 'Scientific data infrastructure repository', 'https://www.panosc.eu/', true),
-    ('Dataverse Latvia EOSC Node', 'DATAVERSELV', 'Latvian research data repository', 'https://dataverse.lv/', true)
+    ('Dataverse Latvia EOSC Node', 'DATAVERSELV', 'Latvian research data repository', 'https://dataverse.lv/', true),
+    ('DaSCH', 'DASCH', 'DaSCH metadata repository', 'https://dasch.swiss', true)
 
 ON CONFLICT (code) DO NOTHING;
 
@@ -459,3 +460,19 @@ SELECT
 FROM repositories r
 WHERE r.code = 'DATAVERSELV'
 ON CONFLICT (name) DO NOTHING;
+
+-- DaSCH
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+SELECT
+    r.id,
+    'DaSCH',
+    'https://repository.dasch.swiss/dpe/oai',
+    'OAI-PMH',
+    'Multidisciplinary',
+    true,
+    '{"metadata_prefix": "oai_datacite","set": ["entityType:ResearchProject"]}',
+    INTERVAL '1 week'
+FROM repositories r
+WHERE r.code = 'DASCH'
+ON CONFLICT (name) DO NOTHING;
+
