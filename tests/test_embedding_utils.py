@@ -25,8 +25,7 @@ class TestEmbeddingsUtils(unittest.TestCase):
         self.assertTrue('Consumentenconjunctuuronderzoek' in res)
 
     def test_add_embeddings_to_source(self):
-        embedding_model = TextEmbedding()
-        embedding_model.embed = MagicMock(name='embed')  # mock embed method
+        embedding_model = MagicMock(spec=TextEmbedding)
         embedding_model.embed.return_value = [np.array([1, 2, 3]), np.array([4, 5, 6]), np.array([7, 8, 9])]
 
         data = [
