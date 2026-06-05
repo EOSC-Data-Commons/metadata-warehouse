@@ -197,6 +197,11 @@ def normalize_date_precision(date_str: str) -> str:
     :param date_str: Given date string.
     :return: Date with normalized precision.
     """
+    # print(date_str)
+
+    if not date_str[:4].isdigit():
+        raise ValueError(f'Date {date_str!r} does not start with a 4-digit year')
+
     if len(date_str) >= 10:
         # day precision
         try:
@@ -229,22 +234,23 @@ def normalize_date_precision(date_str: str) -> str:
         return normalized_date
 
 
-def normalize_date_string(date_str: str) -> str:
+def normalize_date_string(date_str: str) -> str | None:
     """
     Normalizes a date string to a single date YYYY-MM-DD.
 
     :param date_str: Given date string.
     :return: Normalized date string.
     """
-    if ' ' in date_str:
-        # date contains date time: 2025-07-15 09:46:15
-        return normalize_date_precision(date_str.split(' ')[0])
-    elif '/' in date_str:
-        # date is a period: 2021-11-08/2021-11-23
-        return normalize_date_precision(date_str.split('/')[0])
-    else:
-        # date may not have day precision
-        return normalize_date_precision(date_str)
+    try:
+        if ' ' in date_str:
+            return normalize_date_precision(date_str.split(' ')[0])
+        elif '/' in date_str:
+            return normalize_date_precision(date_str.split('/')[0])
+        else:
+            return normalize_date_precision(date_str)
+    except (ValueError, Exception):
+        print(f'Skipping unparseable date: {date_str!r}', file=sys.stderr)
+        return None
 
 
 def normalize_lang_string(lang: str) -> str:
@@ -344,15 +350,18 @@ def normalize_datacite_json(res: dict[str, Any], datacite_schema: str) -> dict[s
                 )
             ),
             'dates': list(
-                map(
-                    lambda el: harmonize_props(
-                        el,
-                        f'{datacite_schema}:date',
-                        {'@dateType': 'dateType'},
-                        {'date': normalize_date_string},
-                        datacite_schema,
+                filter(
+                    lambda el: el.get('date') is not None,
+                    map(
+                        lambda el: harmonize_props(
+                            el,
+                            f'{datacite_schema}:date',
+                            {'@dateType': 'dateType'},
+                            {'date': normalize_date_string},
+                            datacite_schema,
+                        ),
+                        make_array(res.get(f'{datacite_schema}:dates'), f'{datacite_schema}:date'),
                     ),
-                    make_array(res.get(f'{datacite_schema}:dates'), f'{datacite_schema}:date'),
                 )
             ),
             'formats': list(
