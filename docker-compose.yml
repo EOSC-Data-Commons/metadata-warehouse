@@ -51,6 +51,7 @@ services:
         volumes:
             - ./src:/code/src
             - ./config:/code/config
+            - ./cache/fastembed:/root/.cache/fastembed
         networks:
             - warehouse-backend
         depends_on:
@@ -95,6 +96,7 @@ services:
         volumes:
             - ./src:/code/src
             - ./config:/code/config
+            - ./cache/fastembed:/root/.cache/fastembed
         command: [ "fastapi", "run", "--host", "0.0.0.0", "transform.py", "--port", "80" ]
         networks:
             - warehouse-backend
