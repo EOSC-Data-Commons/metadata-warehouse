@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.2.0...v1.2.1) (2026-06-05)
+
+
+### Bug Fixes
+
+* **docker:** copy uv.lock and use --frozen ([#125](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/125)) ([63f4246](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/63f4246d23b5d974376a2bea1c8928682f79d582))
+* **gh ci cd:** cache fastembed model  ([#126](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/126)) ([b6b1c25](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/b6b1c25de9fc338ffe63ba4b4e3cf7c788d92d1b))
+
 ## [1.2.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.1.0...v1.2.0) (2026-06-03)
 
 
