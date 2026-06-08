@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.2.1...v1.3.0) (2026-06-08)
+
+
+### Features
+
+* **skip embedding calc:** add flag to skip recalculating embeddings ([#109](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/109)) ([b742603](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/b742603a6fb91e99531677cd5399c2d36e770107))
+
 ## [1.2.1](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.2.0...v1.2.1) (2026-06-05)
 
 
