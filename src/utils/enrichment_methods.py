@@ -3,6 +3,7 @@
 # a sequence of different attempts might yield best results
 import requests
 from lxml import etree as ET
+import time
 
 def get_doi(raw_metadata: str):
     """
@@ -100,7 +101,7 @@ def _opeanaire_subjects_to_list(subjects_list):
 # Therefore, an additional step is needed where each resultset's subjects are
 # linked to the original DOIs.
 
-def _openaire_batch_doi_resolve(doi_list):
+def _openaire_batch_doi_resolve(doi_list: list[str]):
     """
     Query the OpenAIRE API to obtain more metadata for a given DOI.
     The API used: https://api.openaire.eu/graph/
@@ -114,31 +115,42 @@ def _openaire_batch_doi_resolve(doi_list):
     :return: List[dict] of metadata
     """
 
-    # The pid parameter is case-insensitive, no need to adjust
+    results = []
+    # The API can only process 10 DOIs at once, so we need to send the requests in batches
+    # We'll then extend the resultset for each batch
+    for i in range(0, len(doi_list), 10):
+        batch = doi_list[i:i + 10]
 
-    # If the DOI starts with http(s) strip the start of the string
-    doi_list = [doi.replace("https://doi.org/", "").replace("http://doi.org/", "")
-                for doi
-                in doi_list
-        ]
-    
-    # For sending as a parameter, the OR operator can be written as commas between pids
-    doi_param = ",".join(doi_list)
+        # The pid parameter is case-insensitive, no need to adjust
+
+        # If the DOI starts with http(s) strip the start of the string
+        dois = [doi.replace("https://doi.org/", "").replace("http://doi.org/", "")
+                    for doi
+                    in batch
+            ]
+        
+        # For sending as a parameter, the OR operator can be written as commas between pids
+        doi_param = ",".join(dois)
 
 
-    response = requests.get(
-        "https://api.openaire.eu/graph/v2/researchProducts",
-        params={"pid": doi_param}, 
-        timeout=10
-    )
-    data = response.json()
+        response = requests.get(
+            "https://api.openaire.eu/graph/v2/researchProducts",
+            params={"pid": doi_param}, 
+            timeout=10
+        )
+        data = response.json()
 
-    results = data.get("results", [])
+        batch_results = data.get("results", [])
+
+        results.extend(batch_results)
+
+        # Wait a bit, to not overwhelm the API
+        time.sleep(0.5)
     
     return(results)
     
 
-def _opeanaire_get_doi_subjects(response):
+def _opeanaire_get_doi_subjects(response: list[dict]):
     """
     Transform API response into a list of DOI-sets and their subject-sets.
 
@@ -191,7 +203,8 @@ def _opeanaire_get_doi_subjects(response):
 
     return doi_subjects
 
-def _ids_connect_with_openaire_subjects(id_dois, doi_subjects):
+def _ids_connect_with_openaire_subjects(id_dois: list[dict],
+                                        doi_subjects: list[dict]):
     """
     Connect id-doi from database to relevant doi-subject list.
 
@@ -240,7 +253,7 @@ def _ids_connect_with_openaire_subjects(id_dois, doi_subjects):
     return(output_list)
 
 
-def batch_enrich_subjects_from_openaire(records_id_doi):
+def batch_enrich_subjects_from_openaire(records_id_doi: list[dict]):
     """
     :param records_id_doi: List[dict: 
         {'id': str, record id from database,
