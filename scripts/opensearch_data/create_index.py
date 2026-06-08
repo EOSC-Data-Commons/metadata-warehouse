@@ -50,7 +50,7 @@ try:
                         'combination': {
                             'technique': 'rrf',
                             'rank_constant': 40,
-                            'parameters': {'weights': [0.7, 0.3]},
+                            'parameters': {'weights': [0.4, 0.6]},
                         }
                     }
                 }
