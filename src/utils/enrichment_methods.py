@@ -23,6 +23,8 @@ def get_doi(raw_metadata: str):
 
 # Enrich via OpenAIRE API, resolve record's DOI ----
 
+OPENAIRE_API_URL = "https://api.openaire.eu/graph/v2/researchProducts"
+
 def enrich_subjects_from_openaire(doi):
     api_result = _openaire_doi_resolve(doi)
     subjects = _opeanaire_get_subjects(api_result)
@@ -46,7 +48,7 @@ def _openaire_doi_resolve(doi):
     # It seems the pid parameter is case-insensitive
 
     response = requests.get(
-        "https://api.openaire.eu/graph/v2/researchProducts",
+        OPENAIRE_API_URL,
         params={"pid": doi_param}, 
         timeout=10
     )
@@ -134,9 +136,9 @@ def _openaire_batch_doi_resolve(doi_list: list[str]):
 
 
         response = requests.get(
-            "https://api.openaire.eu/graph/v2/researchProducts",
+            OPENAIRE_API_URL,
             params={"pid": doi_param}, 
-            timeout=10
+            timeout=30
         )
         data = response.json()
 
@@ -261,7 +263,7 @@ def batch_enrich_subjects_from_openaire(records_id_doi: list[dict]):
         }
     ]
     :return: List[dict] like input, with new key:
-            'enriched_subjects' None/List[str]
+            'enriched_subjects': None/List[str]
     """
     
     dois_to_enrich = [rec['doi'] for rec in records_id_doi]
