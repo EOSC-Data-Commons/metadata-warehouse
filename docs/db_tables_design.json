@@ -6,7 +6,7 @@
   "custom_types": {
     "harvest_protocol": {
       "type": "enum",
-      "values": ["OAI-PMH", "REST_API", "FINBIF_API"]
+      "values": ["OAI-PMH", "REST_API", "FINBIF_API", "MDPOSIT_API"]
     },
     "resource_type": {
       "type": "enum",
