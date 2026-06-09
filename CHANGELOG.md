@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.3.0...v1.4.0) (2026-06-09)
+
+
+### Features
+
+* **endpoints:** add DaSCH ([#128](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/128)) ([2c15123](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/2c151233e7e5b95ca26bd28fe09d4ce7c0555111))
+* **endpoints:** add MDDB endpoint ([#110](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/110)) ([28ae910](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/28ae91076895ecde312dfb98e6413923746c6392))
+
 ## [1.3.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.2.1...v1.3.0) (2026-06-08)
 
 
