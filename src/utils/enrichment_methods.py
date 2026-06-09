@@ -4,6 +4,7 @@
 import requests
 from lxml import etree as ET
 import time
+import copy
 
 def get_doi(raw_metadata: str):
     """
@@ -236,13 +237,13 @@ def _ids_connect_with_openaire_subjects(id_dois: list[dict],
         }
     ]
     """
-    output_list = id_dois
+    output_list = copy.deepcopy(id_dois)
 
-    for ix in range(len(id_dois)):
+    for ix in range(len(output_list)):
         # It's possible that the database DOI and API doi differ in capitalisation,
         # so we'll use lowercase versions of both for joining
 
-        current_doi = id_dois[ix]['doi'].lower()
+        current_doi = output_list[ix]['doi'].lower()
 
         matched_subjects = next(
         # Generator expression, next() stops at the first match
@@ -271,7 +272,8 @@ def batch_enrich_subjects_from_openaire(records_id_doi: list[dict]):
 
     doi_subjects = _opeanaire_get_doi_subjects(api_result)
 
-    output_list = records_id_doi
+    # Don't alter the input
+    output_list = copy.deepcopy(records_id_doi)
     output_list = _ids_connect_with_openaire_subjects(output_list, doi_subjects)
 
     # List of following:
