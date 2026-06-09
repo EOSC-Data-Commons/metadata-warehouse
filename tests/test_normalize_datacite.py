@@ -259,7 +259,7 @@ class TestNormalizeDatacite(unittest.TestCase):
         res = normalize_datacite_json.normalize_date_precision('2019-07-5')
         self.assertEqual(res, '2019-07-05')
 
-    def test_normalize_date_precision_with_day_without_leading_zer2(self):
+    def test_normalize_date_precision_with_day_without_leading_zero2(self):
         res = normalize_datacite_json.normalize_date_precision('2019-11-5')
         self.assertEqual(res, '2019-11-05')
 
@@ -270,6 +270,10 @@ class TestNormalizeDatacite(unittest.TestCase):
     def test_normalize_date_precision_with_daytime(self):
         res = normalize_datacite_json.normalize_date_precision('2022-12-07T15:16:24+01:00')
         self.assertEqual(res, '2022-12-07')
+
+    def test_normalize_date_precision_with_non_numeric_year_raises(self):
+        with self.assertRaises(ValueError):
+            normalize_datacite_json.normalize_date_precision('18th')
 
     def test_normalize_date_string_with_single_date(self):
         res = normalize_datacite_json.normalize_date_string('2025-06-07')
@@ -285,6 +289,11 @@ class TestNormalizeDatacite(unittest.TestCase):
 
     def test_normalize_date_string_with_unprocessable_datetime(self):
         res = normalize_datacite_json.normalize_date_string('18th and 19th Centuries')
+        self.assertEqual(res, None)
+
+    def test_normalize_date_string_with_period_non_numeric(self):
+        # invalid date before slash
+        res = normalize_datacite_json.normalize_date_string('unknown/2025')
         self.assertEqual(res, None)
 
     def test_make_id_with_url(self):

@@ -178,7 +178,7 @@ def make_array(field: dict[str, Any] | list[dict[str, Any]] | None, subfield_nam
 
 def remove_empty_item(item: tuple[str, Any]) -> bool:
     """
-    Removes an element if it is `None`,
+    Removes an element if its value is `None` or an empty list.
 
     :param item: Tuple of key, items.
     :return: Items if not None.
@@ -197,7 +197,6 @@ def normalize_date_precision(date_str: str) -> str:
     :param date_str: Given date string.
     :return: Date with normalized precision.
     """
-    # print(date_str)
 
     if not date_str[:4].isdigit():
         raise ValueError(f'Date {date_str!r} does not start with a 4-digit year')
@@ -248,8 +247,8 @@ def normalize_date_string(date_str: str) -> str | None:
             return normalize_date_precision(date_str.split('/')[0])
         else:
             return normalize_date_precision(date_str)
-    except (ValueError, Exception):
-        print(f'Skipping unparseable date: {date_str!r}', file=sys.stderr)
+    except Exception as e:
+        print(f'Skipping unparseable date: {date_str} {e}', file=sys.stderr)
         return None
 
 
