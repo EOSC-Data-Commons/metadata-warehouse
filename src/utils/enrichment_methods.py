@@ -97,10 +97,10 @@ def _opeanaire_subjects_to_list(subjects_list):
 
 # ALTERNATIVE - BATCH OpenAIRE requests
 
-# A GET request to the API can process multiple DOI pids at once - so we'll get results faster
+# A GET request to the API can process up to 10 DOI pids at once - so we'll get results faster
 # and avoid getting rate limited
-# There is a complication that multiple DOIs can be linked to a single OpenAIRE id, so if we make
-# a request with 100 DOIs we could get a resultset of 20 results.  
+# There is a complication that multiple DOIs can be linked to a single OpenAIRE id and the response
+# would then return a smaller number of results
 # Therefore, an additional step is needed where each resultset's subjects are
 # linked to the original DOIs.
 
@@ -233,7 +233,7 @@ def _ids_connect_with_openaire_subjects(id_dois: list[dict],
     :return: List[dict:
         {'id': str, record id from database,
         'doi': str, record DOI,
-        'enriched_subjects': None/List[str], subjects from API response
+        'enriched_subjects': None/set[str], subjects from API response
         }
     ]
     """
@@ -250,6 +250,11 @@ def _ids_connect_with_openaire_subjects(id_dois: list[dict],
             (item['subjects'] for item in doi_subjects if item['doi'].lower() == current_doi),
             None
         )
+
+        # Turn it into a set, to prevent multiple enrichment methods from
+        # repeadetly adding the same subjects from multiple sources
+        matched_subjects = set(matched_subjects)
+
         # Add a new key to the dicts with database ID
         output_list[ix]['enriched_subjects'] = matched_subjects
     
@@ -264,7 +269,7 @@ def batch_enrich_subjects_from_openaire(records_id_doi: list[dict]):
         }
     ]
     :return: List[dict] like input, with new key:
-            'enriched_subjects': None/List[str]
+            'enriched_subjects': None/set[str]
     """
     
     dois_to_enrich = [rec['doi'] for rec in records_id_doi]
@@ -280,6 +285,6 @@ def batch_enrich_subjects_from_openaire(records_id_doi: list[dict]):
     #[
     # id: str
     # doi: str
-    # enriched_subjects: [str]
+    # enriched_subjects: {str}
     #]
     return output_list
