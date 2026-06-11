@@ -492,7 +492,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                         raw_subjects = EXCLUDED.raw_subjects
                     """,
                     (
-                        record_identifier, # Insert
+                        record_identifier,
                         repository_id,
                         endpoint_id,
                         resource_type,
