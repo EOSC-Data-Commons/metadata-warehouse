@@ -500,12 +500,13 @@ JOIN repositories r ON e.repository_id = r.id
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def create_jobs_in_queue(harvest_run_id: str, index_name: str) -> int:
+def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings: bool) -> int:
     """
     Creates and enqueues transformation jobs from harvest_events table.
 
     :param harvest_run_id: ID of the harvest run the harvest events belong to.
     :param index_name: Name of the OpenSearch index to use.
+    :param reuse_embeddings: Reuse existing embeddings instead of recalculation.
     :return: Number of batches scheduled for processing.
     """
 
@@ -596,7 +597,7 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str) -> int:
 
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')
-            transform_batch.delay(batch, index_name)
+            transform_batch.delay(batch, index_name, reuse_embeddings)
             add_file_metadata.delay(batch)
             tasks += 1
 
@@ -658,11 +659,12 @@ def are_all_runs_closed_in_db() -> bool:
 def init_index(
     harvest_run_id: str = Query(default=None, description='Id of the harvest run to be indexed'),
     index_name: str = Query(default=None, description='Name of the OpenSearch index to use for indexing'),
+    reuse_embeddings: bool = Query(default=False, description='Whether to reuse embeddings or not'),
 ) -> IndexGetResponse:
     # this long-running method is synchronous and runs in an external threadpool, see https://fastapi.tiangolo.com/async/#path-operation-functions
     # this way, it does not block the server
     try:
-        results = create_jobs_in_queue(harvest_run_id, index_name)
+        results = create_jobs_in_queue(harvest_run_id, index_name, reuse_embeddings)
     except HTTPException:
         raise
     except Exception as e:

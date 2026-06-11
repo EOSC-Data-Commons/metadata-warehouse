@@ -30,7 +30,6 @@ def get_identifier(entry: dict[str, Any], identifier_type: str, datacite_schema:
 
 
 def get_resource_type(entry: dict[str, Any], datacite_schema: str) -> Optional[dict[str, Any]]:
-
     res = {}
 
     if res_type := entry.get(f'{datacite_schema}:resourceType'):
@@ -179,7 +178,7 @@ def make_array(field: dict[str, Any] | list[dict[str, Any]] | None, subfield_nam
 
 def remove_empty_item(item: tuple[str, Any]) -> bool:
     """
-    Removes an element if it is `None`,
+    Removes an element if its value is `None` or an empty list.
 
     :param item: Tuple of key, items.
     :return: Items if not None.
@@ -198,6 +197,10 @@ def normalize_date_precision(date_str: str) -> str:
     :param date_str: Given date string.
     :return: Date with normalized precision.
     """
+
+    if not date_str[:4].isdigit():
+        raise ValueError(f'Date {date_str!r} does not start with a 4-digit year')
+
     if len(date_str) >= 10:
         # day precision
         try:
@@ -205,7 +208,7 @@ def normalize_date_precision(date_str: str) -> str:
             datetime.datetime.strptime(date_str[0:10], DATE_FORMAT)
         except ValueError as e:
             print(f'Date {date_str} invalid: {e}', file=sys.stderr)
-            raise e
+            raise
         return date_str[0:10]
     elif len(date_str) == 7:
         # month precision
@@ -226,26 +229,27 @@ def normalize_date_precision(date_str: str) -> str:
             # print(f'{date_str}, {parts}, {normalized_date}')
         except Exception as e:
             print(f'Could not normalize date: {date_str}, {parts} {e}', file=sys.stderr)
-            raise e
+            raise
         return normalized_date
 
 
-def normalize_date_string(date_str: str) -> str:
+def normalize_date_string(date_str: str) -> str | None:
     """
     Normalizes a date string to a single date YYYY-MM-DD.
 
     :param date_str: Given date string.
     :return: Normalized date string.
     """
-    if ' ' in date_str:
-        # date contains date time: 2025-07-15 09:46:15
-        return normalize_date_precision(date_str.split(' ')[0])
-    elif '/' in date_str:
-        # date is a period: 2021-11-08/2021-11-23
-        return normalize_date_precision(date_str.split('/')[0])
-    else:
-        # date may not have day precision
-        return normalize_date_precision(date_str)
+    try:
+        if ' ' in date_str:
+            return normalize_date_precision(date_str.split(' ')[0])
+        elif '/' in date_str:
+            return normalize_date_precision(date_str.split('/')[0])
+        else:
+            return normalize_date_precision(date_str)
+    except Exception as e:
+        print(f'Skipping unparseable date: {date_str} {e}', file=sys.stderr)
+        return None
 
 
 def normalize_lang_string(lang: str) -> str:
@@ -276,13 +280,11 @@ def normalize_datacite_json(res: dict[str, Any], datacite_schema: str) -> dict[s
     # print(json.dumps(input))
 
     try:
-        url = get_identifier(res, 'URL', datacite_schema)  # I originally wanted to go for the walrus operator here ...
-
         res = {
             'doi': get_identifier(res, 'DOI', datacite_schema),
-            'url': url
-            if url is not None
-            else get_identifier(res, 'URN', datacite_schema),  # fall back to URN if URL is not present
+            'url': get_identifier(res, 'URL', datacite_schema)
+            or get_identifier(res, 'URN', datacite_schema)
+            or get_identifier(res, 'ARK', datacite_schema),
             'titles': list(
                 map(
                     lambda el: harmonize_props(
@@ -347,15 +349,18 @@ def normalize_datacite_json(res: dict[str, Any], datacite_schema: str) -> dict[s
                 )
             ),
             'dates': list(
-                map(
-                    lambda el: harmonize_props(
-                        el,
-                        f'{datacite_schema}:date',
-                        {'@dateType': 'dateType'},
-                        {'date': normalize_date_string},
-                        datacite_schema,
+                filter(
+                    lambda el: el.get('date') is not None,
+                    map(
+                        lambda el: harmonize_props(
+                            el,
+                            f'{datacite_schema}:date',
+                            {'@dateType': 'dateType'},
+                            {'date': normalize_date_string},
+                            datacite_schema,
+                        ),
+                        make_array(res.get(f'{datacite_schema}:dates'), f'{datacite_schema}:date'),
                     ),
-                    make_array(res.get(f'{datacite_schema}:dates'), f'{datacite_schema}:date'),
                 )
             ),
             'formats': list(
@@ -383,6 +388,6 @@ def normalize_datacite_json(res: dict[str, Any], datacite_schema: str) -> dict[s
 
         return {'id': make_id(cleaned), **cleaned}
 
-    except Exception as e:
+    except Exception:
         # print(f'Error {str(e)} when processing {input}', file=sys.stderr)
-        raise e
+        raise

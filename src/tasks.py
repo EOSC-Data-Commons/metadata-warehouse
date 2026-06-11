@@ -268,7 +268,7 @@ class TransformTask(Task):  # type: ignore
 
 
 @celery_app.task(base=TransformTask, bind=True, ignore_result=True)
-def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) -> Any:
+def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, reuse_embeddings: bool) -> Any:
     if not self.client.indices.exists(index=index_name):
         raise ValueError(f'Index {index_name} does not exist in OpenSearch')
 
@@ -383,11 +383,38 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 continue
 
         try:
-            logger.info(f'About to Calculate embeddings for {len(normalized)}')
-            src_with_emb: list[OpenSearchSourceWithEmbedding] = add_embeddings_to_source(
-                normalized, self.embedding_transformer
-            )
-            logger.info(f'Calculated embeddings for {len(src_with_emb)}')
+            src_with_emb: list[OpenSearchSourceWithEmbedding] = []
+            if reuse_embeddings:
+                logger.info(f'Reusing embeddings from DB for {len(normalized)} records')
+                for normalized_ele in normalized:
+                    cur.execute(
+                        """
+                        SELECT embeddings FROM records
+                        WHERE endpoint_id = %s AND record_identifier = %s
+                        """,
+                        (normalized_ele.event.endpoint_id, normalized_ele.event.record_identifier),
+                    )
+                    row = cur.fetchone()
+                    if row is None:
+                        raise ValueError(
+                            f'No existing embeddings found for {normalized_ele.event.record_identifier} on endpoint {normalized_ele.event.endpoint_id}'
+                        )
+                    src_with_emb.append(
+                        OpenSearchSourceWithEmbedding(
+                            src={
+                                **normalized_ele.src,
+                                'emb': row['embeddings'],
+                                '_additional_metadata': normalized_ele.event.additional_metadata,
+                                '_repo': normalized_ele.event.code,
+                                '_harvest_url': normalized_ele.event.harvest_url,
+                            },
+                            harvest_event=normalized_ele.event,
+                        )
+                    )
+            else:
+                logger.info(f'About to Calculate embeddings for {len(normalized)}')
+                src_with_emb = add_embeddings_to_source(normalized, self.embedding_transformer)
+                logger.info(f'Calculated embeddings for {len(src_with_emb)}')
             preprocessed = preprocess_batch([src_with_emb_ele.src for src_with_emb_ele in src_with_emb], index_name)
         except Exception as e:
             logger.error(f'Could not calculate embeddings: {e}')
@@ -424,33 +451,44 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                 # https://neon.com/postgresql/postgresql-tutorial/postgresql-upsert
                 cur.execute(
                     """
-                INSERT INTO records 
-                (   
-                    record_identifier,
-                    repository_id,
-                    endpoint_id,
-                    resource_type,
-                    title,
-                    raw_metadata,
-                    metadata_protocol,
-                    doi,
-                    url,
-                    embeddings,
-                    embedding_model,
-                    datacite_json,
-                    opensearch_synced,
-                    opensearch_synced_at,
-                    additional_metadata,
-                    datestamp
+                    INSERT INTO records 
+                    (   
+                        record_identifier,
+                        repository_id,
+                        endpoint_id,
+                        resource_type,
+                        title,
+                        raw_metadata,
+                        metadata_protocol,
+                        doi,
+                        url,
+                        embeddings,
+                        embedding_model,
+                        datacite_json,
+                        opensearch_synced,
+                        opensearch_synced_at,
+                        additional_metadata,
+                        datestamp
                     ) 
-                VALUES (
-                    %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    VALUES (
+                        %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     ON CONFLICT (endpoint_id, record_identifier)
-                    DO UPDATE SET resource_type = %s, title = %s, raw_metadata = XMLPARSE(DOCUMENT %s), doi = %s, url = %s, embeddings = %s, embedding_model = %s, datacite_json = %s, opensearch_synced_at = %s, additional_metadata = %s, datestamp = %s      
-                """,
+                    DO UPDATE SET 
+                        resource_type = EXCLUDED.resource_type,
+                        title = EXCLUDED.title,
+                        raw_metadata = EXCLUDED.raw_metadata,
+                        doi = EXCLUDED.doi,
+                        url = EXCLUDED.url,
+                        embeddings = EXCLUDED.embeddings,
+                        embedding_model = EXCLUDED.embedding_model,
+                        datacite_json = EXCLUDED.datacite_json,
+                        opensearch_synced_at = EXCLUDED.opensearch_synced_at,
+                        additional_metadata = EXCLUDED.additional_metadata,
+                        datestamp = EXCLUDED.datestamp
+                    """,
                     (
-                        record_identifier,  # Insert
+                        record_identifier,
                         repository_id,
                         endpoint_id,
                         resource_type,
@@ -463,17 +501,6 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str) 
                         EMBEDDING_MODEL,
                         datacite_json,
                         opensearch_synced,
-                        opensearch_synced_at,
-                        additional_metadata,
-                        datestamp,
-                        resource_type,  # Update
-                        title,
-                        xml,
-                        doi,
-                        url,
-                        embeddings,
-                        EMBEDDING_MODEL,
-                        datacite_json,
                         opensearch_synced_at,
                         additional_metadata,
                         datestamp,
