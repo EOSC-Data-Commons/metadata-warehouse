@@ -106,7 +106,7 @@ def _opeanaire_subjects_to_list(subjects_list):
 
 def _openaire_batch_doi_resolve(doi_list: list[str]):
     """
-    Query the OpenAIRE API to obtain more metadata for a given DOI.
+    Query the OpenAIRE API to obtain more metadata for given DOIs.
     The API used: https://api.openaire.eu/graph/
 
     The resulting payload has a "subjects" key which is the most interesting for providing keyword/discipline metadata.
