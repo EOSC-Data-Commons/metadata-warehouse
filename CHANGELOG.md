@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.4.0...v1.5.0) (2026-06-15)
+
+
+### Features
+
+* add eodc set to onedata ([#134](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/134)) ([9734cba](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/9734cbaa1320719106ea5ae8a16670b219aa7a85))
+
 ## [1.4.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.3.0...v1.4.0) (2026-06-09)
 
 
