@@ -17,6 +17,8 @@ dependencies = [
     "docker>=7.1.0",
     "requests>=2.32.5",
     "lxml>=6.0.2",
+    "alembic>=1.18.4",
+    "psycopg2-binary>=2.9.12",
 ]
 
 [dependency-groups]
