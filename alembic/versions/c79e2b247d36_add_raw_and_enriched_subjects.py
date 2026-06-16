@@ -1,15 +1,16 @@
 """add_raw_and_enriched_subjects
 
 Revision ID: c79e2b247d36
-Revises: 
+Revises:
 Create Date: 2026-06-16 13:47:12.770935
 
 """
+
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'c79e2b247d36'
@@ -38,11 +39,10 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
-   
+
     op.execute("""
         ALTER TABLE records
         DROP COLUMN raw_subjects;
         ALTER TABLE records
         DROP COLUMN enriched_subjects;
         """)
-
