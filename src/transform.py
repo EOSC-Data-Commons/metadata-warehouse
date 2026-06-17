@@ -31,6 +31,15 @@ from api_classes import (
 from config.logging_config import LOGGING_CONFIG
 from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
+from db_methods import (
+    are_all_runs_closed_in_db,
+    close_harvest_run_in_db,
+    create_harvest_events_bulk_in_db,
+    create_harvest_run_in_db,
+    create_jobs_in_queue,
+    get_config_from_db,
+    get_latest_harvest_run_in_db,
+)
 from setup_logger import logger
 from tasks import add_file_metadata, transform_batch
 from utils.queue_utils import HarvestEventQueue, detect_identifier_type
