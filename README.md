@@ -121,6 +121,11 @@ In development, it may be more convenient to load pre-harvested static data:
   ```
   See [Prepare Data For Local Import](#Prepare-Data-For-Local-Import) for further details about local data preparation.
 
+- for *datasetdb*: upgrade database to the latest version:
+  ```sh
+   alembic upgrade head
+  ```
+
 - transform data from `scripts/postgres_data/data` to a local dir
   (to test transformation, alternative to using the Celery process):
   ```sh
