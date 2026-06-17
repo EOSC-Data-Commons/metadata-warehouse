@@ -244,17 +244,17 @@ def _ids_connect_with_openaire_subjects(id_dois: list[dict],
         # so we'll use lowercase versions of both for joining
 
         current_doi = output_list[ix]['doi'].lower()
-
+        
         matched_subjects = next(
         # Generator expression, next() stops at the first match
             (item['subjects'] for item in doi_subjects if item['doi'].lower() == current_doi),
             None
         )
-
         # Turn it into a set, to prevent multiple enrichment methods from
         # repeadetly adding the same subjects from multiple sources
-        matched_subjects = set(matched_subjects)
-
+        if matched_subjects:
+            matched_subjects = set(matched_subjects)
+        
         # Add a new key to the dicts with database ID
         output_list[ix]['enriched_subjects'] = matched_subjects
     
