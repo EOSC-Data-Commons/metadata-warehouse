@@ -9,8 +9,24 @@ import psycopg
 from fastapi import FastAPI, HTTPException, Query
 from psycopg import errors as psycopg_errors
 from psycopg.rows import dict_row
-from pydantic import BaseModel, Field
 
+from api_classes import (
+    Config,
+    EndpointConfig,
+    HarvestEventCreateRequest,
+    HarvestEventCreateResponse,
+    HarvestParams,
+    HarvestRun,
+    HarvestRunCloseRequest,
+    HarvestRunCloseResponse,
+    HarvestRunCreateRequest,
+    HarvestRunCreateResponse,
+    HarvestRunGetResponse,
+    HealthGetResponse,
+    IndexGetResponse,
+    SchedulerClosedRunsResponse,
+    SchedulerRunsResponse,
+)
 from config.logging_config import LOGGING_CONFIG
 from config.postgres_config import PostgresConfig
 from tasks import add_file_metadata, transform_batch
@@ -44,130 +60,6 @@ tags_metadata = [
 app = FastAPI(openapi_tags=tags_metadata)
 postgres_config: PostgresConfig = PostgresConfig()
 connection_params = postgres_config.connection_params
-
-
-class HealthGetResponse(BaseModel):
-    status: str = Field(description='Server status')
-    time: datetime = Field(description='Current daytime as UTC')
-
-
-class IndexGetResponse(BaseModel):
-    number_of_batches: int = Field(description='Number of batches created in Celery queue.')
-
-
-class AdditionalMetadataParams(BaseModel):
-    format: str
-    endpoint: str
-    protocol: str
-
-
-class HarvestParams(BaseModel):
-    metadata_prefix: str
-    set: Optional[list[str]]
-    additional_metadata_params: Optional[AdditionalMetadataParams]
-
-
-class EndpointConfig(BaseModel):
-    name: str
-    harvest_url: str
-    harvest_params: HarvestParams
-    code: str
-    protocol: str
-
-
-class Config(BaseModel):
-    endpoints_configs: list[EndpointConfig]
-
-
-class HarvestEventCreateRequest(BaseModel):
-    record_identifier: str
-    datestamp: datetime
-    raw_metadata: str  # XML
-    additional_metadata: Optional[str] = None  # XML or JSON (stringified)
-    harvest_url: str
-    repo_code: str
-    harvest_run_id: str
-    is_deleted: bool
-
-
-class HarvestEventCreateResponse(BaseModel):
-    id: str
-
-
-class HarvestRunCreateRequest(BaseModel):
-    harvest_url: str
-
-
-class HarvestRun(BaseModel):
-    id: Optional[str] = Field(default=None, description='ID of the harvest run')
-
-    status: Optional[str] = Field(default=None, description='Status of the harvest run: open|closed|failed')
-    harvest_url: str
-    from_date: Optional[datetime]
-    until_date: Optional[datetime]
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
-    should_be_harvested: bool = Field(
-        description='Whether this endpoint should be harvested now, may based on is_active and harvest_schedule'
-    )
-
-
-class HarvestRunGetResponse(BaseModel):
-    harvest_runs: Optional[list[HarvestRun]]
-
-
-class HarvestRunCreateResponse(BaseModel):
-    id: str = Field(description='ID of the new harvest run')
-    from_date: Optional[datetime] = Field(None, description='From date for selective harvesting')
-    until_date: datetime = Field(description='Until date for selective harvesting')
-    endpoint_config: EndpointConfig = Field(description='Description of the endpoint used for harvesting')
-
-
-class HarvestRunCloseRequest(BaseModel):
-    id: str = Field(description='ID of the harvest run to close')
-    success: bool = Field(description='Indicates if the harvest run was successful')
-    started_at: datetime = Field(description='Start date of the harvest')
-    completed_at: datetime = Field(description='End date of the harvest')
-
-
-class HarvestRunCloseResponse(BaseModel):
-    id: str = Field(description='ID of the closed harvest run')
-
-
-class SchedulerRunsResponse(BaseModel):
-    """
-    Response returned by /scheduler/wait-for-completion endpoint.
-
-    Attributes
-    ----------
-    all_closed : bool
-        True when there are no harvest runs with status='open'.
-
-        Both 'closed' and 'failed' statuses are treated as completed runs,
-        meaning the scheduler can proceed to the next step of the workflow.
-    """
-
-    all_closed: bool
-
-
-class SchedulerClosedRunsResponse(BaseModel):
-    """
-    Response returned by /scheduler/closed-runs endpoint.
-
-    Attributes
-    ----------
-    harvest_run_ids : list[str]
-        IDs of harvest runs that finished in the last 6 days.
-
-        Includes runs with status:
-        - 'closed'  -> completed successfully
-        - 'failed'  -> completed with errors
-
-        Failed runs are included because they are no longer actively running
-        and should be processed further by Transfomer.
-    """
-
-    harvest_run_ids: list[str]
 
 
 def get_latest_harvest_run_in_db(
