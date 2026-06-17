@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query
+from opensearchpy import OpenSearch
 from psycopg import errors as psycopg_errors
 from psycopg.rows import dict_row
 
@@ -28,6 +29,7 @@ from api_classes import (
     SchedulerRunsResponse,
 )
 from config.logging_config import LOGGING_CONFIG
+from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
 from tasks import add_file_metadata, transform_batch
 from utils.queue_utils import HarvestEventQueue, detect_identifier_type
@@ -400,6 +402,18 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings:
     :return: Number of batches scheduled for processing.
     """
 
+    # check if target index exists
+    opensearch_config = OpenSearchConfig()
+    client = OpenSearch(
+        hosts=[{'host': opensearch_config.host, 'port': opensearch_config.port}],
+        http_auth=None,
+        use_ssl=False,
+        logger=logger,
+    )
+
+    if not client.indices.exists(index=index_name):
+        raise HTTPException(status_code=400, detail=f'Index {index_name} does not exist.')
+
     batch: list[HarvestEventQueue] = []
     tasks = 0
     offset = 0
@@ -543,6 +557,8 @@ def init_index(
     # this way, it does not block the server
     try:
         results = create_jobs_in_queue(harvest_run_id, index_name, reuse_embeddings)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception('Indexing failed')
         raise HTTPException(status_code=500, detail=str(e))
