@@ -146,6 +146,8 @@ CREATE TABLE IF NOT EXISTS records (
     version INTEGER NOT NULL DEFAULT 1,
     opensearch_synced BOOLEAN NOT NULL DEFAULT false,
     opensearch_synced_at TIMESTAMP WITH TIME ZONE,
+    raw_subjects text[] DEFAULT ARRAY[]::text[],
+    enriched_subjects text[] DEFAULT ARRAY[]::text[],
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT records_pkey PRIMARY KEY (id),
@@ -176,6 +178,8 @@ COMMENT ON COLUMN records.datestamp IS 'From OAI-PMH header';
 COMMENT ON COLUMN records.version IS 'Version number';
 COMMENT ON COLUMN records.opensearch_synced IS 'Whether synced to OpenSearch';
 COMMENT ON COLUMN records.opensearch_synced_at IS 'When last synced to OpenSearch';
+COMMENT ON COLUMN records.raw_subjects IS 'Subjects present in the metadata';
+COMMENT ON COLUMN records.enriched_subjects IS 'Subjects gathered from metadata enrichment methods';
 
 
 
