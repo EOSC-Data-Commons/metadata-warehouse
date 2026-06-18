@@ -1,23 +1,15 @@
-import logging
-import os
 from datetime import datetime, timezone
-from json import JSONDecodeError
-from logging.config import dictConfig
-from typing import Any, Optional
+from typing import Optional
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query
-from opensearchpy import OpenSearch
 from psycopg import errors as psycopg_errors
 from psycopg.rows import dict_row
 
 from api_classes import (
     Config,
-    EndpointConfig,
     HarvestEventCreateRequest,
     HarvestEventCreateResponse,
-    HarvestParams,
-    HarvestRun,
     HarvestRunCloseRequest,
     HarvestRunCloseResponse,
     HarvestRunCreateRequest,
@@ -28,8 +20,6 @@ from api_classes import (
     SchedulerClosedRunsResponse,
     SchedulerRunsResponse,
 )
-from config.logging_config import LOGGING_CONFIG
-from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
 from db_methods import (
     are_all_runs_closed_in_db,
@@ -41,8 +31,6 @@ from db_methods import (
     get_latest_harvest_run_in_db,
 )
 from setup_logger import logger
-from tasks import add_file_metadata, transform_batch
-from utils.queue_utils import HarvestEventQueue, detect_identifier_type
 
 tags_metadata = [
     {'name': 'health', 'description': 'Health route'},
