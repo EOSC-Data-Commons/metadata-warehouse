@@ -251,7 +251,7 @@ def _ids_connect_with_openaire_subjects(id_dois: list[dict],
             None
         )
         # Turn it into a set, to prevent multiple enrichment methods from
-        # repeadetly adding the same subjects from multiple sources
+        # repeatedly adding the same subjects from multiple sources
         if matched_subjects:
             matched_subjects = set(matched_subjects)
         
