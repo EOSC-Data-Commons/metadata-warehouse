@@ -10,6 +10,8 @@ def get_doi(raw_metadata: str):
     """
     Get DOI from raw_metadata XML, if available
     
+    TODO: remove, we have a doi field in the records table
+
     :param raw_metadata: string obtained from records.raw_metadata
     :return: a string with the record's DOI, like '10.15151/ESRF-ES-1872173799'
     """
@@ -218,6 +220,8 @@ def _ids_connect_with_openaire_subjects(id_dois: list[dict],
     This is necessary because the API response condenses multiple DOIs into a single element, so we don't
     have a 1-1 relationship between our initial records and API-enriched subject lists.
 
+    TODO: rework, we also use this for OpenAlex
+
     :param id_dois: List[dict: 
         {'id': str, record id from database,
         'doi': str, record DOI
@@ -276,6 +280,133 @@ def batch_enrich_subjects_from_openaire(records_id_doi: list[dict]):
     api_result = _openaire_batch_doi_resolve(dois_to_enrich)
 
     doi_subjects = _opeanaire_get_doi_subjects(api_result)
+
+    # Don't alter the input
+    output_list = copy.deepcopy(records_id_doi)
+    output_list = _ids_connect_with_openaire_subjects(output_list, doi_subjects)
+
+    # List of following:
+    #[
+    # id: str
+    # doi: str
+    # enriched_subjects: {str}
+    #]
+    return output_list
+
+
+# Enrich via OpenAlex API, resolve record's DOI ----
+
+OPENALEX_API_URL = "https://api.openalex.org/works"
+
+def _openalex_batch_doi_resolve(dois: list[str], api_key: str):
+    all_results = []
+    chunk_size = 100
+
+    # Strip any existing https://doi.org/ or http://doi.org/ prefix
+    # so we can add it back consistently for every DOI
+    clean_dois = [
+        doi.replace("https://doi.org/", "")
+           .replace("http://doi.org/", "")
+        for doi in dois
+    ]
+
+    for i in range(0, len(clean_dois), chunk_size):
+        chunk = clean_dois[i : i + chunk_size]
+
+        # Join with pipe — each DOI gets the full https://doi.org/ prefix
+        doi_filter = "|".join(f"https://doi.org/{doi}" for doi in chunk)
+        # Build URL as f-string to avoid requests encoding the colons and pipes
+        url = f"{OPENALEX_API_URL}?filter=doi:{doi_filter}&per_page={chunk_size}&api_key={api_key}"
+
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        all_results.extend(response.json().get("results", []))
+
+    return all_results
+
+def _opeanalex_get_doi_subjects(response: list[dict], score_treshold: float = 0.5):
+    """
+    Transform API response into a list of DOI-sets and their subject-sets.
+
+    OpenAlex responses have 3 machine-derived fields of interest:
+    topics, keywords, concepts
+
+    Concepts are a legacy version of keywords so we'll skip those.
+    We'll consider keywords and concepts as subjects of interest. We'll further filter them out by relevancy score.
+    
+    :param response: List[dict], the API response
+    :return: List[dict]
+        dict:
+            DOI - DOI that is linked to at least one subject
+            [Subjects] - all subjects for the given DOI
+    """
+    if response == []:
+        # no DOIs with any results
+        return []
+    
+    # sets of DOIs with relevant sets of subjects. Later, spread to individual DOIs
+    enriched_dois = []
+    enriched_subjects = []
+
+    for el in response:
+        kw_list = el['keywords']
+        top_list = el['topics']
+
+
+
+        if ((kw_list + top_list) == []):
+            # this element doesn't contribute to enriching subjects,
+            # so even the DOIs don't matter
+            continue
+
+        keywords = [item['display_name'] for item in kw_list if item['score'] > score_treshold]
+        topics = [item['display_name'] for item in top_list if item['score'] > score_treshold]
+
+        # We'll consider both as subjects
+        subjects = keywords + topics
+
+        # Since we filtered by score it's possible that no keywords/topics are left,
+        # if so, no enrichment will happen for this DOI
+        if not subjects:
+            continue
+        
+        current_doi = el['doi']
+
+        # Strip DOI from prefixes and make it lowercase
+        current_doi = current_doi.replace("https://doi.org/", "").replace("http://doi.org/", "").lower()
+
+        enriched_dois.append(current_doi)
+
+        enriched_subjects.append(subjects)
+
+    # Create a list of dicts as output
+
+    doi_subjects = []
+
+    for ix in range(len(enriched_dois)):
+        doi_sub_pair = {'doi': enriched_dois[ix],
+                        'subjects': enriched_subjects[ix]}
+        doi_subjects.append(doi_sub_pair)
+
+    return doi_subjects
+
+def batch_enrich_subjects_from_openalex(records_id_doi: list[dict], 
+                                        api_key: str,
+                                        score_treshold: float = 0.5):
+    """
+    :param records_id_doi: List[dict: 
+        {'id': str, record id from database,
+        'doi': str, record DOI
+        }
+    ]
+    :return: List[dict] like input, with new key:
+            'enriched_subjects': None/set[str]
+    """
+    
+    dois_to_enrich = [rec['doi'] for rec in records_id_doi]
+    api_result = _openalex_batch_doi_resolve(dois_to_enrich, api_key)
+
+    doi_subjects = _opeanalex_get_doi_subjects(api_result, score_treshold)
 
     # Don't alter the input
     output_list = copy.deepcopy(records_id_doi)
