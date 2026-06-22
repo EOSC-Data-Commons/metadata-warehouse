@@ -228,7 +228,7 @@ services:
             
     #https://github.com/EOSC-Data-Commons/req-packager/pkgs/container/coordinator
     coordinator:
-        image: ghcr.io/eosc-data-commons/coordinator:v0.1.0
+        image: ghcr.io/eosc-data-commons/coordinator:latest
         restart: unless-stopped
         depends_on:
             postgres:
