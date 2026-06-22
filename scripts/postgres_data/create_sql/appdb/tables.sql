@@ -13,6 +13,7 @@ CREATE TABLE users (
 	name VARCHAR(255),
 	username VARCHAR(255),
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
+	aup_accepted TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
 	PRIMARY KEY (sub)
 );
 
