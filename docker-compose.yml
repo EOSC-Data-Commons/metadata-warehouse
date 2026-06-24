@@ -242,6 +242,8 @@ services:
             TOOL_REGISTRY_API: "https://dev.tools-registry.eosc-data-commons.eu/api/v1"
         networks:
             - warehouse-backend
+        ports:
+          - "50051:50051"
 
     # https://github.com/EOSC-Data-Commons/data-commons-search/pkgs/container/data-commons-search
     search-api:
