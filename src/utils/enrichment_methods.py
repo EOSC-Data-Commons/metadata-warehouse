@@ -208,8 +208,8 @@ def _opeanaire_get_doi_subjects(response: list[dict]):
 
     return doi_subjects
 
-def _ids_connect_with_openaire_subjects(id_dois: list[dict],
-                                        doi_subjects: list[dict]):
+def connect_ids_with_subjects_by_doi(id_dois: list[dict],
+                                    doi_subjects: list[dict]):
     """
     Connect id-doi from database to relevant doi-subject list.
 
@@ -237,7 +237,7 @@ def _ids_connect_with_openaire_subjects(id_dois: list[dict],
     :return: List[dict:
         {'id': str, record id from database,
         'doi': str, record DOI,
-        'enriched_subjects': None/set[str], subjects from API response
+        'enriched_subjects': set[str], subjects from API response
         }
     ]
     """
@@ -258,8 +258,11 @@ def _ids_connect_with_openaire_subjects(id_dois: list[dict],
         # repeatedly adding the same subjects from multiple sources
         if matched_subjects:
             matched_subjects = set(matched_subjects)
+        else:
+            # Return an empty set rather than None, so we can count on this field being a set
+            matched_subjects = set()
         
-        # Add a new key to the dicts with database ID
+        # Add a new key, enriched_subjects, to the dicts with database ID
         output_list[ix]['enriched_subjects'] = matched_subjects
     
     return(output_list)
@@ -283,7 +286,7 @@ def batch_enrich_subjects_from_openaire(records_id_doi: list[dict]):
 
     # Don't alter the input
     output_list = copy.deepcopy(records_id_doi)
-    output_list = _ids_connect_with_openaire_subjects(output_list, doi_subjects)
+    output_list = connect_ids_with_subjects_by_doi(output_list, doi_subjects)
 
     # List of following:
     #[
@@ -421,7 +424,7 @@ def batch_enrich_subjects_from_openalex(records_id_doi: list[dict],
 
     # Don't alter the input
     output_list = copy.deepcopy(records_id_doi)
-    output_list = _ids_connect_with_openaire_subjects(output_list, doi_subjects)
+    output_list = connect_ids_with_subjects_by_doi(output_list, doi_subjects)
 
     # List of following:
     #[
