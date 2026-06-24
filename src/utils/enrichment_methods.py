@@ -6,6 +6,9 @@ from lxml import etree as ET
 import time
 import copy
 
+# General functions ----
+# not tied to a specific enrichment method
+
 def get_doi(raw_metadata: str):
     """
     Get DOI from raw_metadata XML, if available
@@ -23,6 +26,81 @@ def get_doi(raw_metadata: str):
         return None
     else: 
         return doi[0]
+
+
+def connect_ids_with_subjects_by_doi(id_dois: list[dict],
+                                    doi_subjects: list[dict]):
+    """
+    Connect id-doi from database to relevant doi-subject list.
+
+    The first parameter is what we can obtain from our database. The second
+    is metadata the OpenAIRE API can supply for these records.
+    This function joins them via the common factor, the DOI.
+
+    This is necessary because the API response condenses multiple DOIs into a single element, so we don't
+    have a 1-1 relationship between our initial records and API-enriched subject lists.
+
+    TODO: rework, we also use this for OpenAlex
+
+    :param id_dois: List[dict: 
+        {'id': str, record id from database,
+        'doi': str, record DOI
+        }
+    ]
+    
+    :param doi_subjects: List[dict: 
+        {'doi': str, record DOI,
+        'subjects': List[str], subjects from API response
+        }
+    ]
+
+    :return: List[dict:
+        {'id': str, record id from database,
+        'doi': str, record DOI,
+        'enriched_subjects': set[str], subjects from API response
+        }
+    ]
+    """
+    output_list = copy.deepcopy(id_dois)
+
+    for ix in range(len(output_list)):
+        # It's possible that the database DOI and API doi differ in capitalisation,
+        # so we'll use lowercase versions of both for joining
+
+        current_doi = output_list[ix]['doi'].lower()
+        
+        matched_subjects = next(
+        # Generator expression, next() stops at the first match
+            (item['subjects'] for item in doi_subjects if item['doi'].lower() == current_doi),
+            None
+        )
+        # Turn it into a set, to prevent multiple enrichment methods from
+        # repeatedly adding the same subjects from multiple sources
+        if matched_subjects:
+            matched_subjects = set(matched_subjects)
+        else:
+            # Return an empty set rather than None, so we can count on this field being a set
+            matched_subjects = set()
+        
+        # Add a new key, enriched_subjects, to the dicts with database ID
+        output_list[ix]['enriched_subjects'] = matched_subjects
+    
+    return(output_list)
+
+def merge_subjects_from_new_method(base_list, supplement_list):
+    """
+    Extend enriched_subjects from supplement_list to matching objects in base_list. Matches by id.
+    Modifies in-place.
+    """
+    supplement_index = {item["id"]: item["enriched_subjects"] for item in supplement_list}
+
+    for item in base_list:
+        additional_subjects = supplement_index.get(item["id"])
+
+        if additional_subjects:
+            item["enriched_subjects"] = item["enriched_subjects"] | additional_subjects
+
+    return base_list
 
 # Enrich via OpenAIRE API, resolve record's DOI ----
 
@@ -207,66 +285,6 @@ def _opeanaire_get_doi_subjects(response: list[dict]):
             doi_subjects.append(doi_sub_pair)
 
     return doi_subjects
-
-def connect_ids_with_subjects_by_doi(id_dois: list[dict],
-                                    doi_subjects: list[dict]):
-    """
-    Connect id-doi from database to relevant doi-subject list.
-
-    The first parameter is what we can obtain from our database. The second
-    is metadata the OpenAIRE API can supply for these records.
-    This function joins them via the common factor, the DOI.
-
-    This is necessary because the API response condenses multiple DOIs into a single element, so we don't
-    have a 1-1 relationship between our initial records and API-enriched subject lists.
-
-    TODO: rework, we also use this for OpenAlex
-
-    :param id_dois: List[dict: 
-        {'id': str, record id from database,
-        'doi': str, record DOI
-        }
-    ]
-    
-    :param doi_subjects: List[dict: 
-        {'doi': str, record DOI,
-        'subjects': List[str], subjects from API response
-        }
-    ]
-
-    :return: List[dict:
-        {'id': str, record id from database,
-        'doi': str, record DOI,
-        'enriched_subjects': set[str], subjects from API response
-        }
-    ]
-    """
-    output_list = copy.deepcopy(id_dois)
-
-    for ix in range(len(output_list)):
-        # It's possible that the database DOI and API doi differ in capitalisation,
-        # so we'll use lowercase versions of both for joining
-
-        current_doi = output_list[ix]['doi'].lower()
-        
-        matched_subjects = next(
-        # Generator expression, next() stops at the first match
-            (item['subjects'] for item in doi_subjects if item['doi'].lower() == current_doi),
-            None
-        )
-        # Turn it into a set, to prevent multiple enrichment methods from
-        # repeatedly adding the same subjects from multiple sources
-        if matched_subjects:
-            matched_subjects = set(matched_subjects)
-        else:
-            # Return an empty set rather than None, so we can count on this field being a set
-            matched_subjects = set()
-        
-        # Add a new key, enriched_subjects, to the dicts with database ID
-        output_list[ix]['enriched_subjects'] = matched_subjects
-    
-    return(output_list)
-
 
 def batch_enrich_subjects_from_openaire(records_id_doi: list[dict]):
     """
