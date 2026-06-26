@@ -219,7 +219,7 @@ services:
         environment:
             - NODE_ENV=production
             - SEARCH_API_URL=http://search-api:8000
-            - GRPC_TARGET=http://coordinator:50051
+            - GRPC_TARGET=coordinator:50051
         networks:
             - warehouse-backend
             
