@@ -21,7 +21,7 @@ from api_classes import (
 from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
 from setup_logger import logger
-from tasks import add_file_metadata, transform_batch
+from transform.tasks import add_file_metadata, transform_batch
 from utils.queue_utils import HarvestEventQueue, detect_identifier_type
 
 postgres_config: PostgresConfig = PostgresConfig()
