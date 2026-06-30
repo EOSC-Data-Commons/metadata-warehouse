@@ -30,7 +30,7 @@ from psycopg import errors as psycopg_errors
 from psycopg.rows import dict_row
 
 from config.postgres_config import PostgresConfig
-from setup_logger import logger
+from logger.setup_logger import logger
 
 tags_metadata = [
     {'name': 'health', 'description': 'Health route'},

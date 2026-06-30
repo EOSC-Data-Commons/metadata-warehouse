@@ -20,7 +20,7 @@ from psycopg.rows import dict_row
 
 from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
-from setup_logger import logger
+from logger.setup_logger import logger
 from transform.tasks import add_file_metadata, transform_batch
 from utils.queue_utils import HarvestEventQueue, detect_identifier_type
 
