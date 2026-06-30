@@ -2,7 +2,11 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import psycopg
-from api_classes import (
+from fastapi import FastAPI, HTTPException, Query
+from psycopg import errors as psycopg_errors
+from psycopg.rows import dict_row
+
+from app.api_classes import (
     Config,
     HarvestEventCreateRequest,
     HarvestEventCreateResponse,
@@ -16,7 +20,7 @@ from api_classes import (
     SchedulerClosedRunsResponse,
     SchedulerRunsResponse,
 )
-from db_methods import (
+from app.db_methods import (
     are_all_runs_closed_in_db,
     close_harvest_run_in_db,
     create_harvest_events_bulk_in_db,
@@ -25,10 +29,6 @@ from db_methods import (
     get_config_from_db,
     get_latest_harvest_run_in_db,
 )
-from fastapi import FastAPI, HTTPException, Query
-from psycopg import errors as psycopg_errors
-from psycopg.rows import dict_row
-
 from config.postgres_config import PostgresConfig
 from logger.setup_logger import logger
 
