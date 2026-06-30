@@ -9,6 +9,14 @@ import copy
 # General functions ----
 # not tied to a specific enrichment method
 
+def clean_doi(doi: str):
+    clean = (doi.replace("https://doi.org/", "")
+                .replace("http://doi.org/", "")
+                .replace("doi:", "")
+                .lower()
+            )
+    return clean
+
 def get_doi(raw_metadata: str):
     """
     Get DOI from raw_metadata XML, if available
@@ -25,7 +33,7 @@ def get_doi(raw_metadata: str):
     if doi == []:
         return None
     else: 
-        return doi[0]
+        return clean_doi(doi[0])
 
 
 def connect_ids_with_subjects_by_doi(id_dois: list[dict],
@@ -67,11 +75,11 @@ def connect_ids_with_subjects_by_doi(id_dois: list[dict],
         # It's possible that the database DOI and API doi differ in capitalisation,
         # so we'll use lowercase versions of both for joining
 
-        current_doi = output_list[ix]['doi'].lower()
+        current_doi = output_list[ix]['doi']
         
         matched_subjects = next(
         # Generator expression, next() stops at the first match
-            (item['subjects'] for item in doi_subjects if item['doi'].lower() == current_doi),
+            (item['subjects'] for item in doi_subjects if item['doi'] == current_doi),
             None
         )
         # Turn it into a set, to prevent multiple enrichment methods from
@@ -206,8 +214,8 @@ def _openaire_batch_doi_resolve(doi_list: list[str]):
 
         # The pid parameter is case-insensitive, no need to adjust
 
-        # If the DOI starts with http(s) strip the start of the string
-        dois = [doi.replace("https://doi.org/", "").replace("http://doi.org/", "").replace("doi:", "")
+        # If the DOI starts with http(s), strip the start of the string
+        dois =  [clean_doi(doi)
                     for doi
                     in batch
             ]
@@ -264,7 +272,7 @@ def _opeanaire_get_doi_subjects(response: list[dict]):
 
         current_pids = el["pids"]
         
-        current_dois = [pid['value'] for pid in current_pids if pid['scheme'] == 'doi']
+        current_dois = [clean_doi(pid['value']) for pid in current_pids if pid['scheme'] == 'doi']
 
         enriched_dois.append(current_dois)
 
@@ -340,9 +348,7 @@ def _openalex_batch_doi_resolve(dois: list[str], api_key: str):
     # Strip any existing https://doi.org/ or http://doi.org/ prefix
     # so we can add it back consistently for every DOI
     clean_dois = [
-        doi.replace("https://doi.org/", "")
-           .replace("http://doi.org/", "")
-           .replace("doi:", "")
+        clean_doi(doi)
         for doi in dois
     ]
 
@@ -405,7 +411,7 @@ def _opeanalex_get_doi_subjects(response: list[dict], score_treshold: float = 0.
         if not subjects:
             continue
         
-        current_doi = el['doi']
+        current_doi = clean_doi(el['doi'])
 
         # Strip DOI from prefixes and make it lowercase
         current_doi = current_doi.replace("https://doi.org/", "").replace("http://doi.org/", "").lower()
@@ -476,9 +482,7 @@ def _datacite_batch_doi_resolve(dois: list[str]) -> list[dict]:
     all_results = []
 
     clean_dois = [
-        doi.replace("https://doi.org/", "")
-           .replace("http://doi.org/", "")
-           .replace("doi:", "")
+        clean_doi(doi)
         for doi in dois
     ]
 
@@ -528,10 +532,7 @@ def _datacite_get_doi_subjects(response: list[dict]):
         if not subjects:
             continue
         
-        current_doi = el['id']
-
-        # Strip DOI from prefixes and make it lowercase
-        current_doi = current_doi.replace("https://doi.org/", "").replace("http://doi.org/", "").lower()
+        current_doi = clean_doi(el['id'])
 
         enriched_dois.append(current_doi)
 
