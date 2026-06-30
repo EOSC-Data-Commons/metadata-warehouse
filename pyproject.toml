@@ -48,8 +48,9 @@ packages = ["src", "config", "scheduler"]
 python_version = "3.12"
 strict = true
 
-mypy_path = ["src"]
+mypy_path = ["src", "src/app"]
 explicit_package_bases = true
+namespace_packages = true
 
 files = [
     "src",
