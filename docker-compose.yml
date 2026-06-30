@@ -84,7 +84,7 @@ services:
             OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
             OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
         healthcheck:
-            test: celery -A tasks status
+            test: celery -A transform.tasks status
             interval: 10s
             timeout: 5s
             retries: 3
