@@ -207,7 +207,7 @@ def _openaire_batch_doi_resolve(doi_list: list[str]):
         # The pid parameter is case-insensitive, no need to adjust
 
         # If the DOI starts with http(s) strip the start of the string
-        dois = [doi.replace("https://doi.org/", "").replace("http://doi.org/", "")
+        dois = [doi.replace("https://doi.org/", "").replace("http://doi.org/", "").replace("doi:", "")
                     for doi
                     in batch
             ]
@@ -342,6 +342,7 @@ def _openalex_batch_doi_resolve(dois: list[str], api_key: str):
     clean_dois = [
         doi.replace("https://doi.org/", "")
            .replace("http://doi.org/", "")
+           .replace("doi:", "")
         for doi in dois
     ]
 
@@ -477,6 +478,7 @@ def _datacite_batch_doi_resolve(dois: list[str]) -> list[dict]:
     clean_dois = [
         doi.replace("https://doi.org/", "")
            .replace("http://doi.org/", "")
+           .replace("doi:", "")
         for doi in dois
     ]
 
