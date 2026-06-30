@@ -44,14 +44,14 @@ jobs:
                     restore-keys: |
                         fastembed-
 
-            -   name: Docker Build
-                run: docker compose build
-
             -   name: Config
                 run: |
                     cp docker-compose.override.yml.template docker-compose.override.yml
                     cp env.template_e2e .env
                     cp keys.env.template keys.env 
+
+            -   name: Docker Build
+                run: docker compose build
 
             -   name: Start services
                 run: docker compose up -d
