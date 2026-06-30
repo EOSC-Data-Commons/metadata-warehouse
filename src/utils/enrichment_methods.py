@@ -219,7 +219,7 @@ def _openaire_batch_doi_resolve(doi_list: list[str]):
         response = requests.get(
             OPENAIRE_API_URL,
             params={"pid": doi_param}, 
-            timeout=30
+            timeout=60
         )
         data = response.json()
 
@@ -439,6 +439,118 @@ def batch_enrich_subjects_from_openalex(records_id_doi: list[dict],
     api_result = _openalex_batch_doi_resolve(dois_to_enrich, api_key)
 
     doi_subjects = _opeanalex_get_doi_subjects(api_result, score_treshold)
+
+    # Don't alter the input
+    output_list = copy.deepcopy(records_id_doi)
+    output_list = connect_ids_with_subjects_by_doi(output_list, doi_subjects)
+
+    # List of following:
+    #[
+    # id: str
+    # doi: str
+    # enriched_subjects: {str}
+    #]
+    return output_list
+
+# Enrich via Datacite API by records' DOI ----
+
+DATACITE_API_URL = "https://api.datacite.org/dois"
+
+def _datacite_batch_doi_resolve(dois: list[str]) -> list[dict]:
+    all_results = []
+
+    clean_dois = [
+        doi.replace("https://doi.org/", "")
+           .replace("http://doi.org/", "")
+        for doi in dois
+    ]
+
+    for doi in clean_dois:
+        response = requests.get(
+            f"{DATACITE_API_URL}/{doi}",
+            params={"disable-facets": "true"},
+            timeout=30,
+        )
+        if response.status_code == 404:
+            continue
+        response.raise_for_status()
+        all_results.append(response.json().get("data", {}))
+
+    return all_results
+
+def _datacite_get_doi_subjects(response: list[dict]):
+    """
+    Transform API response into a list of DOIs and their subject-sets.
+
+    OpenAlex responses have 3 machine-derived fields of interest:
+    topics, keywords, concepts
+
+    Concepts are a legacy version of keywords so we'll skip those.
+    We'll consider keywords and concepts as subjects of interest. We'll further filter them out by similarity score.
+    
+    :param response: List[dict], the API response
+    :param score_treshold: float, minimum similarity score a topic/keyword must have to be included as a subject
+    :return: List[dict]
+        dict:
+            DOI - DOI that is linked to at least one subject
+            [Subjects] - all subjects for the given DOI
+    """
+    if response == []:
+        # no DOIs with any results
+        return []
+    
+    # sets of DOIs with relevant sets of subjects. Later, spread to individual DOIs
+    enriched_dois = []
+    enriched_subjects = []
+
+    for el in response:
+        sub_list = el['attributes']['subjects']
+
+        if (sub_list == []):
+            # this element doesn't contribute to enriching subjects
+            continue
+
+        # It's possible that some dicts do not have the subject key
+        subjects = [item.get('subject') for item in sub_list if item.get('subject')]
+
+        if not subjects:
+            continue
+        
+        current_doi = el['id']
+
+        # Strip DOI from prefixes and make it lowercase
+        current_doi = current_doi.replace("https://doi.org/", "").replace("http://doi.org/", "").lower()
+
+        enriched_dois.append(current_doi)
+
+        enriched_subjects.append(subjects)
+
+    # Create a list of dicts as output
+
+    doi_subjects = []
+
+    for ix in range(len(enriched_dois)):
+        doi_sub_pair = {'doi': enriched_dois[ix],
+                        'subjects': enriched_subjects[ix]}
+        doi_subjects.append(doi_sub_pair)
+
+    return doi_subjects
+
+def batch_enrich_subjects_from_datacite(records_id_doi: list[dict]):
+    """
+    :param records_id_doi: List[dict: 
+        {'id': str, record id from database,
+        'doi': str, record DOI
+        }
+    ]
+    :return: List[dict] like input, with new key:
+            'enriched_subjects': None/set[str]
+    """
+    
+    dois_to_enrich = [rec['doi'] for rec in records_id_doi]
+    api_result = _datacite_batch_doi_resolve(dois_to_enrich)
+
+    doi_subjects = _datacite_get_doi_subjects(api_result)
 
     # Don't alter the input
     output_list = copy.deepcopy(records_id_doi)
