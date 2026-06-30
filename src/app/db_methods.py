@@ -3,10 +3,6 @@ from json import JSONDecodeError
 from typing import Any, Optional
 
 import psycopg
-from fastapi import HTTPException
-from opensearchpy import OpenSearch
-from psycopg.rows import dict_row
-
 from api_classes import (
     EndpointConfig,
     HarvestEventCreateRequest,
@@ -18,6 +14,10 @@ from api_classes import (
     HarvestRunCreateResponse,
     HarvestRunGetResponse,
 )
+from fastapi import HTTPException
+from opensearchpy import OpenSearch
+from psycopg.rows import dict_row
+
 from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
 from setup_logger import logger
