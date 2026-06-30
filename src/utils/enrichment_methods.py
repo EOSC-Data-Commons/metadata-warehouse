@@ -288,6 +288,10 @@ def _opeanaire_get_doi_subjects(response: list[dict]):
 
 def batch_enrich_subjects_from_openaire(records_id_doi: list[dict]):
     """
+    Given a list of id-doi dictionaries, enrich them with subjects
+    from the OpenAIRE API.
+
+
     :param records_id_doi: List[dict: 
         {'id': str, record id from database,
         'doi': str, record DOI
@@ -424,6 +428,14 @@ def batch_enrich_subjects_from_openalex(records_id_doi: list[dict],
                                         api_key: str,
                                         score_treshold: float = 0.5):
     """
+    Given a list of id-doi dictionaries, enrich them with subjects
+    from the OpenAlex API.
+    Optionally, gather only subjects that match a minimum similarity score threshold.
+
+    The similarity is based on OpenAlex keywords being matched to the record's title and description
+    via machine learning.
+
+
     :param records_id_doi: List[dict: 
         {'id': str, record id from database,
         'doi': str, record DOI
@@ -454,6 +466,9 @@ def batch_enrich_subjects_from_openalex(records_id_doi: list[dict],
 
 # Enrich via Datacite API by records' DOI ----
 
+# https://support.datacite.org/docs/api-get-doi
+# Responses include an attributes > subjects list of subjects we can use for metadata enrichment.
+
 DATACITE_API_URL = "https://api.datacite.org/dois"
 
 def _datacite_batch_doi_resolve(dois: list[str]) -> list[dict]:
@@ -468,6 +483,8 @@ def _datacite_batch_doi_resolve(dois: list[str]) -> list[dict]:
     for doi in clean_dois:
         response = requests.get(
             f"{DATACITE_API_URL}/{doi}",
+            # facets are aggregations not interesting for enrichment,
+            # turning them off speeds up retrieval
             params={"disable-facets": "true"},
             timeout=30,
         )
@@ -481,15 +498,8 @@ def _datacite_batch_doi_resolve(dois: list[str]) -> list[dict]:
 def _datacite_get_doi_subjects(response: list[dict]):
     """
     Transform API response into a list of DOIs and their subject-sets.
-
-    OpenAlex responses have 3 machine-derived fields of interest:
-    topics, keywords, concepts
-
-    Concepts are a legacy version of keywords so we'll skip those.
-    We'll consider keywords and concepts as subjects of interest. We'll further filter them out by similarity score.
     
     :param response: List[dict], the API response
-    :param score_treshold: float, minimum similarity score a topic/keyword must have to be included as a subject
     :return: List[dict]
         dict:
             DOI - DOI that is linked to at least one subject
@@ -538,6 +548,10 @@ def _datacite_get_doi_subjects(response: list[dict]):
 
 def batch_enrich_subjects_from_datacite(records_id_doi: list[dict]):
     """
+    Given a list of id-doi dictionaries, enrich them with subjects
+    from the Datacite API.
+
+
     :param records_id_doi: List[dict: 
         {'id': str, record id from database,
         'doi': str, record DOI
