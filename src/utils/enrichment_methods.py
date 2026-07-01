@@ -223,15 +223,19 @@ def _openaire_batch_doi_resolve(doi_list: list[str]):
         # For sending as a parameter, the OR operator can be written as commas between pids
         doi_param = ",".join(dois)
 
+        try:
+            response = requests.get(
+                OPENAIRE_API_URL,
+                params={"pid": doi_param}, 
+                timeout=60
+            )
+            data = response.json()
 
-        response = requests.get(
-            OPENAIRE_API_URL,
-            params={"pid": doi_param}, 
-            timeout=60
-        )
-        data = response.json()
-
-        batch_results = data.get("results", [])
+            batch_results = data.get("results", [])
+        except Exception as e:
+            print("ERROR fetching from openAIRE:")
+            print(e)
+            batch_results = []
 
         results.extend(batch_results)
 
@@ -360,9 +364,17 @@ def _openalex_batch_doi_resolve(dois: list[str], api_key: str):
         # Build URL as f-string to avoid requests encoding the colons and pipes
         url = f"{OPENALEX_API_URL}?filter=doi:{doi_filter}&per_page={chunk_size}&api_key={api_key}"
 
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
-        all_results.extend(response.json().get("results", []))
+        try:
+            response = requests.get(url, timeout=30)
+            data = response.json()
+
+            batch_results = data.get("results", [])
+        except Exception as e:
+            print("ERROR fetching from openalex:")
+            print(e)
+            batch_results = []
+
+        all_results.extend(batch_results)
 
     return all_results
 
@@ -487,17 +499,25 @@ def _datacite_batch_doi_resolve(dois: list[str]) -> list[dict]:
     ]
 
     for doi in clean_dois:
-        response = requests.get(
-            f"{DATACITE_API_URL}/{doi}",
-            # facets are aggregations not interesting for enrichment,
-            # turning them off speeds up retrieval
-            params={"disable-facets": "true"},
-            timeout=30,
-        )
-        if response.status_code == 404:
-            continue
-        response.raise_for_status()
-        all_results.append(response.json().get("data", {}))
+        try:
+            response = requests.get(
+                f"{DATACITE_API_URL}/{doi}",
+                # facets are aggregations not interesting for enrichment,
+                # turning them off speeds up retrieval
+                params={"disable-facets": "true"},
+                timeout=30,
+            )
+            if response.status_code == 404:
+                continue
+            data = response.json()
+            
+            results = data.get("data", {})
+        except Exception as e:
+            print("ERROR fetching from datacite:")
+            print(e)
+            results = {}
+            
+        all_results.append(results)
 
     return all_results
 
