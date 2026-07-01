@@ -215,14 +215,11 @@ services:
         depends_on:
             opensearch:
                 condition: service_healthy
-            # coordinator:
-            #     condition: service_healthy
         command: npm run prod
         environment:
             - NODE_ENV=production
             - SEARCH_API_URL=http://search-api:8000
-            # - PLAYER_GRPC_TARGET=http://coordinator:50051
-            - PLAYER_GRPC_TARGET=https://eosc-coordinator.ethz.ch:443
+            - GRPC_TARGET=coordinator:50051
         networks:
             - warehouse-backend
             
@@ -245,6 +242,8 @@ services:
             TOOL_REGISTRY_API: "https://dev.tools-registry.eosc-data-commons.eu/api/v1"
         networks:
             - warehouse-backend
+        ports:
+          - "50051:50051"
 
     # https://github.com/EOSC-Data-Commons/data-commons-search/pkgs/container/data-commons-search
     search-api:
