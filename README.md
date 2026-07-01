@@ -213,10 +213,13 @@ To format all files properly, run:
 
 ## Run E2E Tests
 
-Before running the e2e tests locally, the env var `POSTGRES_DB` needs to be set to "testdb" 
-since the e2e tests and the API have to use the same DB in order for the tests to work. 
-Note that the e2e tests reinit "testdb" on each run. Since "testdb" is hardcoded in the e2e tests, 
-the productive db "dataset" won't be overwritten by running the e2e tests. 
+Before running the e2e tests locally, set the env vars `POSTGRES_DB` and `FILE_DB` 
+to `testdatasetdb` and `testfiledb`, respectively, since the e2e tests and the API 
+must use the same DBs.
+
+Note that the e2e tests reset `testdatasetdb` and `testfiledb` on each run. Because 
+the test DB names are hardcoded in the e2e tests, your production DBs will not be 
+overwritten.
 
 To run the e2e tests:
 ```sh

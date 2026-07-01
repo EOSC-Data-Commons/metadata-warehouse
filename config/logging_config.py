@@ -19,7 +19,7 @@ LOGGING_CONFIG = {
     },
     'root': {
         'handlers': ['default'],
-        'level': 'DEBUG',
+        'level': 'INFO',
     },
     'loggers': {
         '': {'handlers': ['default'], 'level': 'INFO'},
@@ -30,6 +30,7 @@ LOGGING_CONFIG = {
             'level': 'WARN',
             'propagate': True,
         },
-        'app.code.transform': {'handlers': ['default'], 'level': 'DEBUG', 'propagate': False},
+        'urllib3': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
+        'transform.tasks': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
     },
 }
