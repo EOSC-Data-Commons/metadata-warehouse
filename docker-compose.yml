@@ -61,7 +61,7 @@ services:
           [
               "celery",
               "-A",
-              "tasks",
+              "transform.tasks",
               "worker",
             #"-Q",
             #"batches",
@@ -84,7 +84,7 @@ services:
             OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
             OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
         healthcheck:
-            test: celery -A tasks status
+            test: celery -A transform.tasks status
             interval: 10s
             timeout: 5s
             retries: 3
@@ -97,7 +97,7 @@ services:
             - ./src:/code/src
             - ./config:/code/config
             - ./cache/fastembed:/root/.cache/fastembed
-        command: [ "fastapi", "run", "--host", "0.0.0.0", "transform.py", "--port", "80" ]
+        command: [ "fastapi", "run", "--host", "0.0.0.0", "app/routes.py", "--port", "80" ]
         networks:
             - warehouse-backend
         environment:
