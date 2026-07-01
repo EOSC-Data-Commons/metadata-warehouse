@@ -51,6 +51,7 @@ enable_error_code = ["possibly-undefined", "truthy-bool"]
 
 mypy_path = ["src"]
 explicit_package_bases = true
+namespace_packages = true
 
 files = [
     "src",
