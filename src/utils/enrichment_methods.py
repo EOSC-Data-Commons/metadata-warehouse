@@ -39,16 +39,12 @@ def get_doi(raw_metadata: str):
 def connect_ids_with_subjects_by_doi(id_dois: list[dict],
                                     doi_subjects: list[dict]):
     """
-    Connect id-doi from database to relevant doi-subject list.
+    Connect id-doi from our database to enrichment method's doi-subject list.
 
-    The first parameter is what we can obtain from our database. The second
-    is metadata the OpenAIRE API can supply for these records.
     This function joins them via the common factor, the DOI.
 
-    This is necessary because the API response condenses multiple DOIs into a single element, so we don't
-    have a 1-1 relationship between our initial records and API-enriched subject lists.
-
-    TODO: rework, we also use this for OpenAlex
+    This is necessary because the API responses can have a greater or smaller number of DOIs than the one we sent:
+    Some DOIs don't return a response, while some responses are linked to multiple DOIs.
 
     :param id_dois: List[dict: 
         {'id': str, record id from database,
@@ -72,14 +68,13 @@ def connect_ids_with_subjects_by_doi(id_dois: list[dict],
     output_list = copy.deepcopy(id_dois)
 
     for ix in range(len(output_list)):
-        # It's possible that the database DOI and API doi differ in capitalisation,
-        # so we'll use lowercase versions of both for joining
-
         current_doi = output_list[ix]['doi']
         
         matched_subjects = next(
         # Generator expression, next() stops at the first match
-            (item['subjects'] for item in doi_subjects if item['doi'] == current_doi),
+        # We make sure both DOIs are in clean, standardized format for matching
+            (item['subjects'] for item in doi_subjects
+                if clean_doi(item['doi']) == clean_doi(current_doi)),
             None
         )
         # Turn it into a set, to prevent multiple enrichment methods from
@@ -87,7 +82,7 @@ def connect_ids_with_subjects_by_doi(id_dois: list[dict],
         if matched_subjects:
             matched_subjects = set(matched_subjects)
         else:
-            # Return an empty set rather than None, so we can count on this field being a set
+            # Return an empty set rather than None, so we can count on this field always being a set
             matched_subjects = set()
         
         # Add a new key, enriched_subjects, to the dicts with database ID
@@ -97,15 +92,19 @@ def connect_ids_with_subjects_by_doi(id_dois: list[dict],
 
 def merge_subjects_from_new_method(base_list, supplement_list):
     """
-    Extend enriched_subjects from supplement_list to matching objects in base_list. Matches by id.
+    Extend enriched_subjects with new ones from supplement_list. Matches by id.
     Modifies in-place.
     """
     supplement_index = {item["id"]: item["enriched_subjects"] for item in supplement_list}
 
     for item in base_list:
+        # Does the new list contain subjects for the given id?
         additional_subjects = supplement_index.get(item["id"])
 
+        # If enrichment method didn't come up with additional subjects,
+        # this will be an empty set 
         if additional_subjects:
+            # Union of old and new
             item["enriched_subjects"] = item["enriched_subjects"] | additional_subjects
 
     return base_list
