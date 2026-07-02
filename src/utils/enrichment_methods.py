@@ -113,77 +113,6 @@ def merge_subjects_from_new_method(base_list, supplement_list):
 
 OPENAIRE_API_URL = "https://api.openaire.eu/graph/v2/researchProducts"
 
-def enrich_subjects_from_openaire(doi):
-    api_result = _openaire_doi_resolve(doi)
-    subjects = _opeanaire_get_subjects(api_result)
-
-    return _opeanaire_subjects_to_list(subjects)
-
-def _openaire_doi_resolve(doi):
-    """
-    Query the OpenAIRE API to obtain more metadata for a given DOI.
-    The API used: https://api.openaire.eu/graph/
-
-    The resulting data has a "subjects" key which is the most interesting for providing keyword/discipline metadata.
-
-    :param doi: string with DOI to check for more metadata.
-    :return: a dict of metada or None if none available
-    """
-
-    # If the DOI starts with http(s) strip the start of the string
-    doi_param = doi.replace("https://doi.org/", "").replace("http://doi.org/", "")
-
-    # It seems the pid parameter is case-insensitive
-
-    response = requests.get(
-        OPENAIRE_API_URL,
-        params={"pid": doi_param}, 
-        timeout=10
-    )
-    data = response.json()
-    # Results are always a list, even though this method is intended for single DOI and resultset
-    results = data.get("results", [])
-    if results == []:
-        return {}
-    else:
-        return results[0]
-
-def _opeanaire_get_subjects(response):
-    """
-    Get the list of subjects from an OpenAIRE response.
-    If the response had no data for given DOI, or if the response is present but has no subject, return an empty list.
-
-    :param response: Dictionary gathered from openaire_doi_get_info() for a single DOI.
-    :return: a list of dicts, one element for each subject gathered.
-        The dicts are of a format:
-        {
-        'subject': {'scheme': 'keyword', 'value': 'keyword text'},
-        'provenance': None
-        }
-        We are primarily interested in ['subject']['value']
-    """
-    if response == {}:
-        # list of subjects for this record: empty
-        return []
-    
-    subjects = response["subjects"]
-    if subjects is None:
-        # also an empty list, for consistency
-        subjects = []
-
-    return subjects
-
-
-def _opeanaire_subjects_to_list(subjects_list):
-    """
-    Turn the list of subjects recieved from _opeanaire_get_subjects() into
-    a list of strings.
-    """
-    return [sub['subject']['value'] for sub in subjects_list if sub != []]
-
-
-# ALTERNATIVE - BATCH OpenAIRE requests
-
 # A GET request to the API can process up to 10 DOI pids at once - so we'll get results faster
 # and avoid getting rate limited
 # There is a complication that multiple DOIs can be linked to a single OpenAIRE id and the response
@@ -255,16 +184,16 @@ def _opeanaire_get_doi_subjects(response: list[dict]):
     :param response: List[dict], the API response
     :return: List[dict]
         dict:
-            DOI - DOI that is linked to at least one subject
-            [Subjects] - all subjects for the given DOI
+            doi - DOI that is linked to at least one subject
+            {enriched_subjects} - all subjects for the given DOI
     """
     if response == []:
         # no DOIs with any results
         return []
     
-    # sets of DOIs with relevant sets of subjects. Later, spread to individual DOIs
-    enriched_dois = []
-    enriched_subjects = []
+
+    # Create a list of dicts for output. If a single object has multiple DOIs, they are spread to separate elements
+    doi_subjects = []
 
     for el in response:
         res_subjects = el["subjects"]
@@ -277,27 +206,21 @@ def _opeanaire_get_doi_subjects(response: list[dict]):
         
         current_dois = [clean_doi(pid['value']) for pid in current_pids if pid['scheme'] == 'doi']
 
-        enriched_dois.append(current_dois)
-
         # subjects have multiple fields, we are interested in text values
-        subjects_list = [sub['subject']['value'] for sub in res_subjects]
-
-        enriched_subjects.append(subjects_list)
-
-    # Create a list of dicts. If a single object has multiple DOIs, they are spread to separate elements
-
-    doi_subjects = []
-
-    for ix in range(len(enriched_dois)):
-        for doi in enriched_dois[ix]:
-            # each individual DOI in the list will create a separate dict with the same subjects
-            doi_sub_pair = {'doi': doi,
-                           'subjects': enriched_subjects[ix]}
-            doi_subjects.append(doi_sub_pair)
+        subjects = {sub['subject']['value'] for sub in res_subjects}
+        print(res_subjects)
+        print(subjects)
+        for doi in current_dois:
+            doi_subjects.append(
+                {
+                    "doi": doi,
+                    "enriched_subjects": subjects
+                }
+            )
 
     return doi_subjects
 
-def batch_enrich_subjects_from_openaire(records_id_doi: list[dict]):
+def batch_enrich_subjects_from_openaire(dois_to_enrich: list[str]):
     """
     Given a list of id-doi dictionaries, enrich them with subjects
     from the OpenAIRE API.
@@ -312,21 +235,29 @@ def batch_enrich_subjects_from_openaire(records_id_doi: list[dict]):
             'enriched_subjects': None/set[str]
     """
     
-    dois_to_enrich = [rec['doi'] for rec in records_id_doi]
     api_result = _openaire_batch_doi_resolve(dois_to_enrich)
 
     doi_subjects = _opeanaire_get_doi_subjects(api_result)
 
-    # Don't alter the input
-    output_list = copy.deepcopy(records_id_doi)
-    output_list = connect_ids_with_subjects_by_doi(output_list, doi_subjects)
+    # Cleanup - remove DOIs not in input, add non-enriched dois with empty subjectsets
+    
+    # lookup dict 
+    enriched_dois = {clean_doi(el['doi']): el for el in doi_subjects}
+    output_list = [
+        enriched_dois.get(clean_doi(doi),
+                          # dict if this doi is not enriched
+                          {"doi": doi,
+                            "enriched_subjects": set()}
+                          )
+        for doi
+        in dois_to_enrich
+    ]
 
     # List of following:
-    #[
+    #{
     # id: str
-    # doi: str
     # enriched_subjects: {str}
-    #]
+    #}
     return output_list
 
 
