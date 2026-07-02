@@ -54,7 +54,7 @@ def connect_ids_with_subjects_by_doi(id_dois: list[dict],
     
     :param doi_subjects: List[dict: 
         {'doi': str, record DOI,
-        'subjects': List[str], subjects from API response
+        'enriched_subjects': List[str], subjects from API response
         }
     ]
 
@@ -73,7 +73,7 @@ def connect_ids_with_subjects_by_doi(id_dois: list[dict],
         matched_subjects = next(
         # Generator expression, next() stops at the first match
         # We make sure both DOIs are in clean, standardized format for matching
-            (item['subjects'] for item in doi_subjects
+            (item['enriched_subjects'] for item in doi_subjects
                 if clean_doi(item['doi']) == clean_doi(current_doi)),
             None
         )
