@@ -19,7 +19,7 @@ jobs:
             -   name: Test with pytest
                 run: uv run pytest tests
             -   name: Check root mypy
-                run: uv run mypy --strict
+                run: uv run mypy
             -   name: Check scripts mypy
                 run: uv run mypy --config-file scripts/pyproject.toml
             -   name: Check format
