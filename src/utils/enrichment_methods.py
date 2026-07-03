@@ -285,7 +285,7 @@ def _openalex_batch_doi_resolve(dois: list[str], api_key: str):
         clean_doi(doi)
         for doi in dois
     ]
-
+    
     for i in range(0, len(clean_dois), chunk_size):
         chunk = clean_dois[i : i + chunk_size]
 
@@ -295,9 +295,9 @@ def _openalex_batch_doi_resolve(dois: list[str], api_key: str):
         url = f"{OPENALEX_API_URL}?filter=doi:{doi_filter}&per_page={chunk_size}&api_key={api_key}"
 
         try:
-            response = requests.get(url, timeout=30)
+            response = requests.get(url, timeout=60)
             data = response.json()
-
+            
             batch_results = data.get("results", [])
         except Exception as e:
             print("ERROR fetching from openalex:")
@@ -317,100 +317,92 @@ def _opeanalex_get_doi_subjects(response: list[dict], score_treshold: float = 0.
 
     Concepts are a legacy version of keywords so we'll skip those.
     We'll consider keywords and concepts as subjects of interest. We'll further filter them out by similarity score.
-    
+
     :param response: List[dict], the API response
     :param score_treshold: float, minimum similarity score a topic/keyword must have to be included as a subject
     :return: List[dict]
         dict:
-            DOI - DOI that is linked to at least one subject
-            [Subjects] - all subjects for the given DOI
+            doi - DOI that is linked to at least one subject
+            {enriched_subjects} - all subjects for the given DOI
     """
     if response == []:
         # no DOIs with any results
         return []
     
-    # sets of DOIs with relevant sets of subjects. Later, spread to individual DOIs
-    enriched_dois = []
-    enriched_subjects = []
+    # Create a list of dicts for output
+    doi_subjects = []
 
     for el in response:
         kw_list = el['keywords']
         top_list = el['topics']
 
-        if ((kw_list + top_list) == []):
+        if (kw_list + top_list) == []:
             # this element doesn't contribute to enriching subjects,
             # so even the DOIs don't matter
             continue
 
-        keywords = [item['display_name'] for item in kw_list if item['score'] >= score_treshold]
-        topics = [item['display_name'] for item in top_list if item['score'] >= score_treshold]
-
-        # We'll consider both as subjects
-        subjects = keywords + topics
+        # subjects have multiple fields, we are interested in display_name values, filtered by score
+        subjects = {item['display_name'] for item in (kw_list + top_list) if item['score'] >= score_treshold}
 
         # Since we filtered by score it's possible that no keywords/topics are left,
         # if so, no enrichment will happen for this DOI
         if not subjects:
             continue
         
-        current_doi = clean_doi(el['doi'])
+        current_doi = el['doi']
 
-        # Strip DOI from prefixes and make it lowercase
-        current_doi = current_doi.replace("https://doi.org/", "").replace("http://doi.org/", "").lower()
-
-        enriched_dois.append(current_doi)
-
-        enriched_subjects.append(subjects)
-
-    # Create a list of dicts as output
-
-    doi_subjects = []
-
-    for ix in range(len(enriched_dois)):
-        doi_sub_pair = {'doi': enriched_dois[ix],
-                        'subjects': enriched_subjects[ix]}
-        doi_subjects.append(doi_sub_pair)
+        doi_subjects.append(
+            {
+                "doi": current_doi,
+                "enriched_subjects": subjects
+            }
+        )
 
     return doi_subjects
 
-def batch_enrich_subjects_from_openalex(records_id_doi: list[dict], 
-                                        api_key: str,
-                                        score_treshold: float = 0.5):
+def batch_enrich_subjects_from_openalex(dois_to_enrich: list[str],
+                                         api_key: str,
+                                         score_treshold: float = 0.5):
     """
-    Given a list of id-doi dictionaries, enrich them with subjects
+    Given a list of DOIs, enrich them with subjects
     from the OpenAlex API.
     Optionally, gather only subjects that match a minimum similarity score threshold.
 
     The similarity is based on OpenAlex keywords being matched to the record's title and description
     via machine learning.
 
-
-    :param records_id_doi: List[dict: 
-        {'id': str, record id from database,
-        'doi': str, record DOI
-        }
-    ]
+    :param dois_to_enrich: List[str], DOIs to enrich
     :param api_key: str, API key for communicating with OpenAlex API
     :param score_treshold: float, minimum similarity score a topic/keyword must have to be included as a subject
-    :return: List[dict] like input, with new key:
-            'enriched_subjects': None/set[str]
+    :return: List[dict]
+        dict:
+            doi - DOI
+            enriched_subjects: set[str]
     """
-    
-    dois_to_enrich = [rec['doi'] for rec in records_id_doi]
-    api_result = _openalex_batch_doi_resolve(dois_to_enrich, api_key)
 
+    api_result = _openalex_batch_doi_resolve(dois_to_enrich, api_key)
+    
     doi_subjects = _opeanalex_get_doi_subjects(api_result, score_treshold)
 
-    # Don't alter the input
-    output_list = copy.deepcopy(records_id_doi)
-    output_list = connect_ids_with_subjects_by_doi(output_list, doi_subjects)
+    # Cleanup - remove DOIs not in input, add non-enriched dois with empty subjectsets
+
+    # lookup dict
+    enriched_dois = {clean_doi(el['doi']): el for el in doi_subjects}
+    output_list = [
+        enriched_dois.get(clean_doi(doi),
+                          # dict if this doi is not enriched
+                          {"doi": doi,
+                            "enriched_subjects": set()}
+                          )
+        for doi
+        in dois_to_enrich
+    ]
 
     # List of following:
-    #[
-    # id: str
+    #{
     # doi: str
     # enriched_subjects: {str}
-    #]
+    #}
     return output_list
 
 # Enrich via Datacite API by records' DOI ----
