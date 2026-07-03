@@ -446,79 +446,79 @@ def _datacite_batch_doi_resolve(dois: list[str]) -> list[dict]:
 def _datacite_get_doi_subjects(response: list[dict]):
     """
     Transform API response into a list of DOIs and their subject-sets.
-    
+
     :param response: List[dict], the API response
     :return: List[dict]
         dict:
-            DOI - DOI that is linked to at least one subject
-            [Subjects] - all subjects for the given DOI
+            doi - DOI that is linked to at least one subject
+            {enriched_subjects} - all subjects for the given DOI
     """
     if response == []:
         # no DOIs with any results
         return []
-    
-    # sets of DOIs with relevant sets of subjects. Later, spread to individual DOIs
-    enriched_dois = []
-    enriched_subjects = []
+
+    # Create a list of dicts for output
+    doi_subjects = []
 
     for el in response:
-        sub_list = el['attributes']['subjects']
+        sub_list = el.get('attributes', {}).get('subjects', [])
 
-        if (sub_list == []):
+        if not sub_list:
             # this element doesn't contribute to enriching subjects
             continue
 
+        # subjects have multiple fields, we are interested in subject values.
         # It's possible that some dicts do not have the subject key
-        subjects = [item.get('subject') for item in sub_list if item.get('subject')]
+        subjects = {item['subject'] for item in sub_list if item.get('subject')}
 
         if not subjects:
             continue
-        
+
         current_doi = clean_doi(el['id'])
 
-        enriched_dois.append(current_doi)
-
-        enriched_subjects.append(subjects)
-
-    # Create a list of dicts as output
-
-    doi_subjects = []
-
-    for ix in range(len(enriched_dois)):
-        doi_sub_pair = {'doi': enriched_dois[ix],
-                        'subjects': enriched_subjects[ix]}
-        doi_subjects.append(doi_sub_pair)
+        doi_subjects.append(
+            {
+                "doi": current_doi,
+                "enriched_subjects": subjects
+            }
+        )
 
     return doi_subjects
 
-def batch_enrich_subjects_from_datacite(records_id_doi: list[dict]):
-    """
-    Given a list of id-doi dictionaries, enrich them with subjects
-    from the Datacite API.
 
-
-    :param records_id_doi: List[dict: 
-        {'id': str, record id from database,
-        'doi': str, record DOI
-        }
-    ]
-    :return: List[dict] like input, with new key:
-            'enriched_subjects': None/set[str]
+def batch_enrich_subjects_from_datacite(dois_to_enrich: list[str]):
     """
-    
-    dois_to_enrich = [rec['doi'] for rec in records_id_doi]
+    Given a list of DOIs, enrich them with subjects
+    from the DataCite API.
+
+    :param dois_to_enrich: List[str], DOIs to enrich
+    :return: List[dict]
+        dict:
+            doi - DOI
+            enriched_subjects: set[str]
+    """
+
     api_result = _datacite_batch_doi_resolve(dois_to_enrich)
 
     doi_subjects = _datacite_get_doi_subjects(api_result)
 
-    # Don't alter the input
-    output_list = copy.deepcopy(records_id_doi)
-    output_list = connect_ids_with_subjects_by_doi(output_list, doi_subjects)
+    # Cleanup - remove DOIs not in input, add non-enriched dois with empty subjectsets
+
+    # lookup dict
+    enriched_dois = {clean_doi(el['doi']): el for el in doi_subjects}
+    output_list = [
+        enriched_dois.get(clean_doi(doi),
+                          # dict if this doi is not enriched
+                          {"doi": doi,
+                            "enriched_subjects": set()}
+                          )
+        for doi
+        in dois_to_enrich
+    ]
 
     # List of following:
-    #[
-    # id: str
+    #{
     # doi: str
     # enriched_subjects: {str}
-    #]
+    #}
     return output_list
