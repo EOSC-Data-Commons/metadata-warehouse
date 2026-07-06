@@ -208,8 +208,7 @@ def _opeanaire_get_doi_subjects(response: list[dict]):
 
         # subjects have multiple fields, we are interested in text values
         subjects = {sub['subject']['value'] for sub in res_subjects}
-        print(res_subjects)
-        print(subjects)
+        
         for doi in current_dois:
             doi_subjects.append(
                 {
