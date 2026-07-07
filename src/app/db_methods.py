@@ -220,7 +220,9 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                 """,
                 [depends_on_endpoint_id],
             )
-            if not cur.fetchone()['has_closed_run']:
+            row = cur.fetchone()
+
+            if not row or not row['has_closed_run']:
                 raise DependencyNotHarvestedError(
                     f"Endpoint '{new_harvest_run['harvest_url']}' depends on master endpoint "
                     f"'{depends_on_endpoint_id}', which has no completed harvest yet."
