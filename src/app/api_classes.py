@@ -131,4 +131,3 @@ class SchedulerClosedRunsResponse(BaseModel):
 
 class DependencyNotHarvestedError(Exception):
     """Raised when an endpoint depends on a master endpoint that has no completed harvest run yet."""
-

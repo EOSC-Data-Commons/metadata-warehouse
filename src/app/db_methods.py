@@ -8,6 +8,7 @@ from opensearchpy import OpenSearch
 from psycopg.rows import dict_row
 
 from app.api_classes import (
+    DependencyNotHarvestedError,
     EndpointConfig,
     HarvestEventCreateRequest,
     HarvestEventCreateResponse,
@@ -16,7 +17,7 @@ from app.api_classes import (
     HarvestRunCloseRequest,
     HarvestRunCloseResponse,
     HarvestRunCreateResponse,
-    HarvestRunGetResponse, DependencyNotHarvestedError,
+    HarvestRunGetResponse,
 )
 from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
