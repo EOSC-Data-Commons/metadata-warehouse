@@ -208,7 +208,7 @@ ON CONFLICT (name) DO NOTHING;
 
 
 -- Zenodo
-INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule)
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule, depends_on_endpoint_id, dependency_xpath, dependency_match_pattern)
 SELECT
     r.id,
     'Zenodo',
@@ -217,7 +217,10 @@ SELECT
     'Multidisciplinary',
     false,
     '{"metadata_prefix": "datacite"}',
-    INTERVAL '1 week'
+    INTERVAL '1 week',
+    (SELECT id FROM endpoints WHERE name = 'HAL'),
+    '/oai:record//datacite:relatedIdentifiers/datacite:relatedIdentifier/text()',
+    '%zenodo%'
 FROM repositories r
 WHERE r.code = 'ZENODO'
 ON CONFLICT (name) DO NOTHING;

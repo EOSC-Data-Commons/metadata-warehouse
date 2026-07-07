@@ -16,7 +16,7 @@ from app.api_classes import (
     HarvestRunCloseRequest,
     HarvestRunCloseResponse,
     HarvestRunCreateResponse,
-    HarvestRunGetResponse,
+    HarvestRunGetResponse, DependencyNotHarvestedError,
 )
 from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
@@ -186,7 +186,9 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
         logger.debug(f'insert operation state: {res}')
 
         cur.execute(
-            """SELECT hr.id, hr.from_date, hr.until_date,  e.name, e.harvest_url, e.harvest_params, e.protocol, r.code  
+            """SELECT hr.id, hr.from_date, hr.until_date, e.id AS endpoint_id,
+                      e.name, e.harvest_url, e.harvest_params, e.protocol, r.code,
+                      e.depends_on_endpoint_id, e.dependency_xpath, e.dependency_match_pattern
                     FROM harvest_runs hr
                     JOIN endpoints e ON hr.endpoint_id = e.id
                     JOIN repositories r ON e.repository_id = r.id
@@ -201,6 +203,56 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
             raise Exception(f'Harvest run could not be created')
 
         logger.debug(f'{new_harvest_run}')
+
+        master_set_identifiers: list[str] | None = None
+        depends_on_endpoint_id = new_harvest_run['depends_on_endpoint_id']
+
+        if depends_on_endpoint_id is not None:
+            # Ensure the master endpoint has actually been harvested at least once.
+            cur.execute(
+                """
+                select exists (
+                    select 1
+                    from harvest_runs
+                    where endpoint_id = %s
+                      and status = 'closed'
+                ) as has_closed_run
+                """,
+                [depends_on_endpoint_id],
+            )
+            if not cur.fetchone()['has_closed_run']:
+                raise DependencyNotHarvestedError(
+                    f"Endpoint '{new_harvest_run['harvest_url']}' depends on master endpoint "
+                    f"'{depends_on_endpoint_id}', which has no completed harvest yet."
+                )
+
+            # Master set = related identifiers across ALL closed harvest runs for the
+            # master endpoint, since incremental harvests accumulate over time.
+            cur.execute(
+                """
+                select distinct related_identifier
+                from harvest_runs hr
+                join harvest_events he on he.harvest_run_id = hr.id
+                cross join lateral unnest(
+                    (xpath(
+                        %s,
+                        he.raw_metadata,
+                        '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}'
+                    ))::text[]
+                ) AS related_identifier
+                where hr.endpoint_id = %s
+                  and hr.status = 'closed'
+                  and he.is_deleted = false
+                  and related_identifier ilike %s
+                """,
+                (
+                    new_harvest_run['dependency_xpath'],
+                    depends_on_endpoint_id,
+                    new_harvest_run['dependency_match_pattern'],
+                ),
+            )
+            master_set_identifiers = [row['related_identifier'] for row in cur.fetchall()]
+            logger.debug(f'found {len(master_set_identifiers)} master set identifiers')
 
         return HarvestRunCreateResponse(
             id=str(new_harvest_run['id']),
@@ -217,6 +269,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                     additional_metadata_params=new_harvest_run['harvest_params'].get('additional_metadata_params'),
                 ),
             ),
+            master_set_identifiers=master_set_identifiers,
         )
 
 

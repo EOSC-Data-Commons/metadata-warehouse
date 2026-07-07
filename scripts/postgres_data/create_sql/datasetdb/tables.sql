@@ -47,6 +47,9 @@ CREATE TABLE IF NOT EXISTS endpoints (
     scientific_discipline VARCHAR(255),
     harvest_params JSONB NOT NULL,
     harvest_schedule INTERVAL NOT NULL DEFAULT INTERVAL '1 week',
+    depends_on_endpoint_id UUID,
+    dependency_xpath TEXT,
+    dependency_match_pattern VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN NOT NULL DEFAULT true,
@@ -54,7 +57,16 @@ CREATE TABLE IF NOT EXISTS endpoints (
     CONSTRAINT endpoints_name_key UNIQUE (name),
     CONSTRAINT endpoints_repository_id_name_key UNIQUE (repository_id, name),
     CONSTRAINT endpoints_repository_id_fkey FOREIGN KEY (repository_id)
-        REFERENCES repositories(id) ON DELETE CASCADE
+        REFERENCES repositories(id) ON DELETE CASCADE,
+    CONSTRAINT endpoints_depends_on_endpoint_id_fkey FOREIGN KEY (depends_on_endpoint_id)
+        REFERENCES endpoints(id) ON DELETE SET NULL,
+    CONSTRAINT endpoints_no_self_dependency
+        CHECK (depends_on_endpoint_id IS DISTINCT FROM id),
+    CONSTRAINT endpoints_dependency_config_consistent
+        CHECK (
+            (depends_on_endpoint_id IS NULL AND dependency_xpath IS NULL AND dependency_match_pattern IS NULL)
+            OR (depends_on_endpoint_id IS NOT NULL AND dependency_xpath IS NOT NULL AND dependency_match_pattern IS NOT NULL)
+        )
 );
 
 COMMENT ON TABLE endpoints IS 'Harvesting endpoints for repositories (multiple per repo)';
@@ -64,6 +76,9 @@ COMMENT ON COLUMN endpoints.protocol IS 'Primary harvest protocol';
 COMMENT ON COLUMN endpoints.scientific_discipline IS 'e.g., Agriculture, Physics';
 COMMENT ON COLUMN endpoints.harvest_params IS 'API keys, auth tokens, custom headers, etc.';
 COMMENT ON COLUMN endpoints.harvest_schedule IS 'How often the endpoint should be harvested (e.g. 1 hour, 1 day, 1 week)';
+COMMENT ON COLUMN endpoints.depends_on_endpoint_id IS 'Optional master-set endpoint this endpoint depends on (e.g. Zenodo depends on HAL)';
+COMMENT ON COLUMN endpoints.dependency_xpath IS 'XPath expression used to extract candidate identifier text nodes from the master endpoint''s raw_metadata (schema-specific, e.g. differs for datacite vs. other formats)';
+COMMENT ON COLUMN endpoints.dependency_match_pattern IS 'ILIKE pattern applied to the values extracted via dependency_xpath, to keep only identifiers relevant to this endpoint (e.g. %zenodo%)';
 
 -- Harvest Runs Table
 CREATE TABLE IF NOT EXISTS harvest_runs (

@@ -75,10 +75,11 @@ class HarvestRunGetResponse(BaseModel):
 
 
 class HarvestRunCreateResponse(BaseModel):
-    id: str = Field(description='ID of the new harvest run')
-    from_date: Optional[datetime] = Field(None, description='From date for selective harvesting')
-    until_date: datetime = Field(description='Until date for selective harvesting')
-    endpoint_config: EndpointConfig = Field(description='Description of the endpoint used for harvesting')
+    id: str
+    from_date: datetime | None
+    until_date: datetime
+    endpoint_config: EndpointConfig
+    master_set_identifiers: list[str] | None = None
 
 
 class HarvestRunCloseRequest(BaseModel):
@@ -126,3 +127,8 @@ class SchedulerClosedRunsResponse(BaseModel):
     """
 
     harvest_run_ids: list[str]
+
+
+class DependencyNotHarvestedError(Exception):
+    """Raised when an endpoint depends on a master endpoint that has no completed harvest run yet."""
+
