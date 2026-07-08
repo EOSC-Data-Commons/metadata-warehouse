@@ -280,6 +280,7 @@ def test_create_and_close_harvest_run(
     res_create = api_client.post('/harvest_run', json={'harvest_url': 'https://demo.onedata.org/oai_pmh'})
 
     assert res_create.status_code == 200
+    assert res_create.json()['master_set_identifiers'] is None
 
     create_response = res_create.json()
 
