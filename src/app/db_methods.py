@@ -31,6 +31,13 @@ connection_params = postgres_config.connection_params
 DEFAULT_PROTOCOL = 'OAI-PMH'
 DEFAULT_FORMAT = 'XML'
 
+# Generic DataCite path for a record's own DOI identifier — not endpoint-specific,
+# since this is a fixed part of the DataCite schema, not a per-dependency config.
+DATACITE_OWN_DOI_XPATH = '/oai:record//datacite:identifier[@identifierType="DOI"]/text()'
+DATACITE_NAMESPACES = '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}'
+
+
+
 BATCH_SIZE_DEFAULT = 125
 batch_size_raw = os.environ.get('CELERY_BATCH_SIZE', BATCH_SIZE_DEFAULT)
 
@@ -229,33 +236,68 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                     f"'{depends_on_endpoint_id}', which has no completed harvest yet."
                 )
 
-            # Master set = related identifiers across ALL closed harvest runs for the
-            # master endpoint, since incremental harvests accumulate over time.
+            # master_related_identifiers: everything the master endpoint has ever
+            # referenced (matching dependency_match_pattern), across ALL its closed
+            # runs, since harvesting is incremental.
+            #
+            # already_harvested_dois: DOIs this (dependent) endpoint has already
+            # harvested itself, across ALL its own closed runs — so we don't
+            # re-request records it already has.
+            #
+            # Final result: master-referenced identifiers NOT already harvested.
             cur.execute(
                 """
-                select distinct related_identifier
-                from harvest_runs hr
-                join harvest_events he on he.harvest_run_id = hr.id
-                cross join lateral unnest(
-                    (xpath(
-                        %s,
-                        he.raw_metadata,
-                        '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}'
-                    ))::text[]
-                ) AS related_identifier
-                where hr.endpoint_id = %s
-                  and hr.status = 'closed'
-                  and he.is_deleted = false
-                  and related_identifier ilike %s
-                """,
-                (
-                    new_harvest_run['dependency_xpath'],
-                    depends_on_endpoint_id,
-                    new_harvest_run['dependency_match_pattern'],
+                with master_related_identifiers as (
+                    select distinct related_identifier
+                    from harvest_runs hr
+                    join harvest_events he on he.harvest_run_id = hr.id
+                    cross join lateral unnest(
+                        (xpath(
+                            %(dependency_xpath)s,
+                            he.raw_metadata,
+                            %(namespaces)s
+                        ))::text[]
+                    ) AS related_identifier
+                    where hr.endpoint_id = %(master_endpoint_id)s
+                      and hr.status = 'closed'
+                      and he.is_deleted = false
+                      and related_identifier ilike %(match_pattern)s
                 ),
+                already_harvested_dois as (
+                    select distinct doi
+                    from harvest_runs hr
+                    join harvest_events he on he.harvest_run_id = hr.id
+                    cross join lateral unnest(
+                        (xpath(
+                            %(own_doi_xpath)s,
+                            he.raw_metadata,
+                            %(namespaces)s
+                        ))::text[]
+                    ) AS doi
+                    where hr.endpoint_id = %(self_endpoint_id)s
+                      and hr.status = 'closed'
+                      and he.is_deleted = false
+                )
+                select mri.related_identifier
+                from master_related_identifiers mri
+                where not exists (
+                    select 1
+                    from already_harvested_dois ahd
+                    where lower(regexp_replace(ahd.doi, '^https?://(dx\\.)?doi\\.org/', ''))
+                        = lower(regexp_replace(mri.related_identifier, '^https?://(dx\\.)?doi\\.org/', ''))
+                )
+                """,
+                {
+                    'dependency_xpath': new_harvest_run['dependency_xpath'],
+                    'namespaces': DATACITE_NAMESPACES,
+                    'master_endpoint_id': depends_on_endpoint_id,
+                    'match_pattern': new_harvest_run['dependency_match_pattern'],
+                    'own_doi_xpath': DATACITE_OWN_DOI_XPATH,
+                    'self_endpoint_id': new_harvest_run['endpoint_id'],
+                },
             )
             master_set_identifiers = [row['related_identifier'] for row in cur.fetchall()]
-            logger.debug(f'found {len(master_set_identifiers)} master set identifiers')
+            logger.debug(f'found {len(master_set_identifiers)} new master set identifiers to fetch')
 
         return HarvestRunCreateResponse(
             id=str(new_harvest_run['id']),
@@ -274,7 +316,6 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
             ),
             master_set_identifiers=master_set_identifiers,
         )
-
 
 def close_harvest_run_in_db(
     harvest_run: HarvestRunCloseRequest,
