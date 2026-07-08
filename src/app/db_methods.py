@@ -37,7 +37,6 @@ DATACITE_OWN_DOI_XPATH = '/oai:record//datacite:identifier[@identifierType="DOI"
 DATACITE_NAMESPACES = '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}'
 
 
-
 BATCH_SIZE_DEFAULT = 125
 batch_size_raw = os.environ.get('CELERY_BATCH_SIZE', BATCH_SIZE_DEFAULT)
 
@@ -316,6 +315,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
             ),
             master_set_identifiers=master_set_identifiers,
         )
+
 
 def close_harvest_run_in_db(
     harvest_run: HarvestRunCloseRequest,
