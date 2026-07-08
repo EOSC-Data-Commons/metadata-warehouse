@@ -414,7 +414,7 @@ def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, 
     """
     hal_zenodo_dois = [
         '10.5281/zenodo.111',
-        'https://doi.org/10.5281/zenodo.222',
+        '10.5281/zenodo.222',
         '10.5281/zenodo.333',
     ]
 
@@ -440,7 +440,7 @@ def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, 
     assert res_create_zenodo_1.status_code == 200
     zenodo_run_1 = res_create_zenodo_1.json()
 
-    identifiers_1 = {i.replace('https://doi.org/', '') for i in zenodo_run_1['master_set_identifiers']}
+    identifiers_1 = set(zenodo_run_1['master_set_identifiers'])
     assert identifiers_1 == {'10.5281/zenodo.111', '10.5281/zenodo.222', '10.5281/zenodo.333'}
 
     zenodo_run_1_id = zenodo_run_1['id']
@@ -462,6 +462,6 @@ def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, 
     assert res_create_zenodo_2.status_code == 200
     zenodo_run_2 = res_create_zenodo_2.json()
 
-    identifiers_2 = {i.replace('https://doi.org/', '') for i in zenodo_run_2['master_set_identifiers']}
+    identifiers_2 = set(zenodo_run_2['master_set_identifiers'])
     assert identifiers_2 == {'10.5281/zenodo.222', '10.5281/zenodo.333'}
     assert '10.5281/zenodo.111' not in identifiers_2
