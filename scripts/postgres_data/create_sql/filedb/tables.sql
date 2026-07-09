@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS record_files (
     harvest_url VARCHAR(500) NOT NULL,
     record_identifier TEXT NOT NULL,
     file_identifier TEXT NOT NULL,
+    path TEXT NOT NULL,
     file_name TEXT NOT NULL,
     file_information_method TEXT,
     identifier_type file_identifier_type NOT NULL,
@@ -31,6 +32,7 @@ COMMENT ON COLUMN record_files.id IS 'Synthetic UUID primary key';
 COMMENT ON COLUMN record_files.harvest_url IS 'References endpoints.harvest_url - unique endpoint identifier';
 COMMENT ON COLUMN record_files.record_identifier IS 'OAI-PMH identifier or unique record ID of the parent record';
 COMMENT ON COLUMN record_files.file_identifier IS 'Source-assigned identifier for the file';
+COMMENT ON COLUMN record_files.path IS 'Path of the file';
 COMMENT ON COLUMN record_files.file_name IS 'Name of the file';
 COMMENT ON COLUMN record_files.file_information_method IS 'Method used to get file information';
 COMMENT ON COLUMN record_files.identifier_type IS 'Type of identifier for this file: DOI, URL, URN, etc.';
