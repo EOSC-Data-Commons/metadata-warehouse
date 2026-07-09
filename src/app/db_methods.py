@@ -21,7 +21,7 @@ from app.api_classes import (
 from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
 from logger.setup_logger import logger
-from transform.tasks import add_file_metadata, transform_batch
+from transform.tasks import JobType, add_file_metadata, transform_batch
 from utils.queue_utils import HarvestEventQueue, detect_identifier_type
 
 postgres_config: PostgresConfig = PostgresConfig()
@@ -367,15 +367,22 @@ JOIN repositories r ON e.repository_id = r.id
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings: bool) -> int:
+def create_jobs_in_queue(
+    harvest_run_id: str, index_name: str, reuse_embeddings: bool, job_types: Optional[list[JobType]]
+) -> int:
     """
     Creates and enqueues transformation jobs from harvest_events table.
 
     :param harvest_run_id: ID of the harvest run the harvest events belong to.
     :param index_name: Name of the OpenSearch index to use.
     :param reuse_embeddings: Reuse existing embeddings instead of recalculation.
+    :param job_types: Only run defined job types. If omitted, all job types will be run.
     :return: Number of batches scheduled for processing.
     """
+
+    # if None, run all job types
+    active_types = job_types or list(JobType)
+    logger.info(active_types)
 
     # check if target index exists
     opensearch_config = OpenSearchConfig()
@@ -464,7 +471,12 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings:
 
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')
-            transform_batch.delay(batch, index_name, reuse_embeddings)
+            if JobType.TRANSFORM_TASK in active_types:
+                transform_batch.delay(batch, index_name, reuse_embeddings)
+
+            if JobType.FILE_METADATA_TASK in active_types:
+                add_file_metadata.delay(batch)
+
             add_file_metadata.delay(batch)
             tasks += 1
 

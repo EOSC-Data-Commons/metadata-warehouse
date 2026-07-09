@@ -61,9 +61,13 @@ FASTEMBED_CACHE_DIR = os.environ.get('FASTEMBED_CACHE_DIR', '/root/.cache/fastem
 
 celery_app = Celery('tasks')
 
-
 # celery_app.task_serializer = 'json'
 # celery_app.ignore_result = False
+
+
+class JobType(str, Enum):
+    TRANSFORM_TASK = 'TransformTask'
+    FILE_METADATA_TASK = 'FileMetadataTask'
 
 
 class ProviderCode(str, Enum):
