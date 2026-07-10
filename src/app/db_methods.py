@@ -477,7 +477,6 @@ def create_jobs_in_queue(
             if JobType.FILE_METADATA_TASK in active_types:
                 add_file_metadata.delay(batch)
 
-            add_file_metadata.delay(batch)
             tasks += 1
 
             # increment offset by limit
