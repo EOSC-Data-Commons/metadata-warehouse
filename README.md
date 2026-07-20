@@ -1,5 +1,8 @@
 # Metadata Warehouse
 
+The Metadata Warehouse stores data harvested by the [crawler](https://github.com/EOSC-Data-Commons/metadata-crawlers/) and transforms and validates this data for discovery.
+For an architecture overview of how the different components interact, see https://doi.org/10.5281/zenodo.21068516.
+
 ## Docker Compose Setup
 
 This repo contains a `docker-compose.yml` file which configures the containers and their interaction.
