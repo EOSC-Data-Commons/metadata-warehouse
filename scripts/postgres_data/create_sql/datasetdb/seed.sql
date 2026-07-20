@@ -216,7 +216,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     false,
-    '{"metadata_prefix": "datacite"}',
+    '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://zenodo.org/api/records", "protocol": "ZENODO_API", "format": "None"}}',
     INTERVAL '1 week',
     (SELECT id FROM endpoints WHERE name = 'HAL'),
     '/oai:record//datacite:relatedIdentifiers/datacite:relatedIdentifier/text()',
