@@ -208,7 +208,7 @@ ON CONFLICT (name) DO NOTHING;
 
 
 -- Zenodo
-INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule, depends_on_endpoint_id, dependency_xpath, dependency_match_pattern)
+INSERT INTO endpoints (repository_id, name, harvest_url, protocol, scientific_discipline, is_active, harvest_params, harvest_schedule, depends_on_endpoint_id, dependency_xpath, dependency_match_pattern, dependency_static_dois)
 SELECT
     r.id,
     'Zenodo',
@@ -220,7 +220,8 @@ SELECT
     INTERVAL '1 week',
     (SELECT id FROM endpoints WHERE name = 'HAL'),
     '/oai:record//datacite:relatedIdentifiers/datacite:relatedIdentifier/text()',
-    '%zenodo%'
+    '%zenodo%',
+    ARRAY['10.5281/zenodo.7350485', '10.5281/zenodo.13692761','10.5281/zenodo.15324029', '10.5281/zenodo.7702229', '10.5281/zenodo.11278072', '10.5281/zenodo.3382874', '10.5281/zenodo.6645396', '10.5281/zenodo.8260741', '10.5281/zenodo.4559324', '10.5281/zenodo.20509715']
 FROM repositories r
 WHERE r.code = 'ZENODO'
 ON CONFLICT (name) DO NOTHING;

@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS endpoints (
     depends_on_endpoint_id UUID,
     dependency_xpath TEXT,
     dependency_match_pattern VARCHAR(255),
+    dependency_static_dois TEXT[],
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN NOT NULL DEFAULT true,
@@ -79,6 +80,7 @@ COMMENT ON COLUMN endpoints.harvest_schedule IS 'How often the endpoint should b
 COMMENT ON COLUMN endpoints.depends_on_endpoint_id IS 'Optional master-set endpoint this endpoint depends on (e.g. Zenodo depends on HAL)';
 COMMENT ON COLUMN endpoints.dependency_xpath IS 'XPath expression used to extract candidate identifier text nodes from the master endpoint''s raw_metadata (schema-specific, e.g. differs for datacite vs. other formats)';
 COMMENT ON COLUMN endpoints.dependency_match_pattern IS 'ILIKE pattern applied to the values extracted via dependency_xpath, to keep only identifiers relevant to this endpoint (e.g. %zenodo%)';
+COMMENT ON COLUMN endpoints.dependency_static_dois IS 'Optional fixed list of DOIs to always include in this endpoint''s master set, in addition to the dynamically derived ones';
 
 -- Harvest Runs Table
 CREATE TABLE IF NOT EXISTS harvest_runs (

@@ -195,7 +195,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
         cur.execute(
             """SELECT hr.id, hr.from_date, hr.until_date, e.id AS endpoint_id,
                       e.name, e.harvest_url, e.harvest_params, e.protocol, r.code,
-                      e.depends_on_endpoint_id, e.dependency_xpath, e.dependency_match_pattern
+                      e.depends_on_endpoint_id, e.dependency_xpath, e.dependency_match_pattern, e.dependency_static_dois
                     FROM harvest_runs hr
                     JOIN endpoints e ON hr.endpoint_id = e.id
                     JOIN repositories r ON e.repository_id = r.id
@@ -246,8 +246,8 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
             # Final result: master-referenced identifiers NOT already harvested.
             cur.execute(
                 """
-                with master_related_identifiers as (
-                    select distinct related_identifier
+                with candidate_identifiers as (
+                    select related_identifier
                     from harvest_runs hr
                     join harvest_events he on he.harvest_run_id = hr.id
                     cross join lateral unnest(
@@ -261,6 +261,10 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                       and hr.status = 'closed'
                       and he.is_deleted = false
                       and related_identifier ilike %(match_pattern)s
+
+                    union
+
+                    select unnest(%(static_dois)s::text[]) as related_identifier
                 ),
                 already_harvested_dois as (
                     select distinct doi
@@ -277,13 +281,13 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                       and hr.status = 'closed'
                       and he.is_deleted = false
                 )
-                select mri.related_identifier
-                from master_related_identifiers mri
+                select distinct ci.related_identifier
+                from candidate_identifiers ci
                 where not exists (
                     select 1
                     from already_harvested_dois ahd
                     where lower(regexp_replace(ahd.doi, '^https?://(dx\\.)?doi\\.org/', ''))
-                        = lower(regexp_replace(mri.related_identifier, '^https?://(dx\\.)?doi\\.org/', ''))
+                        = lower(regexp_replace(ci.related_identifier, '^https?://(dx\\.)?doi\\.org/', ''))
                 )
                 """,
                 {
@@ -291,6 +295,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                     'namespaces': DATACITE_NAMESPACES,
                     'master_endpoint_id': depends_on_endpoint_id,
                     'match_pattern': new_harvest_run['dependency_match_pattern'],
+                    'static_dois': new_harvest_run['dependency_static_dois'] or [],
                     'own_doi_xpath': DATACITE_OWN_DOI_XPATH,
                     'self_endpoint_id': new_harvest_run['endpoint_id'],
                 },
@@ -313,7 +318,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                     additional_metadata_params=new_harvest_run['harvest_params'].get('additional_metadata_params'),
                 ),
             ),
-            master_set_identifiers=master_set_identifiers,
+            master_set_identifiers=master_set_identifiers #[0:51] if master_set_identifiers is not None else None,
         )
 
 
