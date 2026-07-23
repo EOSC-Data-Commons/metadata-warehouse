@@ -318,7 +318,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                     additional_metadata_params=new_harvest_run['harvest_params'].get('additional_metadata_params'),
                 ),
             ),
-            master_set_identifiers=master_set_identifiers #[0:51] if master_set_identifiers is not None else None,
+            master_set_identifiers=master_set_identifiers,  # [0:51] if master_set_identifiers is not None else None,
         )
 
 

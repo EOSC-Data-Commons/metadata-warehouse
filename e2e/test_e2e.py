@@ -418,6 +418,8 @@ def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, 
         '10.5281/zenodo.333',
     ]
 
+    ZENODO_STATIC_DOIS = {'10.5281/zenodo.7350485', '10.5281/zenodo.13692761','10.5281/zenodo.15324029', '10.5281/zenodo.7702229', '10.5281/zenodo.11278072', '10.5281/zenodo.3382874', '10.5281/zenodo.6645396', '10.5281/zenodo.8260741', '10.5281/zenodo.4559324', '10.5281/zenodo.20509715'}
+
     # --- 1. Get in some HAL records ---
     res_create_hal = api_client.post('/harvest_run', json={'harvest_url': HAL_HARVEST_URL})
     assert res_create_hal.status_code == 200
@@ -441,7 +443,7 @@ def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, 
     zenodo_run_1 = res_create_zenodo_1.json()
 
     identifiers_1 = set(zenodo_run_1['master_set_identifiers'])
-    assert identifiers_1 == {'10.5281/zenodo.111', '10.5281/zenodo.222', '10.5281/zenodo.333'}
+    assert identifiers_1 == {'10.5281/zenodo.111', '10.5281/zenodo.222', '10.5281/zenodo.333'} | ZENODO_STATIC_DOIS
 
     zenodo_run_1_id = zenodo_run_1['id']
 
@@ -463,5 +465,5 @@ def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, 
     zenodo_run_2 = res_create_zenodo_2.json()
 
     identifiers_2 = set(zenodo_run_2['master_set_identifiers'])
-    assert identifiers_2 == {'10.5281/zenodo.222', '10.5281/zenodo.333'}
+    assert identifiers_2 == {'10.5281/zenodo.222', '10.5281/zenodo.333'} | ZENODO_STATIC_DOIS
     assert '10.5281/zenodo.111' not in identifiers_2
