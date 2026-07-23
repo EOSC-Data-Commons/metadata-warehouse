@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS endpoints (
     CONSTRAINT endpoints_repository_id_fkey FOREIGN KEY (repository_id)
         REFERENCES repositories(id) ON DELETE CASCADE,
     CONSTRAINT endpoints_depends_on_endpoint_id_fkey FOREIGN KEY (depends_on_endpoint_id)
-        REFERENCES endpoints(id) ON DELETE SET NULL,
+        REFERENCES endpoints(id) ON DELETE RESTRICT,
     CONSTRAINT endpoints_no_self_dependency
         CHECK (depends_on_endpoint_id IS DISTINCT FROM id),
     CONSTRAINT endpoints_dependency_config_consistent
@@ -77,11 +77,10 @@ COMMENT ON COLUMN endpoints.protocol IS 'Primary harvest protocol';
 COMMENT ON COLUMN endpoints.scientific_discipline IS 'e.g., Agriculture, Physics';
 COMMENT ON COLUMN endpoints.harvest_params IS 'API keys, auth tokens, custom headers, etc.';
 COMMENT ON COLUMN endpoints.harvest_schedule IS 'How often the endpoint should be harvested (e.g. 1 hour, 1 day, 1 week)';
-COMMENT ON COLUMN endpoints.depends_on_endpoint_id IS 'Optional master-set endpoint this endpoint depends on (e.g. Zenodo depends on HAL)';
+COMMENT ON COLUMN endpoints.depends_on_endpoint_id IS 'Optional master-set endpoint this endpoint depends on (e.g. Zenodo depends on HAL). Deleting a master endpoint is blocked (ON DELETE RESTRICT) while any dependent still references it.';
 COMMENT ON COLUMN endpoints.dependency_xpath IS 'XPath expression used to extract candidate identifier text nodes from the master endpoint''s raw_metadata (schema-specific, e.g. differs for datacite vs. other formats)';
 COMMENT ON COLUMN endpoints.dependency_match_pattern IS 'ILIKE pattern applied to the values extracted via dependency_xpath, to keep only identifiers relevant to this endpoint (e.g. %zenodo%)';
 COMMENT ON COLUMN endpoints.dependency_static_dois IS 'Optional fixed list of DOIs to always include in this endpoint''s master set, in addition to the dynamically derived ones';
-
 -- Harvest Runs Table
 CREATE TABLE IF NOT EXISTS harvest_runs (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
