@@ -418,7 +418,18 @@ def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, 
         '10.5281/zenodo.333',
     ]
 
-    ZENODO_STATIC_DOIS = {'10.5281/zenodo.7350485', '10.5281/zenodo.13692761','10.5281/zenodo.15324029', '10.5281/zenodo.7702229', '10.5281/zenodo.11278072', '10.5281/zenodo.3382874', '10.5281/zenodo.6645396', '10.5281/zenodo.8260741', '10.5281/zenodo.4559324', '10.5281/zenodo.20509715'}
+    ZENODO_STATIC_DOIS = {
+        '10.5281/zenodo.7350485',
+        '10.5281/zenodo.13692761',
+        '10.5281/zenodo.15324029',
+        '10.5281/zenodo.7702229',
+        '10.5281/zenodo.11278072',
+        '10.5281/zenodo.3382874',
+        '10.5281/zenodo.6645396',
+        '10.5281/zenodo.8260741',
+        '10.5281/zenodo.4559324',
+        '10.5281/zenodo.20509715',
+    }
 
     # --- 1. Get in some HAL records ---
     res_create_hal = api_client.post('/harvest_run', json={'harvest_url': HAL_HARVEST_URL})
