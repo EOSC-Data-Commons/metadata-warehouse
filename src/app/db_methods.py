@@ -218,21 +218,27 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
             # Ensure the master endpoint has actually been harvested at least once.
             cur.execute(
                 """
-                select exists (
-                    select 1
-                    from harvest_runs
-                    where endpoint_id = %s
-                      and status = 'closed'
-                ) as has_closed_run
+                select
+                    e.name as master_endpoint_name,
+                    exists (
+                        select 1
+                        from harvest_runs hr
+                        where hr.endpoint_id = e.id
+                          and hr.status = 'closed'
+                    ) as has_closed_run
+                from endpoints e
+                where e.id = %s
                 """,
                 [depends_on_endpoint_id],
             )
             row = cur.fetchone()
 
             if not row or not row['has_closed_run']:
+                master_endpoint_name = row['master_endpoint_name'] if row else depends_on_endpoint_id
                 raise DependencyNotHarvestedError(
                     f"Endpoint '{new_harvest_run['harvest_url']}' depends on master endpoint "
-                    f"'{depends_on_endpoint_id}', which has no completed harvest yet."
+                    f"'{master_endpoint_name}', which has no completed harvest yet.",
+                    master_endpoint_name
                 )
 
             # master_related_identifiers: everything the master endpoint has ever
