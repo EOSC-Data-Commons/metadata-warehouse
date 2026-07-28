@@ -131,7 +131,7 @@ class SchedulerClosedRunsResponse(BaseModel):
 
 class DependencyNotHarvestedError(Exception):
     """Raised when an endpoint depends on a master endpoint that has no completed harvest run yet."""
-    def __init__(self, message, dependency: str):
+    def __init__(self, message, dependency: str) -> None:
         self.message = message
         super().__init__(self.message)
         self.dependency = dependency
