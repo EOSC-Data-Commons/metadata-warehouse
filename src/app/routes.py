@@ -8,6 +8,7 @@ from psycopg.rows import dict_row
 
 from app.api_classes import (
     Config,
+    DependencyNotHarvestedError,
     HarvestEventCreateRequest,
     HarvestEventCreateResponse,
     HarvestRunCloseRequest,
@@ -18,7 +19,7 @@ from app.api_classes import (
     HealthGetResponse,
     IndexGetResponse,
     SchedulerClosedRunsResponse,
-    SchedulerRunsResponse, DependencyNotHarvestedError,
+    SchedulerRunsResponse,
 )
 from app.db_methods import (
     are_all_runs_closed_in_db,

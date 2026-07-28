@@ -238,7 +238,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                 raise DependencyNotHarvestedError(
                     f"Endpoint '{new_harvest_run['harvest_url']}' depends on master endpoint "
                     f"'{master_endpoint_name}', which has no completed harvest yet.",
-                    master_endpoint_name
+                    master_endpoint_name,
                 )
 
             # master_related_identifiers: everything the master endpoint has ever
