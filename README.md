@@ -186,6 +186,18 @@ docker compose run harvester https://lifesciences.datastations.nl/oai
 The scheduler automates the full ingestion workflow: harvesting → transformation → indexing.
 It is designed to be executed periodically via CRON.
 
+### Dependent endpoints
+
+Some repositories are configured as dependent endpoints in the `endpoints` table by setting
+`depends_on_endpoint_id`. A dependent endpoint uses identifiers collected from its master
+endpoint, so the scheduler always triggers independent endpoints first and moves dependent
+endpoints to the end of the same harvesting batch. This ensures HAL is harvested before
+Zenodo when both endpoints are due for harvesting.
+
+The rest of the scheduler pipeline is unchanged: every selected endpoint is still crawled
+sequentially, the scheduler waits until harvest runs are closed, and then closed runs are
+sent to transformation/indexing.
+
 ### Run scheduler
 
 ```sh
@@ -229,4 +241,3 @@ Set up pre-commit hooks to check your messages before commiting them to the repo
 - `uv run pre-commit install --hook-type commit-msg`
 
 See `.pre-commit-config.yaml` for further details.
-
