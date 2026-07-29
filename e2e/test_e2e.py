@@ -153,7 +153,7 @@ def test_get_config(api_client, reset_dataset_db, reset_file_db):
     response = api_client.get('/config')
 
     assert response.status_code == 200
-    assert len(response.json()['endpoints_configs']) == 28
+    assert len(response.json()['endpoints_configs']) == 29
 
 
 def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, reset_dataset_db, reset_index):
@@ -280,6 +280,7 @@ def test_create_and_close_harvest_run(
     res_create = api_client.post('/harvest_run', json={'harvest_url': 'https://demo.onedata.org/oai_pmh'})
 
     assert res_create.status_code == 200
+    assert res_create.json()['master_set_identifiers'] is None
 
     create_response = res_create.json()
 
@@ -343,4 +344,151 @@ def test_create_and_close_harvest_run(
     response_config = api_client.get('/config')
 
     assert response_config.status_code == 200
-    assert len(response_config.json()['endpoints_configs']) == 28
+    assert len(response_config.json()['endpoints_configs']) == 29
+
+
+HAL_HARVEST_URL = 'https://api.archives-ouvertes.fr/oai/hal'
+ZENODO_HARVEST_URL = 'https://zenodo.org/oai2d'
+
+HAL_RECORD_XML_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
+<oai:record xmlns:oai="http://www.openarchives.org/OAI/2.0/"
+            xmlns:datacite="http://datacite.org/schema/kernel-4">
+  <oai:metadata>
+    <datacite:resource>
+      <datacite:relatedIdentifiers>
+        <datacite:relatedIdentifier relatedIdentifierType="DOI">{doi}</datacite:relatedIdentifier>
+      </datacite:relatedIdentifiers>
+    </datacite:resource>
+  </oai:metadata>
+</oai:record>"""
+
+ZENODO_RECORD_XML_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
+<oai:record xmlns:oai="http://www.openarchives.org/OAI/2.0/"
+            xmlns:datacite="http://datacite.org/schema/kernel-4">
+  <oai:metadata>
+    <datacite:resource>
+      <datacite:identifier identifierType="DOI">{doi}</datacite:identifier>
+    </datacite:resource>
+  </oai:metadata>
+</oai:record>"""
+
+
+def _close_harvest_run(api_client, run_id):
+    res_close = api_client.put(
+        '/harvest_run',
+        json={
+            'id': run_id,
+            'success': True,
+            'started_at': '2026-02-17T15:36:05.544Z',
+            'completed_at': '2026-02-17T15:36:05.544Z',
+        },
+    )
+    assert res_close.status_code == 200
+    return res_close
+
+
+def _post_harvest_event(api_client, *, harvest_run_id, harvest_url, repo_code, record_identifier, raw_metadata):
+    res = api_client.post(
+        '/harvest_event',
+        json={
+            'record_identifier': record_identifier,
+            'datestamp': '2026-02-17T15:43:03.326Z',
+            'raw_metadata': raw_metadata,
+            'additional_metadata': None,
+            'harvest_url': harvest_url,
+            'repo_code': repo_code,
+            'harvest_run_id': harvest_run_id,
+            'is_deleted': False,
+        },
+    )
+    assert res.status_code == 200
+    return res
+
+
+def test_zenodo_dependency_without_hal(api_client, reset_dataset_db, reset_file_db, reset_index):
+    """
+    Try to harvest Zenodo with having harvested HAL first.
+    This should fail since Zenodo depends on HAL.
+    """
+
+    res_create_zenodo_1 = api_client.post('/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL})
+    assert res_create_zenodo_1.status_code == 400
+    assert (
+        res_create_zenodo_1.json()['detail']
+        == 'This is a dependent repository and requires the endpoint HAL to be harvested first'
+    )
+
+
+def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, reset_file_db, reset_index):
+    """
+    Zenodo's endpoint config depends on HAL as a master set. When opening a
+    Zenodo harvest run, the response should list Zenodo-referenced DOIs found
+    in HAL's harvested records, minus any DOIs Zenodo has already harvested
+    itself in a previous closed run.
+    """
+    hal_zenodo_dois = [
+        '10.5281/zenodo.111',
+        '10.5281/zenodo.222',
+        '10.5281/zenodo.333',
+    ]
+
+    ZENODO_STATIC_DOIS = {
+        '10.5281/zenodo.7350485',
+        '10.5281/zenodo.13692761',
+        '10.5281/zenodo.15324029',
+        '10.5281/zenodo.7702229',
+        '10.5281/zenodo.11278072',
+        '10.5281/zenodo.3382874',
+        '10.5281/zenodo.6645396',
+        '10.5281/zenodo.8260741',
+        '10.5281/zenodo.4559324',
+        '10.5281/zenodo.20509715',
+    }
+
+    # --- 1. Get in some HAL records ---
+    res_create_hal = api_client.post('/harvest_run', json={'harvest_url': HAL_HARVEST_URL})
+    assert res_create_hal.status_code == 200
+    hal_run_id = res_create_hal.json()['id']
+
+    for i, doi in enumerate(hal_zenodo_dois):
+        _post_harvest_event(
+            api_client,
+            harvest_run_id=hal_run_id,
+            harvest_url=HAL_HARVEST_URL,
+            repo_code='HAL',
+            record_identifier=f'hal-rec-{i}',
+            raw_metadata=HAL_RECORD_XML_TEMPLATE.format(doi=doi),
+        )
+
+    _close_harvest_run(api_client, hal_run_id)
+
+    # --- 2. Get the Zenodo DOIs (first Zenodo run — nothing harvested yet) ---
+    res_create_zenodo_1 = api_client.post('/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL})
+    assert res_create_zenodo_1.status_code == 200
+    zenodo_run_1 = res_create_zenodo_1.json()
+
+    identifiers_1 = set(zenodo_run_1['master_set_identifiers'])
+    assert identifiers_1 == {'10.5281/zenodo.111', '10.5281/zenodo.222', '10.5281/zenodo.333'} | ZENODO_STATIC_DOIS
+
+    zenodo_run_1_id = zenodo_run_1['id']
+
+    # --- 3. Register some Zenodo (simulate harvester having fetched DOI 111) ---
+    _post_harvest_event(
+        api_client,
+        harvest_run_id=zenodo_run_1_id,
+        harvest_url=ZENODO_HARVEST_URL,
+        repo_code='ZENODO',
+        record_identifier='oai:zenodo.org:111',
+        raw_metadata=ZENODO_RECORD_XML_TEMPLATE.format(doi='10.5281/zenodo.111'),
+    )
+
+    _close_harvest_run(api_client, zenodo_run_1_id)
+
+    # --- 4. Get the IDs again (second Zenodo run — 111 should now be excluded) ---
+    res_create_zenodo_2 = api_client.post('/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL})
+    assert res_create_zenodo_2.status_code == 200
+    zenodo_run_2 = res_create_zenodo_2.json()
+
+    identifiers_2 = set(zenodo_run_2['master_set_identifiers'])
+    assert identifiers_2 == {'10.5281/zenodo.222', '10.5281/zenodo.333'} | ZENODO_STATIC_DOIS
+    assert '10.5281/zenodo.111' not in identifiers_2

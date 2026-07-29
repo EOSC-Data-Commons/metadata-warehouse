@@ -8,6 +8,7 @@ from psycopg.rows import dict_row
 
 from app.api_classes import (
     Config,
+    DependencyNotHarvestedError,
     HarvestEventCreateRequest,
     HarvestEventCreateResponse,
     HarvestRunCloseRequest,
@@ -169,6 +170,12 @@ def create_harvest_run(
         raise HTTPException(
             status_code=400,
             detail='An open harvest run already exists for the given endpoint.',
+        )
+    except DependencyNotHarvestedError as e:
+        logger.exception(f'An error occurred when creating harvest run: {e}')
+        raise HTTPException(
+            status_code=400,
+            detail=f'This is a dependent repository and requires the endpoint {e.dependency} to be harvested first',
         )
     except Exception as e:
         logger.exception(f'An error occurred when creating harvest event: {e}')
