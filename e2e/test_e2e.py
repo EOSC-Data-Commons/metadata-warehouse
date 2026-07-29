@@ -405,6 +405,20 @@ def _post_harvest_event(api_client, *, harvest_run_id, harvest_url, repo_code, r
     return res
 
 
+def test_zenodo_dependency_without_hal(api_client, reset_dataset_db, reset_file_db, reset_index):
+    """
+    Try to harvest Zenodo with having harvested HAL first.
+    This should fail since Zenodo depends on HAL.
+    """
+
+    res_create_zenodo_1 = api_client.post('/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL})
+    assert res_create_zenodo_1.status_code == 400
+    assert (
+        res_create_zenodo_1.json()['detail']
+        == 'This is a dependent repository and requires the endpoint HAL to be harvested first'
+    )
+
+
 def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, reset_file_db, reset_index):
     """
     Zenodo's endpoint config depends on HAL as a master set. When opening a
