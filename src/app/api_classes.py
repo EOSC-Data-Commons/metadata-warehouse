@@ -61,6 +61,10 @@ class HarvestRun(BaseModel):
 
     status: Optional[str] = Field(default=None, description='Status of the harvest run: open|closed|failed')
     harvest_url: str
+    depends_on_endpoint_id: str | None = Field(
+        default=None,
+        description='ID of the master endpoint that must be harvested before this endpoint, if configured',
+    )
     from_date: Optional[datetime]
     until_date: Optional[datetime]
     started_at: Optional[datetime]
