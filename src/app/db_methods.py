@@ -105,6 +105,7 @@ def get_latest_harvest_run_in_db(
         query = f"""
         SELECT
             e.harvest_url,
+            e.depends_on_endpoint_id,
             e.is_active,
             e.harvest_schedule,
             hr.id,
@@ -145,6 +146,7 @@ def get_latest_harvest_run_in_db(
                 id=str(r['id']) if r['id'] else None,
                 status=r['status'],
                 harvest_url=r['harvest_url'],
+                depends_on_endpoint_id=str(r['depends_on_endpoint_id']) if r['depends_on_endpoint_id'] else None,
                 from_date=r['from_date'],
                 until_date=r['until_date'],
                 started_at=r['started_at'],
