@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.5.0...v1.6.0) (2026-07-30)
+
+
+### Features
+
+* **db:** add EMPIAR repo ([#153](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/153)) ([0c03528](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/0c0352807e33053dc05458d3951596ee97cae2d0))
+* **docker:** coordinator expose 50051 from coordinator for easy dev ([#140](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/140)) ([d553c87](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/d553c87fac304c94f17fe23a2c10df7bfcb2c908))
+* handle dependent endpoints in the scheduler ([#155](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/155)) ([909d4f0](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/909d4f0aaab36d32a80a48151fd2ba66dc0ed1a7))
+* **index:** check if indicated index exists ([#114](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/114)) ([a370e8a](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/a370e8a75a8c7baeb3775aab48b0048c2ea42abf))
+* **zenodo:** dynamically fetch Zenodo IDs from HAL data ([#147](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/147)) ([bdb456b](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/bdb456b31fdc65981c58188c40538dc837433c9e))
+
 ## [1.5.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.4.0...v1.5.0) (2026-06-15)
 
 
