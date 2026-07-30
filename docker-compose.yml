@@ -61,7 +61,7 @@ services:
           [
               "celery",
               "-A",
-              "tasks",
+              "transform.tasks",
               "worker",
             #"-Q",
             #"batches",
@@ -84,7 +84,7 @@ services:
             OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
             OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
         healthcheck:
-            test: celery -A tasks status
+            test: celery -A transform.tasks status
             interval: 10s
             timeout: 5s
             retries: 3
@@ -97,7 +97,7 @@ services:
             - ./src:/code/src
             - ./config:/code/config
             - ./cache/fastembed:/root/.cache/fastembed
-        command: [ "fastapi", "run", "--host", "0.0.0.0", "transform.py", "--port", "80" ]
+        command: [ "fastapi", "run", "--host", "0.0.0.0", "app/routes.py", "--port", "80" ]
         networks:
             - warehouse-backend
         environment:
@@ -219,9 +219,31 @@ services:
         environment:
             - NODE_ENV=production
             - SEARCH_API_URL=http://search-api:8000
-            - PLAYER_API_URL=https://dev1.player.eosc-data-commons.eu
+            - GRPC_TARGET=coordinator:50051
         networks:
             - warehouse-backend
+            
+    #https://github.com/EOSC-Data-Commons/req-packager/pkgs/container/coordinator
+    coordinator:
+        image: ghcr.io/eosc-data-commons/coordinator:latest
+        restart: unless-stopped
+        depends_on:
+            postgres:
+                condition: service_healthy
+        command: 
+            ["rp"]
+        environment:
+            POSTGRES_USER: "${POSTGRES_ADMIN}"
+            POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+            POSTGRES_DB: "${POSTGRES_DB}"
+            POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
+            POSTGRES_PORT: "${POSTGRES_PORT}"
+            FILE_DB: "${FILE_DB}"
+            TOOL_REGISTRY_API: "https://dev.tools-registry.eosc-data-commons.eu/api/v1"
+        networks:
+            - warehouse-backend
+        ports:
+          - "50051:50051"
 
     # https://github.com/EOSC-Data-Commons/data-commons-search/pkgs/container/data-commons-search
     search-api:

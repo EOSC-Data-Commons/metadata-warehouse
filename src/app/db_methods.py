@@ -1,26 +1,41 @@
-import logging
 import os
-from datetime import datetime, timezone
 from json import JSONDecodeError
-from logging.config import dictConfig
 from typing import Any, Optional
 
 import psycopg
-from fastapi import FastAPI, HTTPException, Query
-from psycopg import errors as psycopg_errors
+from fastapi import HTTPException
+from opensearchpy import OpenSearch
 from psycopg.rows import dict_row
-from pydantic import BaseModel, Field
 
-from config.logging_config import LOGGING_CONFIG
+from app.api_classes import (
+    DependencyNotHarvestedError,
+    EndpointConfig,
+    HarvestEventCreateRequest,
+    HarvestEventCreateResponse,
+    HarvestParams,
+    HarvestRun,
+    HarvestRunCloseRequest,
+    HarvestRunCloseResponse,
+    HarvestRunCreateResponse,
+    HarvestRunGetResponse,
+)
+from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
-from tasks import add_file_metadata, transform_batch
+from logger.setup_logger import logger
+from transform.tasks import add_file_metadata, transform_batch
 from utils.queue_utils import HarvestEventQueue, detect_identifier_type
 
-dictConfig(LOGGING_CONFIG)
-logger = logging.getLogger(__name__)
+postgres_config: PostgresConfig = PostgresConfig()
+connection_params = postgres_config.connection_params
 
 DEFAULT_PROTOCOL = 'OAI-PMH'
 DEFAULT_FORMAT = 'XML'
+
+# Generic DataCite path for a record's own DOI identifier — not endpoint-specific,
+# since this is a fixed part of the DataCite schema, not a per-dependency config.
+DATACITE_OWN_DOI_XPATH = '/oai:record//datacite:identifier[@identifierType="DOI"]/text()'
+DATACITE_NAMESPACES = '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}'
+
 
 BATCH_SIZE_DEFAULT = 125
 batch_size_raw = os.environ.get('CELERY_BATCH_SIZE', BATCH_SIZE_DEFAULT)
@@ -29,145 +44,6 @@ try:
     BATCH_SIZE = int(batch_size_raw)
 except (TypeError, ValueError):
     raise ValueError('CELERY_BATCH_SIZE should be an integer')
-
-tags_metadata = [
-    {'name': 'health', 'description': 'Health route'},
-    {
-        'name': 'index',
-        'description': 'Start transformation and indexing process for a given harvest run',
-    },
-    {'name': 'config', 'description': 'Get available endpoints'},
-    {'name': 'harvest_run', 'description': 'Manage harvest runs'},
-    {'name': 'harvest_event', 'description': 'Register one or multiple harvest event'},
-]
-
-app = FastAPI(openapi_tags=tags_metadata)
-postgres_config: PostgresConfig = PostgresConfig()
-connection_params = postgres_config.connection_params
-
-
-class HealthGetResponse(BaseModel):
-    status: str = Field(description='Server status')
-    time: datetime = Field(description='Current daytime as UTC')
-
-
-class IndexGetResponse(BaseModel):
-    number_of_batches: int = Field(description='Number of batches created in Celery queue.')
-
-
-class AdditionalMetadataParams(BaseModel):
-    format: str
-    endpoint: str
-    protocol: str
-
-
-class HarvestParams(BaseModel):
-    metadata_prefix: str
-    set: Optional[list[str]]
-    additional_metadata_params: Optional[AdditionalMetadataParams]
-
-
-class EndpointConfig(BaseModel):
-    name: str
-    harvest_url: str
-    harvest_params: HarvestParams
-    code: str
-    protocol: str
-
-
-class Config(BaseModel):
-    endpoints_configs: list[EndpointConfig]
-
-
-class HarvestEventCreateRequest(BaseModel):
-    record_identifier: str
-    datestamp: datetime
-    raw_metadata: str  # XML
-    additional_metadata: Optional[str] = None  # XML or JSON (stringified)
-    harvest_url: str
-    repo_code: str
-    harvest_run_id: str
-    is_deleted: bool
-
-
-class HarvestEventCreateResponse(BaseModel):
-    id: str
-
-
-class HarvestRunCreateRequest(BaseModel):
-    harvest_url: str
-
-
-class HarvestRun(BaseModel):
-    id: Optional[str] = Field(default=None, description='ID of the harvest run')
-
-    status: Optional[str] = Field(default=None, description='Status of the harvest run: open|closed|failed')
-    harvest_url: str
-    from_date: Optional[datetime]
-    until_date: Optional[datetime]
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
-    should_be_harvested: bool = Field(
-        description='Whether this endpoint should be harvested now, may based on is_active and harvest_schedule'
-    )
-
-
-class HarvestRunGetResponse(BaseModel):
-    harvest_runs: Optional[list[HarvestRun]]
-
-
-class HarvestRunCreateResponse(BaseModel):
-    id: str = Field(description='ID of the new harvest run')
-    from_date: Optional[datetime] = Field(None, description='From date for selective harvesting')
-    until_date: datetime = Field(description='Until date for selective harvesting')
-    endpoint_config: EndpointConfig = Field(description='Description of the endpoint used for harvesting')
-
-
-class HarvestRunCloseRequest(BaseModel):
-    id: str = Field(description='ID of the harvest run to close')
-    success: bool = Field(description='Indicates if the harvest run was successful')
-    started_at: datetime = Field(description='Start date of the harvest')
-    completed_at: datetime = Field(description='End date of the harvest')
-
-
-class HarvestRunCloseResponse(BaseModel):
-    id: str = Field(description='ID of the closed harvest run')
-
-
-class SchedulerRunsResponse(BaseModel):
-    """
-    Response returned by /scheduler/wait-for-completion endpoint.
-
-    Attributes
-    ----------
-    all_closed : bool
-        True when there are no harvest runs with status='open'.
-
-        Both 'closed' and 'failed' statuses are treated as completed runs,
-        meaning the scheduler can proceed to the next step of the workflow.
-    """
-
-    all_closed: bool
-
-
-class SchedulerClosedRunsResponse(BaseModel):
-    """
-    Response returned by /scheduler/closed-runs endpoint.
-
-    Attributes
-    ----------
-    harvest_run_ids : list[str]
-        IDs of harvest runs that finished in the last 6 days.
-
-        Includes runs with status:
-        - 'closed'  -> completed successfully
-        - 'failed'  -> completed with errors
-
-        Failed runs are included because they are no longer actively running
-        and should be processed further by Transfomer.
-    """
-
-    harvest_run_ids: list[str]
 
 
 def get_latest_harvest_run_in_db(
@@ -229,6 +105,7 @@ def get_latest_harvest_run_in_db(
         query = f"""
         SELECT
             e.harvest_url,
+            e.depends_on_endpoint_id,
             e.is_active,
             e.harvest_schedule,
             hr.id,
@@ -269,6 +146,7 @@ def get_latest_harvest_run_in_db(
                 id=str(r['id']) if r['id'] else None,
                 status=r['status'],
                 harvest_url=r['harvest_url'],
+                depends_on_endpoint_id=str(r['depends_on_endpoint_id']) if r['depends_on_endpoint_id'] else None,
                 from_date=r['from_date'],
                 until_date=r['until_date'],
                 started_at=r['started_at'],
@@ -317,7 +195,9 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
         logger.debug(f'insert operation state: {res}')
 
         cur.execute(
-            """SELECT hr.id, hr.from_date, hr.until_date,  e.name, e.harvest_url, e.harvest_params, e.protocol, r.code  
+            """SELECT hr.id, hr.from_date, hr.until_date, e.id AS endpoint_id,
+                      e.name, e.harvest_url, e.harvest_params, e.protocol, r.code,
+                      e.depends_on_endpoint_id, e.dependency_xpath, e.dependency_match_pattern, e.dependency_static_dois
                     FROM harvest_runs hr
                     JOIN endpoints e ON hr.endpoint_id = e.id
                     JOIN repositories r ON e.repository_id = r.id
@@ -332,6 +212,104 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
             raise Exception(f'Harvest run could not be created')
 
         logger.debug(f'{new_harvest_run}')
+
+        master_set_identifiers: list[str] | None = None
+        depends_on_endpoint_id = new_harvest_run['depends_on_endpoint_id']
+
+        if depends_on_endpoint_id is not None:
+            # Ensure the master endpoint has actually been harvested at least once.
+            cur.execute(
+                """
+                select
+                    e.name as master_endpoint_name,
+                    exists (
+                        select 1
+                        from harvest_runs hr
+                        where hr.endpoint_id = e.id
+                          and hr.status = 'closed'
+                    ) as has_closed_run
+                from endpoints e
+                where e.id = %s
+                """,
+                [depends_on_endpoint_id],
+            )
+            row = cur.fetchone()
+
+            if not row or not row['has_closed_run']:
+                master_endpoint_name = row['master_endpoint_name'] if row else depends_on_endpoint_id
+                raise DependencyNotHarvestedError(
+                    f"Endpoint '{new_harvest_run['harvest_url']}' depends on master endpoint "
+                    f"'{master_endpoint_name}', which has no completed harvest yet.",
+                    master_endpoint_name,
+                )
+
+            # master_related_identifiers: everything the master endpoint has ever
+            # referenced (matching dependency_match_pattern), across ALL its closed
+            # runs, since harvesting is incremental.
+            #
+            # already_harvested_dois: DOIs this (dependent) endpoint has already
+            # harvested itself, across ALL its own closed runs — so we don't
+            # re-request records it already has.
+            #
+            # Final result: master-referenced identifiers NOT already harvested.
+            cur.execute(
+                """
+                with candidate_identifiers as (
+                    select related_identifier
+                    from harvest_runs hr
+                    join harvest_events he on he.harvest_run_id = hr.id
+                    cross join lateral unnest(
+                        (xpath(
+                            %(dependency_xpath)s,
+                            he.raw_metadata,
+                            %(namespaces)s
+                        ))::text[]
+                    ) AS related_identifier
+                    where hr.endpoint_id = %(master_endpoint_id)s
+                      and hr.status = 'closed'
+                      and he.is_deleted = false
+                      and related_identifier ilike %(match_pattern)s
+
+                    union
+
+                    select unnest(%(static_dois)s::text[]) as related_identifier
+                ),
+                already_harvested_dois as (
+                    select distinct doi
+                    from harvest_runs hr
+                    join harvest_events he on he.harvest_run_id = hr.id
+                    cross join lateral unnest(
+                        (xpath(
+                            %(own_doi_xpath)s,
+                            he.raw_metadata,
+                            %(namespaces)s
+                        ))::text[]
+                    ) AS doi
+                    where hr.endpoint_id = %(self_endpoint_id)s
+                      and hr.status = 'closed'
+                      and he.is_deleted = false
+                )
+                select distinct ci.related_identifier
+                from candidate_identifiers ci
+                where not exists (
+                    select 1
+                    from already_harvested_dois ahd
+                    where lower(regexp_replace(ahd.doi, '^https?://(dx\\.)?doi\\.org/', ''))
+                        = lower(regexp_replace(ci.related_identifier, '^https?://(dx\\.)?doi\\.org/', ''))
+                )
+                """,
+                {
+                    'dependency_xpath': new_harvest_run['dependency_xpath'],
+                    'namespaces': DATACITE_NAMESPACES,
+                    'master_endpoint_id': depends_on_endpoint_id,
+                    'match_pattern': new_harvest_run['dependency_match_pattern'],
+                    'static_dois': new_harvest_run['dependency_static_dois'] or [],
+                    'own_doi_xpath': DATACITE_OWN_DOI_XPATH,
+                    'self_endpoint_id': new_harvest_run['endpoint_id'],
+                },
+            )
+            master_set_identifiers = [row['related_identifier'] for row in cur.fetchall()]
+            logger.debug(f'found {len(master_set_identifiers)} new master set identifiers to fetch')
 
         return HarvestRunCreateResponse(
             id=str(new_harvest_run['id']),
@@ -348,6 +326,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                     additional_metadata_params=new_harvest_run['harvest_params'].get('additional_metadata_params'),
                 ),
             ),
+            master_set_identifiers=master_set_identifiers,  # [0:51] if master_set_identifiers is not None else None,
         )
 
 
@@ -508,6 +487,18 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings:
     :return: Number of batches scheduled for processing.
     """
 
+    # check if target index exists
+    opensearch_config = OpenSearchConfig()
+    client = OpenSearch(
+        hosts=[{'host': opensearch_config.host, 'port': opensearch_config.port}],
+        http_auth=None,
+        use_ssl=False,
+        logger=logger,
+    )
+
+    if not client.indices.exists(index=index_name):
+        raise HTTPException(status_code=400, detail=f'Index {index_name} does not exist.')
+
     batch: list[HarvestEventQueue] = []
     tasks = 0
     offset = 0
@@ -639,241 +630,3 @@ def are_all_runs_closed_in_db() -> bool:
             raise RuntimeError('Query returned no result')
 
         return not result['has_open_runs']
-
-
-@app.get('/index', tags=['index'])
-def init_index(
-    harvest_run_id: str = Query(default=None, description='Id of the harvest run to be indexed'),
-    index_name: str = Query(default=None, description='Name of the OpenSearch index to use for indexing'),
-    reuse_embeddings: bool = Query(default=False, description='Whether to reuse embeddings or not'),
-) -> IndexGetResponse:
-    # this long-running method is synchronous and runs in an external threadpool, see https://fastapi.tiangolo.com/async/#path-operation-functions
-    # this way, it does not block the server
-    try:
-        results = create_jobs_in_queue(harvest_run_id, index_name, reuse_embeddings)
-    except Exception as e:
-        logger.exception('Indexing failed')
-        raise HTTPException(status_code=500, detail=str(e))
-
-    logger.info(f'Got results: {results}')
-    return IndexGetResponse(number_of_batches=results)
-
-
-@app.get('/health', tags=['health'], summary='Get health status')
-def get_health() -> HealthGetResponse:
-    logger.info('health route called')
-    return HealthGetResponse(status='ok', time=datetime.now(timezone.utc))
-
-
-@app.get('/config', tags=['config'], summary='Get configs of available endpoints')
-def get_config() -> Config:
-    try:
-        return Config(endpoints_configs=get_config_from_db())
-    except Exception as e:
-        logger.exception('Indexing failed')
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post('/harvest_event', tags=['harvest_event'], summary='Register a new harvest event')
-def create_harvest_event(
-    harvest_event: HarvestEventCreateRequest,
-) -> HarvestEventCreateResponse:
-    try:
-        # logger.debug(harvest_event)
-        return create_harvest_events_bulk_in_db([harvest_event])[0]
-    except psycopg_errors.UniqueViolation as e:
-        logger.exception(f'Harvest event could not be created for given harvest run')
-        raise HTTPException(
-            status_code=409,
-            detail='Harvest event could not be created for the given harvest run because the record identifier already exists.',
-        )
-    except Exception as e:
-        logger.exception(f'An error occurred when creating harvest event: {e}')
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post('/harvest_event_bulk', tags=['harvest_event'], summary='Register multiple harvest events in one transaction')
-def create_harvest_events_bulk(
-    harvest_events: list[HarvestEventCreateRequest],
-) -> list[HarvestEventCreateResponse]:
-    try:
-        return create_harvest_events_bulk_in_db(harvest_events)
-    except psycopg_errors.UniqueViolation as e:
-        logger.exception(f'Harvest events could not be created for given harvest run')
-        raise HTTPException(
-            status_code=409,
-            detail='One or more harvest events could not be created because the record identifier already exists.',
-        )
-    except Exception as e:
-        logger.exception(f'An error occurred when creating harvest events: {e}')
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get(
-    '/harvest_run',
-    tags=['harvest_run'],
-    summary='Get latest harvest runs',
-    description="""
-Optional filters:
-- only_active → return only active endpoints
-- respect_schedule → return only endpoints that should be harvested now
-""",
-)
-def get_harvest_run(
-    harvest_url: Optional[str] = Query(default=None, description='harvest url of the endpoint'),
-    only_active: bool = Query(default=False, description='Return only active endpoints'),
-    respect_schedule: bool = Query(
-        default=False,
-        description='Return only endpoints that should be harvested now based on harvest_schedule',
-    ),
-) -> HarvestRunGetResponse:
-    try:
-        return get_latest_harvest_run_in_db(
-            harvest_url=harvest_url,
-            only_active=only_active,
-            respect_schedule=respect_schedule,
-        )
-
-    except Exception as e:
-        logger.exception('Error getting harvest run')
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post(
-    '/harvest_run',
-    tags=['harvest_run'],
-    summary='Create a new havest run for a given endpoint.',
-    description='A new harvest run can only be created if no other open harvest run exists for the same endpoint.',
-)
-def create_harvest_run(
-    harvest_run: HarvestRunCreateRequest,
-) -> HarvestRunCreateResponse:
-    try:
-        logger.debug(harvest_run)
-        return create_harvest_run_in_db(harvest_run.harvest_url)
-    except psycopg_errors.UniqueViolation as e:
-        logger.exception(f'An open harvest run already exists for the given endpoint.')
-        raise HTTPException(
-            status_code=400,
-            detail='An open harvest run already exists for the given endpoint.',
-        )
-    except Exception as e:
-        logger.exception(f'An error occurred when creating harvest event: {e}')
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.put(
-    '/harvest_run',
-    tags=['harvest_run'],
-    summary='Close an open harvest run for a given endpoint.',
-)
-def close_harvest_run(harvest_run: HarvestRunCloseRequest) -> HarvestRunCloseResponse:
-    try:
-        return close_harvest_run_in_db(harvest_run)
-    except Exception as e:
-        logger.exception(f'An error occurred when closing harvest event: {e}')
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post(
-    '/scheduler/wait-for-completion',
-    tags=['scheduler'],
-    summary='Check if all harvest runs are closed',
-)
-def scheduler_wait_for_completion() -> SchedulerRunsResponse:
-    """
-    Determine whether Crawler has finished its work
-    and Scheduler can trigger Transfomer.
-
-    The scheduler periodically checks whether all harvest runs
-    have finished execution.
-
-    A run is considered finished when its status is:
-    - 'closed'  -> completed successfully
-    - 'failed'  -> completed with errors but no longer running
-
-    Only runs with status='open' block the scheduler.
-
-    Returns
-    -------
-    SchedulerRunsResponse
-        Object containing boolean flag:
-
-        all_closed=True
-            no open runs exist → scheduler may proceed
-
-        all_closed=False
-            at least one run is still open → scheduler should wait
-    """
-    try:
-        all_closed = are_all_runs_closed_in_db()
-
-        return SchedulerRunsResponse(all_closed=all_closed)
-
-    except Exception as e:
-        logger.exception('Scheduler completion check failed')
-
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get(
-    '/scheduler/closed-runs',
-    tags=['scheduler'],
-    summary='Return closed or failed harvest runs completed in the last 6 days',
-)
-def get_closed_runs(
-    all_runs: bool = Query(False, description='If true, return runs from any time, not just the last 6 days'),
-) -> SchedulerClosedRunsResponse:
-    """
-    Retrieve IDs of recently finished harvest runs.
-
-    This endpoint returns harvest runs that are no longer active,
-    meaning their status is:
-    - 'closed'
-    - 'failed'
-
-    By default, results are limited to runs completed within the last 6 days
-    to avoid reprocessing older runs and to keep Transformer payloads small.
-
-    Parameters
-    ----------
-    all_runs : bool, optional
-        If True, the 6-day recency filter is disabled and all matching runs
-        are returned regardless of age. Defaults to False.
-
-    Returns
-    -------
-    SchedulerClosedRunsResponse
-        harvest_run_ids : list[str]
-            IDs of runs eligible for further processing.
-
-    Notes
-    -----
-    Expected status values in harvest_runs table:
-        ('open', 'closed', 'failed')
-
-    Filtering logic:
-        status IN ('closed', 'failed')
-        AND (all_runs=True OR until_date >= NOW() - INTERVAL '6 days')
-    """
-    try:
-        with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
-            cur = conn.cursor()
-
-            cur.execute(
-                """
-                SELECT id
-                FROM harvest_runs
-                WHERE status IN ('closed', 'failed')
-                AND (%(all_runs)s OR until_date >= NOW() - INTERVAL '6 days')
-            """,
-                {'all_runs': all_runs},
-            )
-
-            ids = [str(row['id']) for row in cur.fetchall()]
-
-        return SchedulerClosedRunsResponse(harvest_run_ids=ids)
-
-    except Exception as e:
-        logger.exception('Failed to fetch closed runs')
-        raise HTTPException(status_code=500, detail=str(e))
