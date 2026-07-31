@@ -5,3 +5,31 @@ repos:
       - id: conventional-pre-commit
         stages: [commit-msg]
         args: [feat, fix, docs, style, refactor, test, chore, ci, build]
+
+  - repo: local
+    hooks:
+      - id: ruff-import-check
+        name: ruff import sort check
+        entry: uv run ruff check --select I
+        language: system
+        types: [ python ]
+
+      - id: ruff-format-check
+        name: ruff format check
+        entry: uv run ruff format --check
+        language: system
+        types: [python]
+
+      - id: mypy-root
+        name: mypy (root)
+        entry: uv run mypy
+        language: system
+        types: [ python ]
+        pass_filenames: false
+
+      - id: mypy-scripts
+        name: mypy (scripts)
+        entry: uv run mypy --config-file scripts/pyproject.toml
+        language: system
+        types: [ python ]
+        pass_filenames: false
