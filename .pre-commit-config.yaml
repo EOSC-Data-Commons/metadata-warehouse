@@ -10,26 +10,26 @@ repos:
     hooks:
       - id: ruff-import-check
         name: ruff import sort check
-        entry: uv run ruff check --select I
+        entry: uv run --frozen ruff check --select I --no-fix
         language: system
-        types: [ python ]
+        types: [python]
 
       - id: ruff-format-check
         name: ruff format check
-        entry: uv run ruff format --check
+        entry: uv run --frozen ruff format --check
         language: system
         types: [python]
 
       - id: mypy-root
         name: mypy (root)
-        entry: uv run mypy
+        entry: uv run --frozen mypy
         language: system
-        types: [ python ]
+        types: [python]
         pass_filenames: false
 
       - id: mypy-scripts
         name: mypy (scripts)
-        entry: uv run mypy --config-file scripts/pyproject.toml
+        entry: uv run --frozen mypy --config-file scripts/pyproject.toml
         language: system
-        types: [ python ]
+        types: [python]
         pass_filenames: false
