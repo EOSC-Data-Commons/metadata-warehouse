@@ -1,3 +1,4 @@
+import logging
 import os
 from json import JSONDecodeError
 from typing import Any, Optional
@@ -21,9 +22,10 @@ from app.api_classes import (
 )
 from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
-from logger.setup_logger import logger
 from transform.tasks import add_file_metadata, transform_batch
 from utils.queue_utils import HarvestEventQueue, detect_identifier_type
+
+logger = logging.getLogger(__name__)
 
 postgres_config: PostgresConfig = PostgresConfig()
 connection_params = postgres_config.connection_params
