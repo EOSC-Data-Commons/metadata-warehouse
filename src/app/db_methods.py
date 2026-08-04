@@ -8,6 +8,7 @@ from opensearchpy import OpenSearch
 from psycopg.rows import dict_row
 
 from app.api_classes import (
+    DependencyNotHarvestedError,
     EndpointConfig,
     HarvestEventCreateRequest,
     HarvestEventCreateResponse,
@@ -29,6 +30,12 @@ connection_params = postgres_config.connection_params
 
 DEFAULT_PROTOCOL = 'OAI-PMH'
 DEFAULT_FORMAT = 'XML'
+
+# Generic DataCite path for a record's own DOI identifier — not endpoint-specific,
+# since this is a fixed part of the DataCite schema, not a per-dependency config.
+DATACITE_OWN_DOI_XPATH = '/oai:record//datacite:identifier[@identifierType="DOI"]/text()'
+DATACITE_NAMESPACES = '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}'
+
 
 BATCH_SIZE_DEFAULT = 125
 batch_size_raw = os.environ.get('CELERY_BATCH_SIZE', BATCH_SIZE_DEFAULT)
@@ -98,6 +105,7 @@ def get_latest_harvest_run_in_db(
         query = f"""
         SELECT
             e.harvest_url,
+            e.depends_on_endpoint_id,
             e.is_active,
             e.harvest_schedule,
             hr.id,
@@ -138,6 +146,7 @@ def get_latest_harvest_run_in_db(
                 id=str(r['id']) if r['id'] else None,
                 status=r['status'],
                 harvest_url=r['harvest_url'],
+                depends_on_endpoint_id=str(r['depends_on_endpoint_id']) if r['depends_on_endpoint_id'] else None,
                 from_date=r['from_date'],
                 until_date=r['until_date'],
                 started_at=r['started_at'],
@@ -186,7 +195,9 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
         logger.debug(f'insert operation state: {res}')
 
         cur.execute(
-            """SELECT hr.id, hr.from_date, hr.until_date,  e.name, e.harvest_url, e.harvest_params, e.protocol, r.code  
+            """SELECT hr.id, hr.from_date, hr.until_date, e.id AS endpoint_id,
+                      e.name, e.harvest_url, e.harvest_params, e.protocol, r.code,
+                      e.depends_on_endpoint_id, e.dependency_xpath, e.dependency_match_pattern, e.dependency_static_dois
                     FROM harvest_runs hr
                     JOIN endpoints e ON hr.endpoint_id = e.id
                     JOIN repositories r ON e.repository_id = r.id
@@ -201,6 +212,104 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
             raise Exception(f'Harvest run could not be created')
 
         logger.debug(f'{new_harvest_run}')
+
+        master_set_identifiers: list[str] | None = None
+        depends_on_endpoint_id = new_harvest_run['depends_on_endpoint_id']
+
+        if depends_on_endpoint_id is not None:
+            # Ensure the master endpoint has actually been harvested at least once.
+            cur.execute(
+                """
+                select
+                    e.name as master_endpoint_name,
+                    exists (
+                        select 1
+                        from harvest_runs hr
+                        where hr.endpoint_id = e.id
+                          and hr.status = 'closed'
+                    ) as has_closed_run
+                from endpoints e
+                where e.id = %s
+                """,
+                [depends_on_endpoint_id],
+            )
+            row = cur.fetchone()
+
+            if not row or not row['has_closed_run']:
+                master_endpoint_name = row['master_endpoint_name'] if row else depends_on_endpoint_id
+                raise DependencyNotHarvestedError(
+                    f"Endpoint '{new_harvest_run['harvest_url']}' depends on master endpoint "
+                    f"'{master_endpoint_name}', which has no completed harvest yet.",
+                    master_endpoint_name,
+                )
+
+            # master_related_identifiers: everything the master endpoint has ever
+            # referenced (matching dependency_match_pattern), across ALL its closed
+            # runs, since harvesting is incremental.
+            #
+            # already_harvested_dois: DOIs this (dependent) endpoint has already
+            # harvested itself, across ALL its own closed runs — so we don't
+            # re-request records it already has.
+            #
+            # Final result: master-referenced identifiers NOT already harvested.
+            cur.execute(
+                """
+                with candidate_identifiers as (
+                    select related_identifier
+                    from harvest_runs hr
+                    join harvest_events he on he.harvest_run_id = hr.id
+                    cross join lateral unnest(
+                        (xpath(
+                            %(dependency_xpath)s,
+                            he.raw_metadata,
+                            %(namespaces)s
+                        ))::text[]
+                    ) AS related_identifier
+                    where hr.endpoint_id = %(master_endpoint_id)s
+                      and hr.status = 'closed'
+                      and he.is_deleted = false
+                      and related_identifier ilike %(match_pattern)s
+
+                    union
+
+                    select unnest(%(static_dois)s::text[]) as related_identifier
+                ),
+                already_harvested_dois as (
+                    select distinct doi
+                    from harvest_runs hr
+                    join harvest_events he on he.harvest_run_id = hr.id
+                    cross join lateral unnest(
+                        (xpath(
+                            %(own_doi_xpath)s,
+                            he.raw_metadata,
+                            %(namespaces)s
+                        ))::text[]
+                    ) AS doi
+                    where hr.endpoint_id = %(self_endpoint_id)s
+                      and hr.status = 'closed'
+                      and he.is_deleted = false
+                )
+                select distinct ci.related_identifier
+                from candidate_identifiers ci
+                where not exists (
+                    select 1
+                    from already_harvested_dois ahd
+                    where lower(regexp_replace(ahd.doi, '^https?://(dx\\.)?doi\\.org/', ''))
+                        = lower(regexp_replace(ci.related_identifier, '^https?://(dx\\.)?doi\\.org/', ''))
+                )
+                """,
+                {
+                    'dependency_xpath': new_harvest_run['dependency_xpath'],
+                    'namespaces': DATACITE_NAMESPACES,
+                    'master_endpoint_id': depends_on_endpoint_id,
+                    'match_pattern': new_harvest_run['dependency_match_pattern'],
+                    'static_dois': new_harvest_run['dependency_static_dois'] or [],
+                    'own_doi_xpath': DATACITE_OWN_DOI_XPATH,
+                    'self_endpoint_id': new_harvest_run['endpoint_id'],
+                },
+            )
+            master_set_identifiers = [row['related_identifier'] for row in cur.fetchall()]
+            logger.debug(f'found {len(master_set_identifiers)} new master set identifiers to fetch')
 
         return HarvestRunCreateResponse(
             id=str(new_harvest_run['id']),
@@ -217,6 +326,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
                     additional_metadata_params=new_harvest_run['harvest_params'].get('additional_metadata_params'),
                 ),
             ),
+            master_set_identifiers=master_set_identifiers,  # [0:51] if master_set_identifiers is not None else None,
         )
 
 
