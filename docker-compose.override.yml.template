@@ -20,7 +20,7 @@ services:
         #     "--directory=/code/config",
         #     "--pattern=*.py", "--recursive", "--",
         #     "celery", "-A", "transform.tasks", "worker",
-        #     "-E", "--pool=solo", "--loglevel=DEBUG"
+        #     "-E", "--concurrency=1", "--pool=prefork", "--loglevel=DEBUG"
         #   ]
 
     postgres:
