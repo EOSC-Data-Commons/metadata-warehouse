@@ -257,6 +257,8 @@ services:
         env_file: [ keys.env ]
         environment:
             - OPENSEARCH_URL=http://opensearch:9200
+            # Mount prefix for the Cyfronet reverse proxy so Swagger UI fetches /api/search/openapi.json
+            - UVICORN_ROOT_PATH=/api/search
         networks:
             - warehouse-backend
 
