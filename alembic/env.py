@@ -14,7 +14,7 @@ config = context.config
 
 config.set_main_option(
     'sqlalchemy.url',
-    f'postgresql+psycopg://{os.environ["POSTGRES_ADMIN"]}:{os.environ["POSTGRES_PASSWORD"]}@{os.environ.get("POSTGRES_ADDRESS", "127.0.0.1")}:{os.environ.get("POSTGRES_PORT", 5432)}/datasetdb',
+    f'postgresql+psycopg://{os.environ["POSTGRES_ADMIN"]}:{os.environ["POSTGRES_PASSWORD"]}@{os.environ.get("POSTGRES_ADDRESS", "127.0.0.1")}:{os.environ.get("POSTGRES_PORT", 5432)}/{os.environ["POSTGRES_DB"]}',
 )
 
 
