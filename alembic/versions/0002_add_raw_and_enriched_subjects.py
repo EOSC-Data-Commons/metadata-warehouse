@@ -2,7 +2,7 @@
 
 Revision ID: 0002_record_subjects
 Revises:
-Create Date: 2026-06-16 13:47:12.770935
+Create Date: 2026-08-14 10:30:12.770935
 
 """
 
@@ -23,10 +23,10 @@ def upgrade() -> None:
     """Upgrade schema."""
 
     op.execute("""
-        ---- create raw_subjects and enriched_subjects columns if not already present
+        ---- create raw_subjects and enriched_subjects columns
 
-        ALTER TABLE records ADD COLUMN IF NOT EXISTS raw_subjects text[] DEFAULT ARRAY[]::text[];
-        ALTER TABLE records ADD COLUMN IF NOT EXISTS enriched_subjects text[] DEFAULT ARRAY[]::text[];
+        ALTER TABLE records ADD COLUMN raw_subjects text[] DEFAULT ARRAY[]::text[];
+        ALTER TABLE records ADD COLUMN enriched_subjects text[] DEFAULT ARRAY[]::text[];
 
         ---- fill raw_subjects based on datacite_json
 
