@@ -1,6 +1,6 @@
 """add_raw_and_enriched_subjects
 
-Revision ID: c79e2b247d36
+Revision ID: 0002_record_subjects
 Revises:
 Create Date: 2026-06-16 13:47:12.770935
 
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'c79e2b247d36'
-down_revision: Union[str, Sequence[str], None] = None
+revision: str = '0002_record_subjects'
+down_revision: Union[str, Sequence[str], None] = '0001_baseline'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

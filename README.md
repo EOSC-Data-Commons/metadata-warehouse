@@ -123,7 +123,8 @@ In development, it may be more convenient to load pre-harvested static data:
 
 - for *datasetdb*: upgrade database to the latest version:
   ```sh
-   alembic upgrade head
+  alembic stamp 0001_baseline  
+  alembic upgrade head
   ```
 
 - transform data from `scripts/postgres_data/data` to a local dir
