@@ -1,8 +1,6 @@
-from pathlib import Path
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 from fastembed import TextEmbedding
-from numpy import ndarray
 
 from .queue_utils import HarvestEventQueue
 
