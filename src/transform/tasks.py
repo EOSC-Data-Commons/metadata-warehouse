@@ -427,8 +427,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 doi = rec.src.get('doi')
                 url = rec.src.get('url')
                 embeddings = rec.embedding
-                datacite_json = json.dumps({**rec.src, 'emb': None})
-                opensearch_synced = True
+                datacite_json = json.dumps(rec.src)
                 additional_metadata = rec.harvest_event.additional_metadata
 
                 # https://neon.com/postgresql/postgresql-tutorial/postgresql-upsert
