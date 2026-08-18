@@ -13,6 +13,8 @@
 -- ============================================
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- ============================================
 -- 3. TABLES
 -- ============================================
@@ -156,7 +158,7 @@ CREATE TABLE IF NOT EXISTS records (
     metadata_protocol harvest_protocol NOT NULL,
     datacite_json JSONB,
     additional_metadata TEXT,
-    embeddings FLOAT8[],
+    embeddings vector(384),
     embedding_model VARCHAR(100),
     datestamp TIMESTAMP WITH TIME ZONE NOT NULL,
     version INTEGER NOT NULL DEFAULT 1,
