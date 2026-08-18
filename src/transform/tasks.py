@@ -1,4 +1,3 @@
-import datetime
 import json
 import os
 from enum import Enum
@@ -32,11 +31,10 @@ from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
 from utils import handle_xml, normalize_datacite_json
 from utils.embedding_utils import (
-    OpenSearchSourceWithEmbedding,
+    SourceWithEmbedding,
     SourceWithEmbeddingText,
     add_embeddings_to_source,
     get_embedding_text_from_fields,
-    preprocess_batch,
 )
 from utils.queue_utils import HarvestEventQueue
 
@@ -383,7 +381,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 continue
 
         try:
-            src_with_emb: list[OpenSearchSourceWithEmbedding] = []
+            src_with_emb: list[SourceWithEmbedding] = []
             if reuse_embeddings:
                 logger.info(f'Reusing embeddings from DB for {len(normalized)} records')
                 for normalized_ele in normalized:
@@ -400,14 +398,9 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                             f'No existing embeddings found for {normalized_ele.event.record_identifier} on endpoint {normalized_ele.event.endpoint_id}'
                         )
                     src_with_emb.append(
-                        OpenSearchSourceWithEmbedding(
-                            src={
-                                **normalized_ele.src,
-                                'emb': row['embeddings'],
-                                '_additional_metadata': normalized_ele.event.additional_metadata,
-                                '_repo': normalized_ele.event.code,
-                                '_harvest_url': normalized_ele.event.harvest_url,
-                            },
+                        SourceWithEmbedding(
+                            src=normalized_ele.src,
+                            embedding=row['embeddings'],
                             harvest_event=normalized_ele.event,
                         )
                     )
@@ -415,21 +408,11 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 logger.info(f'About to Calculate embeddings for {len(normalized)}')
                 src_with_emb = add_embeddings_to_source(normalized, self.embedding_transformer)
                 logger.info(f'Calculated embeddings for {len(src_with_emb)}')
-            preprocessed = preprocess_batch([src_with_emb_ele.src for src_with_emb_ele in src_with_emb], index_name)
         except Exception as e:
             logger.error(f'Could not calculate embeddings: {e}')
             raise e
 
         try:
-            success, failed = bulk(self.client, preprocessed)
-            if success < len(src_with_emb):
-                logger.error(
-                    f'Normalized doc size was {len(src_with_emb)} but only {success} were imported into OpenSearch.'
-                )
-
-            opensearch_synced_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f%z')
-            logger.info(f'Bulk results: success {success} failed: {failed}')
-
             for rec in src_with_emb:
                 # write to records table
 
@@ -443,7 +426,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 protocol = 'OAI-PMH'
                 doi = rec.src.get('doi')
                 url = rec.src.get('url')
-                embeddings = rec.src['emb']
+                embeddings = rec.embedding
                 datacite_json = json.dumps({**rec.src, 'emb': None})
                 opensearch_synced = True
                 additional_metadata = rec.harvest_event.additional_metadata
@@ -465,13 +448,11 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                         embeddings,
                         embedding_model,
                         datacite_json,
-                        opensearch_synced,
-                        opensearch_synced_at,
                         additional_metadata,
                         datestamp
                     ) 
                     VALUES (
-                        %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     ON CONFLICT (endpoint_id, record_identifier)
                     DO UPDATE SET 
@@ -483,7 +464,6 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                         embeddings = EXCLUDED.embeddings,
                         embedding_model = EXCLUDED.embedding_model,
                         datacite_json = EXCLUDED.datacite_json,
-                        opensearch_synced_at = EXCLUDED.opensearch_synced_at,
                         additional_metadata = EXCLUDED.additional_metadata,
                         datestamp = EXCLUDED.datestamp
                     """,
@@ -500,8 +480,6 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                         embeddings,
                         EMBEDDING_MODEL,
                         datacite_json,
-                        opensearch_synced,
-                        opensearch_synced_at,
                         additional_metadata,
                         datestamp,
                     ),
@@ -523,4 +501,4 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
             logger.error(f'Writing batch failed: {e}')
             raise e
 
-    return success
+    return len(src_with_emb)

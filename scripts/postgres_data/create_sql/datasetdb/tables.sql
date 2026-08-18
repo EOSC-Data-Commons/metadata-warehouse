@@ -162,8 +162,6 @@ CREATE TABLE IF NOT EXISTS records (
     embedding_model VARCHAR(100),
     datestamp TIMESTAMP WITH TIME ZONE NOT NULL,
     version INTEGER NOT NULL DEFAULT 1,
-    opensearch_synced BOOLEAN NOT NULL DEFAULT false,
-    opensearch_synced_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT records_pkey PRIMARY KEY (id),
@@ -188,12 +186,10 @@ COMMENT ON COLUMN records.metadata_format IS 'Format of the raw metadata';
 COMMENT ON COLUMN records.metadata_protocol IS 'Protocol used to harvest this record';
 COMMENT ON COLUMN records.datacite_json IS 'Processed DataCite JSON';
 COMMENT ON COLUMN records.additional_metadata IS 'Additional metadata from REST APIs, etc.';
-COMMENT ON COLUMN records.embeddings IS 'Vector embeddings array for storage (search happens in OpenSearch)';
+COMMENT ON COLUMN records.embeddings IS 'Vector embeddings for search';
 COMMENT ON COLUMN records.embedding_model IS 'Model used for embeddings';
 COMMENT ON COLUMN records.datestamp IS 'From OAI-PMH header';
 COMMENT ON COLUMN records.version IS 'Version number';
-COMMENT ON COLUMN records.opensearch_synced IS 'Whether synced to OpenSearch';
-COMMENT ON COLUMN records.opensearch_synced_at IS 'When last synced to OpenSearch';
 
 
 

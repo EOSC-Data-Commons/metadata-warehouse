@@ -8,7 +8,7 @@ import numpy as np
 from fastembed import TextEmbedding
 
 from src.utils import embedding_utils
-from src.utils.embedding_utils import OpenSearchSourceWithEmbedding, SourceWithEmbeddingText
+from src.utils.embedding_utils import SourceWithEmbedding, SourceWithEmbeddingText
 from src.utils.queue_utils import HarvestEventQueue
 
 
@@ -87,7 +87,7 @@ class TestEmbeddingsUtils(unittest.TestCase):
                 ),
             ),
         ]
-        res: list[OpenSearchSourceWithEmbedding] = embedding_utils.add_embeddings_to_source(data, embedding_model)
+        res: list[SourceWithEmbedding] = embedding_utils.add_embeddings_to_source(data, embedding_model)
 
         self.assertEqual(len(res), 3)
 

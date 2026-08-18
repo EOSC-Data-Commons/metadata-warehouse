@@ -36,7 +36,6 @@ SELECT
     rec.resource_type,
     COUNT(*) as record_count,
     COUNT(DISTINCT rec.doi) as unique_dois,
-    COUNT(CASE WHEN rec.opensearch_synced THEN 1 END) as synced_count,
     MAX(rec.updated_at) as last_updated
 FROM records rec
 JOIN endpoints e ON rec.endpoint_id = e.id
