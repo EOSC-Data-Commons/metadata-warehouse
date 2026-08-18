@@ -27,7 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_records_created_at ON records USING brin(created_
 CREATE INDEX IF NOT EXISTS idx_records_updated_at ON records USING brin(updated_at);
 CREATE INDEX IF NOT EXISTS idx_records_datacite_json ON records USING gin(datacite_json);
 CREATE INDEX IF NOT EXISTS idx_records_title_fulltext ON records USING gin(to_tsvector('english', title));
-CREATE INDEX IF NOT EXISTS idx_records_embeddings tables ON records USING hnsw (embeddings vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS idx_records_embeddings ON records USING hnsw (embeddings vector_cosine_ops);
 
 -- Harvest Runs Indexes
 CREATE INDEX IF NOT EXISTS idx_harvest_runs_endpoint_id ON harvest_runs(endpoint_id);
