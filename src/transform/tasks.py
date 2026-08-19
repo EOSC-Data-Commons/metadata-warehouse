@@ -22,12 +22,9 @@ from datahugger import (
 from fastembed import TextEmbedding
 from jsonschema.validators import validate
 from lxml import etree as ET
-from opensearchpy import OpenSearch
-from opensearchpy.helpers import BulkIndexError, bulk
 from psycopg.rows import dict_row
 
 from config.logging_config import LOGGING_CONFIG
-from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
 from utils import handle_xml, normalize_datacite_json
 from utils.embedding_utils import (
@@ -242,7 +239,6 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
 class TransformTask(Task):  # type: ignore
     embedding_transformer: TextEmbedding
-    client: OpenSearch
     schema: dict[Any, Any]
     postgres_config: PostgresConfig
 
@@ -251,14 +247,6 @@ class TransformTask(Task):  # type: ignore
             self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL, cache_dir=FASTEMBED_CACHE_DIR)
             logger.info(f'Setting up embedding transformer with model {EMBEDDING_MODEL}')
 
-        opensearch_config = OpenSearchConfig()
-        self.client = OpenSearch(
-            hosts=[{'host': opensearch_config.host, 'port': opensearch_config.port}],
-            http_auth=None,
-            use_ssl=False,
-            logger=logger,
-        )
-
         self.postgres_config = PostgresConfig()
 
         with open('../config/schema.json') as f:
@@ -266,17 +254,13 @@ class TransformTask(Task):  # type: ignore
 
 
 @celery_app.task(base=TransformTask, bind=True, ignore_result=True)
-def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, reuse_embeddings: bool) -> Any:
-    if not self.client.indices.exists(index=index_name):
-        raise ValueError(f'Index {index_name} does not exist in OpenSearch')
-
+def transform_batch(self: Any, batch: list[HarvestEventQueue], reuse_embeddings: bool) -> Any:
     # transform to JSON and normalize
 
     # Error handling: if an error is thrown, psycopg will roll back the whole transaction and the whole batch fails because the exception is re-raised,
     # making sure that only the whole batch is synced with PostgreSQL. See https://www.psycopg.org/psycopg3/docs/basic/transactions.html:
     # "Thankfully, if you use the connection context, Psycopg will commit the connection at the end of the block
     # (or roll it back if the block is exited with an exception)"
-    # However, this is not true for OpenSearch since we use a different client to write or delete data in OpenSearch and this actions will take immediate effect.
     with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
@@ -297,29 +281,14 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 record_to_delete = cur.fetchone()
 
                 if record_to_delete is not None:
-                    id = record_to_delete['id']
-                    doi = record_to_delete.get('doi')
-
-                    opensearch_id = doi if doi is not None else record_to_delete['url']
-
-                    try:
-                        # delete document from OpenSearch
-                        self.client.delete(
-                            index=index_name,
-                            id=opensearch_id,
-                            ignore=404,
-                            # https://github.com/opensearch-project/opensearch-py/blob/4ef46e5c17234e3e9b09338c98a599e18d42f572/guides/document_lifecycle.md
-                        )
-                    except Exception as e:
-                        logger.warning(f'Failed to delete {opensearch_id} from OpenSearch: {e}')
-                        raise e
+                    rec_id = record_to_delete['id']
 
                     # delete record in DB
                     cur.execute(
                         """
                     DELETE FROM records WHERE id = %s;
                     """,
-                        [id],
+                        [rec_id],
                     )
 
                 continue
@@ -493,11 +462,8 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                     [rec.harvest_event.id],
                 )
 
-        except BulkIndexError as e:
-            logger.error(f'OpenSearch bulk indexing failed: {e}')
-            raise e
         except Exception as e:
             logger.error(f'Writing batch failed: {e}')
-            raise e
+            raise
 
     return len(src_with_emb)

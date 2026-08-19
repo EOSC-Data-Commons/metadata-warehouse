@@ -4,7 +4,6 @@ from typing import Any, Optional
 
 import psycopg
 from fastapi import HTTPException
-from opensearchpy import OpenSearch
 from psycopg.rows import dict_row
 
 from app.api_classes import (
@@ -19,7 +18,6 @@ from app.api_classes import (
     HarvestRunCreateResponse,
     HarvestRunGetResponse,
 )
-from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
 from logger.setup_logger import logger
 from transform.tasks import add_file_metadata, transform_batch
@@ -477,35 +475,20 @@ JOIN repositories r ON e.repository_id = r.id
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings: bool) -> int:
+def create_jobs_in_queue(harvest_run_id: str, reuse_embeddings: bool) -> int:
     """
     Creates and enqueues transformation jobs from harvest_events table.
 
     :param harvest_run_id: ID of the harvest run the harvest events belong to.
-    :param index_name: Name of the OpenSearch index to use.
     :param reuse_embeddings: Reuse existing embeddings instead of recalculation.
     :return: Number of batches scheduled for processing.
     """
-
-    # check if target index exists
-    opensearch_config = OpenSearchConfig()
-    client = OpenSearch(
-        hosts=[{'host': opensearch_config.host, 'port': opensearch_config.port}],
-        http_auth=None,
-        use_ssl=False,
-        logger=logger,
-    )
-
-    if not client.indices.exists(index=index_name):
-        raise HTTPException(status_code=400, detail=f'Index {index_name} does not exist.')
 
     batch: list[HarvestEventQueue] = []
     tasks = 0
     offset = 0
     limit = BATCH_SIZE
     fetch = True
-
-    logger.info(f'Preparing jobs for index: {index_name}')
 
     with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
@@ -574,7 +557,7 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings:
 
             # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
             logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')
-            transform_batch.delay(batch, index_name, reuse_embeddings)
+            transform_batch.delay(batch, reuse_embeddings)
             add_file_metadata.delay(batch)
             tasks += 1
 

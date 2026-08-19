@@ -52,13 +52,12 @@ connection_params = postgres_config.connection_params
 @app.get('/index', tags=['index'])
 def init_index(
     harvest_run_id: str = Query(default=None, description='Id of the harvest run to be indexed'),
-    index_name: str = Query(default=None, description='Name of the OpenSearch index to use for indexing'),
     reuse_embeddings: bool = Query(default=False, description='Whether to reuse embeddings or not'),
 ) -> IndexGetResponse:
     # this long-running method is synchronous and runs in an external threadpool, see https://fastapi.tiangolo.com/async/#path-operation-functions
     # this way, it does not block the server
     try:
-        results = create_jobs_in_queue(harvest_run_id, index_name, reuse_embeddings)
+        results = create_jobs_in_queue(harvest_run_id, reuse_embeddings)
     except HTTPException:
         raise
     except Exception as e:
