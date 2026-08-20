@@ -67,7 +67,7 @@ def create_opensearch_source(
             '_additional_metadata': batch_ele.event.additional_metadata,
             '_repo': batch_ele.event.code,
             '_harvest_url': batch_ele.event.harvest_url,
-            '_record_identifier': batch_ele.event.record_identifier
+            '_record_identifier': batch_ele.event.record_identifier,
         },
         harvest_event=batch_ele.event,
     )
