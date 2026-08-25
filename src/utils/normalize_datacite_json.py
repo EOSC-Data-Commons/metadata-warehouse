@@ -8,6 +8,7 @@ DATE_FORMAT = '%Y-%m-%d'
 DOI_BASE = 'https://doi.org/'
 DOI_PREFIX_RE = re.compile(r'^(https?://(dx\.)?doi\.org/|doi:)', re.IGNORECASE)
 
+
 def get_identifier(entry: dict[str, Any], identifier_type: str, datacite_schema: str) -> Any | None:
     if identifier := entry.get(f'{datacite_schema}:identifier'):
         if isinstance(identifier, dict):
