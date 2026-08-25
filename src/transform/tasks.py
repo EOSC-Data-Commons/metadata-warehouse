@@ -393,7 +393,6 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], reuse_embeddings:
                 title = rec.src['titles'][0]['title']
                 xml = rec.harvest_event.xml
                 protocol = 'OAI-PMH'
-                doi = rec.src.get('doi')
                 url = rec.src.get('url')
                 embeddings = rec.embedding
                 datacite_json = json.dumps(rec.src)
@@ -411,7 +410,6 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], reuse_embeddings:
                         title,
                         raw_metadata,
                         metadata_protocol,
-                        doi,
                         url,
                         embeddings,
                         embedding_model,
@@ -420,14 +418,13 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], reuse_embeddings:
                         datestamp
                     ) 
                     VALUES (
-                        %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s
                     )
                     ON CONFLICT (endpoint_id, record_identifier)
                     DO UPDATE SET 
                         resource_type = EXCLUDED.resource_type,
                         title = EXCLUDED.title,
                         raw_metadata = EXCLUDED.raw_metadata,
-                        doi = EXCLUDED.doi,
                         url = EXCLUDED.url,
                         embeddings = EXCLUDED.embeddings,
                         embedding_model = EXCLUDED.embedding_model,
@@ -443,7 +440,6 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], reuse_embeddings:
                         title,
                         xml,
                         protocol,
-                        doi,
                         url,
                         embeddings,
                         EMBEDDING_MODEL,

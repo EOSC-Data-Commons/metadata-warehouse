@@ -35,7 +35,6 @@ SELECT
     e.name as endpoint_name,
     rec.resource_type,
     COUNT(*) as record_count,
-    COUNT(DISTINCT rec.doi) as unique_dois,
     MAX(rec.updated_at) as last_updated
 FROM records rec
 JOIN endpoints e ON rec.endpoint_id = e.id
