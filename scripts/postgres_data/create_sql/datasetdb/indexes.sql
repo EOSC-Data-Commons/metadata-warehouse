@@ -21,7 +21,6 @@ CREATE INDEX IF NOT EXISTS idx_records_endpoint_id ON records(endpoint_id);
 CREATE INDEX IF NOT EXISTS idx_records_repository_id ON records(repository_id);
 CREATE INDEX IF NOT EXISTS idx_records_record_identifier ON records(record_identifier);
 CREATE INDEX IF NOT EXISTS idx_records_resource_type ON records(resource_type);
-CREATE INDEX IF NOT EXISTS idx_records_doi ON records(doi) WHERE doi IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_records_opensearch_synced ON records(opensearch_synced) WHERE opensearch_synced = false;
 CREATE INDEX IF NOT EXISTS idx_records_created_at ON records USING brin(created_at);
 CREATE INDEX IF NOT EXISTS idx_records_updated_at ON records USING brin(updated_at);

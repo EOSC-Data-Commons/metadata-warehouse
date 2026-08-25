@@ -1,11 +1,12 @@
 import datetime
-import json
+import re
 import sys
 from typing import Any, Callable, Optional
 
 XML = 'http://www.w3.org/XML/1998/namespace'
 DATE_FORMAT = '%Y-%m-%d'
 DOI_BASE = 'https://doi.org/'
+DOI_PREFIX_RE = re.compile(r'^(https?://(dx\.)?doi\.org/|doi:)', re.IGNORECASE)
 
 
 def get_identifier(entry: dict[str, Any], identifier_type: str, datacite_schema: str) -> Any | None:
@@ -266,25 +267,30 @@ def normalize_lang_string(lang: str) -> str:
         return lang
 
 
-def make_id(res: dict[Any, Any]) -> Optional[str]:
-    """
-    Returns DOI incl. base path if present, otherwise URL.
-
-    :param res: Dict with either doi or url prop.
-    :return: id.
-    """
-    return DOI_BASE + res['doi'] if 'doi' in res else res['url'] if 'url' in res else None
+def clean_doi(doi: str) -> str:
+    d = doi.strip()
+    d = DOI_PREFIX_RE.sub('', d)
+    return d.lower()
 
 
 def normalize_datacite_json(res: dict[str, Any], datacite_schema: str) -> dict[str, Any]:
     # print(json.dumps(input))
 
     try:
+        doi = get_identifier(res, 'DOI', datacite_schema)
+        url: str | None
+        if isinstance(doi, str):
+            url = DOI_BASE + clean_doi(doi)
+        else:
+            raw_url = (
+                get_identifier(res, 'URL', datacite_schema)
+                or get_identifier(res, 'URN', datacite_schema)
+                or get_identifier(res, 'ARK', datacite_schema)
+            )
+            url = raw_url.strip().rstrip('/') if isinstance(raw_url, str) else None
+
         res = {
-            'doi': get_identifier(res, 'DOI', datacite_schema),
-            'url': get_identifier(res, 'URL', datacite_schema)
-            or get_identifier(res, 'URN', datacite_schema)
-            or get_identifier(res, 'ARK', datacite_schema),
+            'url': url,
             'titles': list(
                 map(
                     lambda el: harmonize_props(
@@ -384,9 +390,7 @@ def normalize_datacite_json(res: dict[str, Any], datacite_schema: str) -> dict[s
         }
 
         # remove None values and empty lists
-        cleaned = dict(filter(remove_empty_item, res.items()))
-
-        return {'id': make_id(cleaned), **cleaned}
+        return dict(filter(remove_empty_item, res.items()))
 
     except Exception:
         # print(f'Error {str(e)} when processing {input}', file=sys.stderr)
