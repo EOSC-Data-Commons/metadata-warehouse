@@ -82,8 +82,6 @@ services:
             FILE_DB: "${FILE_DB}"
             POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
             POSTGRES_PORT: "${POSTGRES_PORT}"
-            OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
-            OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
         healthcheck:
             test: celery -A transform.tasks status
             interval: 10s
@@ -109,20 +107,16 @@ services:
             POSTGRES_DB: "${POSTGRES_DB}"
             POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
             POSTGRES_PORT: "${POSTGRES_PORT}"
-            OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
-            OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
             CELERY_BATCH_SIZE: "${CELERY_BATCH_SIZE}"
         depends_on:
             postgres:
                 condition: service_healthy
-            opensearch:
-                condition: service_healthy
             broker:
                 condition: service_healthy
 
     postgres:
-        image: postgres:17-alpine
+        image: pgvector/pgvector:pg17
         environment:
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
@@ -171,50 +165,12 @@ services:
         networks:
             - warehouse-backend
 
-    opensearch:
-        restart: unless-stopped
-        image: opensearchproject/opensearch:3.2.0
-        networks:
-            - warehouse-backend
-        environment:
-            discovery.type: single-node
-            bootstrap.memory_lock: "true"
-            OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
-            cluster.name: opensearch-cluster
-            plugins.security.disabled: "true"
-            OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
-        ulimits:
-            memlock:
-                soft: -1
-                hard: -1
-            nofile:
-                soft: 65536
-                hard: 65536
-        volumes:
-            - opensearch-data:/usr/share/opensearch/data
-        healthcheck:
-            test: [ "CMD-SHELL", "curl --silent --fail http://localhost:9200/_cluster/health || exit 1" ]
-
-    opensearch-dashboards:
-        restart: unless-stopped
-        image: opensearchproject/opensearch-dashboards:3.2.0
-        environment:
-            - OPENSEARCH_HOSTS=["http://opensearch:9200"]
-            - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
-        volumes:
-            - opensearch-dashboards-data:/usr/share/opensearch-dashboards/data
-        depends_on:
-            opensearch:
-                condition: service_healthy
-        networks:
-            - warehouse-backend
-
     #https://github.com/EOSC-Data-Commons/matchmaker/pkgs/container/matchmaker-frontend
     frontend:
         image: ghcr.io/eosc-data-commons/matchmaker-frontend:latest
         restart: unless-stopped
         depends_on:
-            opensearch:
+            postgres:
                 condition: service_healthy
         command: npm run prod
         environment:
@@ -251,7 +207,7 @@ services:
         restart: unless-stopped
         image: ghcr.io/eosc-data-commons/data-commons-search:latest
         depends_on:
-            opensearch:
+            postgres:
                 condition: service_healthy
         volumes:
             - search-api-data:/app/data
@@ -284,8 +240,6 @@ services:
       depends_on:
         postgres:
           condition: service_healthy
-        opensearch:
-          condition: service_healthy
         transform:
           condition: service_started
       networks:
@@ -298,8 +252,6 @@ services:
 volumes:
     postgres-data:
     pgadmin-data:
-    opensearch-data:
-    opensearch-dashboards-data:
     broker-data:
     flower-data:
     search-api-data:

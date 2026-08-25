@@ -1,8 +1,6 @@
-from pathlib import Path
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 from fastembed import TextEmbedding
-from numpy import ndarray
 
 from .queue_utils import HarvestEventQueue
 
@@ -13,8 +11,9 @@ class SourceWithEmbeddingText(NamedTuple):
     event: HarvestEventQueue  # 2, original harvest event
 
 
-class OpenSearchSourceWithEmbedding(NamedTuple):
+class SourceWithEmbedding(NamedTuple):
     src: dict[str, Any]
+    embedding: list[float]
     harvest_event: HarvestEventQueue
 
 
@@ -48,33 +47,9 @@ def extract_fields_from_source(source: dict[str, Any], field_name: str, subfield
         return []
 
 
-def create_opensearch_source(
-    src: dict[str, Any], embedding: ndarray[Any], batch_ele: SourceWithEmbeddingText, embedding_field_name: str
-) -> OpenSearchSourceWithEmbedding:
-    """
-
-
-    :param src: document to be indexed
-    :param embedding: embeddings to be added to source
-    :param batch_ele: original element in batch
-    :param embedding_field_name: name to be used for embedding field
-    """
-
-    return OpenSearchSourceWithEmbedding(
-        src={
-            **src,
-            embedding_field_name: embedding.tolist(),
-            '_additional_metadata': batch_ele.event.additional_metadata,
-            '_repo': batch_ele.event.code,
-            '_harvest_url': batch_ele.event.harvest_url,
-        },
-        harvest_event=batch_ele.event,
-    )
-
-
 def add_embeddings_to_source(
     batch: list[SourceWithEmbeddingText], embedding_model: TextEmbedding, embedding_field_name: str = 'emb'
-) -> list[OpenSearchSourceWithEmbedding]:
+) -> list[SourceWithEmbedding]:
     """
     Given a batch of `SourceWithEmbeddingText`, calculates the embeddings and returns the documents with the embeddings (integrated).
 
@@ -89,20 +64,9 @@ def add_embeddings_to_source(
         raise ValueError('Embedding model returned an unexpected number of vectors.')
 
     return [
-        create_opensearch_source(batch_ele.src, emb_ele, batch_ele, embedding_field_name)
+        SourceWithEmbedding(src=batch_ele.src, embedding=emb_ele.tolist(), harvest_event=batch_ele.event)
         for batch_ele, emb_ele in zip(
             batch,  # original batch
             embeddings,  # embeddings
         )
     ]
-
-
-def preprocess_batch(batch: list[dict[str, Any]], index_name: str) -> list[dict[str, Any]]:
-    """
-    Given a list of source documents, builds the structure for OpenSearch.
-
-    :param batch: batch of source documents.
-    :param index_name: name of the OpenSearch index.
-    :return: a list of prepared documents for import.
-    """
-    return [{'_op_type': 'index', '_id': ele['id'], '_index': index_name, '_source': ele} for ele in batch]

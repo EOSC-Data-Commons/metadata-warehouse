@@ -2,12 +2,6 @@
     "$schema": "http://json-schema.org/schema#",
     "type": "object",
     "properties": {
-        "id": {
-            "type": "string"
-        },
-        "doi": {
-            "type": "string"
-        },
         "url": {
             "type": "string"
         },
@@ -202,21 +196,9 @@
         }
     },
     "required": [
-        "id",
         "creators",
-        "titles"
-    ],
-    "oneOf": [
-        {
-            "required": [
-                "doi"
-            ]
-        },
-        {
-            "required": [
-                "url"
-            ]
-        }
+        "titles",
+        "url"
     ],
     "additionalProperties": false
 }

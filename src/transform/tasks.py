@@ -1,4 +1,3 @@
-import datetime
 import json
 import os
 from enum import Enum
@@ -23,20 +22,16 @@ from datahugger import (
 from fastembed import TextEmbedding
 from jsonschema.validators import validate
 from lxml import etree as ET
-from opensearchpy import OpenSearch
-from opensearchpy.helpers import BulkIndexError, bulk
 from psycopg.rows import dict_row
 
 from config.logging_config import LOGGING_CONFIG
-from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
 from utils import handle_xml, normalize_datacite_json
 from utils.embedding_utils import (
-    OpenSearchSourceWithEmbedding,
+    SourceWithEmbedding,
     SourceWithEmbeddingText,
     add_embeddings_to_source,
     get_embedding_text_from_fields,
-    preprocess_batch,
 )
 from utils.queue_utils import HarvestEventQueue
 
@@ -244,7 +239,6 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
 class TransformTask(Task):  # type: ignore
     embedding_transformer: TextEmbedding
-    client: OpenSearch
     schema: dict[Any, Any]
     postgres_config: PostgresConfig
 
@@ -253,14 +247,6 @@ class TransformTask(Task):  # type: ignore
             self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL, cache_dir=FASTEMBED_CACHE_DIR)
             logger.info(f'Setting up embedding transformer with model {EMBEDDING_MODEL}')
 
-        opensearch_config = OpenSearchConfig()
-        self.client = OpenSearch(
-            hosts=[{'host': opensearch_config.host, 'port': opensearch_config.port}],
-            http_auth=None,
-            use_ssl=False,
-            logger=logger,
-        )
-
         self.postgres_config = PostgresConfig()
 
         with open('../config/schema.json') as f:
@@ -268,17 +254,13 @@ class TransformTask(Task):  # type: ignore
 
 
 @celery_app.task(base=TransformTask, bind=True, ignore_result=True)
-def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, reuse_embeddings: bool) -> Any:
-    if not self.client.indices.exists(index=index_name):
-        raise ValueError(f'Index {index_name} does not exist in OpenSearch')
-
+def transform_batch(self: Any, batch: list[HarvestEventQueue], reuse_embeddings: bool) -> Any:
     # transform to JSON and normalize
 
     # Error handling: if an error is thrown, psycopg will roll back the whole transaction and the whole batch fails because the exception is re-raised,
     # making sure that only the whole batch is synced with PostgreSQL. See https://www.psycopg.org/psycopg3/docs/basic/transactions.html:
     # "Thankfully, if you use the connection context, Psycopg will commit the connection at the end of the block
     # (or roll it back if the block is exited with an exception)"
-    # However, this is not true for OpenSearch since we use a different client to write or delete data in OpenSearch and this actions will take immediate effect.
     with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
@@ -299,29 +281,14 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 record_to_delete = cur.fetchone()
 
                 if record_to_delete is not None:
-                    id = record_to_delete['id']
-                    doi = record_to_delete.get('doi')
-
-                    opensearch_id = doi if doi is not None else record_to_delete['url']
-
-                    try:
-                        # delete document from OpenSearch
-                        self.client.delete(
-                            index=index_name,
-                            id=opensearch_id,
-                            ignore=404,
-                            # https://github.com/opensearch-project/opensearch-py/blob/4ef46e5c17234e3e9b09338c98a599e18d42f572/guides/document_lifecycle.md
-                        )
-                    except Exception as e:
-                        logger.warning(f'Failed to delete {opensearch_id} from OpenSearch: {e}')
-                        raise e
+                    rec_id = record_to_delete['id']
 
                     # delete record in DB
                     cur.execute(
                         """
                     DELETE FROM records WHERE id = %s;
                     """,
-                        [id],
+                        [rec_id],
                     )
 
                 continue
@@ -383,7 +350,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 continue
 
         try:
-            src_with_emb: list[OpenSearchSourceWithEmbedding] = []
+            src_with_emb: list[SourceWithEmbedding] = []
             if reuse_embeddings:
                 logger.info(f'Reusing embeddings from DB for {len(normalized)} records')
                 for normalized_ele in normalized:
@@ -400,14 +367,9 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                             f'No existing embeddings found for {normalized_ele.event.record_identifier} on endpoint {normalized_ele.event.endpoint_id}'
                         )
                     src_with_emb.append(
-                        OpenSearchSourceWithEmbedding(
-                            src={
-                                **normalized_ele.src,
-                                'emb': row['embeddings'],
-                                '_additional_metadata': normalized_ele.event.additional_metadata,
-                                '_repo': normalized_ele.event.code,
-                                '_harvest_url': normalized_ele.event.harvest_url,
-                            },
+                        SourceWithEmbedding(
+                            src=normalized_ele.src,
+                            embedding=row['embeddings'],
                             harvest_event=normalized_ele.event,
                         )
                     )
@@ -415,21 +377,11 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 logger.info(f'About to Calculate embeddings for {len(normalized)}')
                 src_with_emb = add_embeddings_to_source(normalized, self.embedding_transformer)
                 logger.info(f'Calculated embeddings for {len(src_with_emb)}')
-            preprocessed = preprocess_batch([src_with_emb_ele.src for src_with_emb_ele in src_with_emb], index_name)
         except Exception as e:
             logger.error(f'Could not calculate embeddings: {e}')
             raise e
 
         try:
-            success, failed = bulk(self.client, preprocessed)
-            if success < len(src_with_emb):
-                logger.error(
-                    f'Normalized doc size was {len(src_with_emb)} but only {success} were imported into OpenSearch.'
-                )
-
-            opensearch_synced_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f%z')
-            logger.info(f'Bulk results: success {success} failed: {failed}')
-
             for rec in src_with_emb:
                 # write to records table
 
@@ -441,11 +393,9 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 title = rec.src['titles'][0]['title']
                 xml = rec.harvest_event.xml
                 protocol = 'OAI-PMH'
-                doi = rec.src.get('doi')
                 url = rec.src.get('url')
-                embeddings = rec.src['emb']
-                datacite_json = json.dumps({**rec.src, 'emb': None})
-                opensearch_synced = True
+                embeddings = rec.embedding
+                datacite_json = json.dumps(rec.src)
                 additional_metadata = rec.harvest_event.additional_metadata
 
                 # https://neon.com/postgresql/postgresql-tutorial/postgresql-upsert
@@ -460,30 +410,25 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                         title,
                         raw_metadata,
                         metadata_protocol,
-                        doi,
                         url,
                         embeddings,
                         embedding_model,
                         datacite_json,
-                        opensearch_synced,
-                        opensearch_synced_at,
                         additional_metadata,
                         datestamp
                     ) 
                     VALUES (
-                        %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s
                     )
                     ON CONFLICT (endpoint_id, record_identifier)
                     DO UPDATE SET 
                         resource_type = EXCLUDED.resource_type,
                         title = EXCLUDED.title,
                         raw_metadata = EXCLUDED.raw_metadata,
-                        doi = EXCLUDED.doi,
                         url = EXCLUDED.url,
                         embeddings = EXCLUDED.embeddings,
                         embedding_model = EXCLUDED.embedding_model,
                         datacite_json = EXCLUDED.datacite_json,
-                        opensearch_synced_at = EXCLUDED.opensearch_synced_at,
                         additional_metadata = EXCLUDED.additional_metadata,
                         datestamp = EXCLUDED.datestamp
                     """,
@@ -495,13 +440,10 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                         title,
                         xml,
                         protocol,
-                        doi,
                         url,
                         embeddings,
                         EMBEDDING_MODEL,
                         datacite_json,
-                        opensearch_synced,
-                        opensearch_synced_at,
                         additional_metadata,
                         datestamp,
                     ),
@@ -516,11 +458,8 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                     [rec.harvest_event.id],
                 )
 
-        except BulkIndexError as e:
-            logger.error(f'OpenSearch bulk indexing failed: {e}')
-            raise e
         except Exception as e:
             logger.error(f'Writing batch failed: {e}')
-            raise e
+            raise
 
-    return success
+    return len(src_with_emb)

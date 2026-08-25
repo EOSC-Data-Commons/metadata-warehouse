@@ -6,7 +6,6 @@ import httpx
 import psycopg
 import pytest
 from dotenv import load_dotenv
-from opensearchpy import OpenSearch
 
 load_dotenv('.env')
 
@@ -91,34 +90,6 @@ def reset_file_db():
 
 
 @pytest.fixture
-def reset_index():
-    client = OpenSearch(
-        hosts=[
-            {
-                'host': ADDRESS if ADDRESS else '127.0.0.1',
-                'port': int(PORT) if PORT else 9200,
-            }
-        ],
-        http_auth=None,
-        use_ssl=False,
-    )
-
-    try:
-        if client.indices.exists(index=TEST_INDEX):
-            client.indices.delete(index=TEST_INDEX)
-
-        with open('config/opensearch_mapping.json') as f:
-            os_mapping = json.load(f)
-            # dynamically set embeddings dims
-            os_mapping['mappings']['properties']['emb']['dimension'] = EMBEDDING_DIMS
-            client.indices.create(index=TEST_INDEX, body=os_mapping)
-    except Exception as e:
-        pytest.fail(e)
-
-    yield client
-
-
-@pytest.fixture
 def wait_for_task():
     def _wait_for_task(flower_client, task_name, timeout=TIMEOUT):
         """Wait for a task to complete successfully."""
@@ -156,7 +127,7 @@ def test_get_config(api_client, reset_dataset_db, reset_file_db):
     assert len(response.json()['endpoints_configs']) == 29
 
 
-def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, reset_dataset_db, reset_index):
+def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, reset_dataset_db):
     res_get = api_client.get('/harvest_run', params={'harvest_url': 'https://demo.onedata.org/oai_pmh'})
 
     assert res_get.status_code == 200
@@ -198,7 +169,7 @@ def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, rese
     assert res_get3_response['harvest_runs'][0]['status'] == 'closed'
 
 
-def test_get_latest_harvest_run_without_harvest_url(api_client, flower_client, reset_dataset_db, reset_index):
+def test_get_latest_harvest_run_without_harvest_url(api_client, flower_client, reset_dataset_db):
     res_get = api_client.get('/harvest_run')
 
     assert res_get.status_code == 200
@@ -238,7 +209,7 @@ def test_get_latest_harvest_run_without_harvest_url(api_client, flower_client, r
     assert res_get3_response['harvest_runs'][0]['status'] == 'closed'
 
 
-def test_should_be_harvested_flag(api_client, reset_dataset_db, reset_index):
+def test_should_be_harvested_flag(api_client, reset_dataset_db):
     """
     Endpoints with no harvest run and is_active=True should have
     should_be_harvested=True. After a recent closed run, the flag
@@ -273,9 +244,7 @@ def test_should_be_harvested_flag(api_client, reset_dataset_db, reset_index):
     assert isinstance(runs2[0]['should_be_harvested'], bool)
 
 
-def test_create_and_close_harvest_run(
-    api_client, flower_client, reset_dataset_db, reset_file_db, reset_index, wait_for_task
-):
+def test_create_and_close_harvest_run(api_client, flower_client, reset_dataset_db, reset_file_db, wait_for_task):
     # create a new harvest run
     res_create = api_client.post('/harvest_run', json={'harvest_url': 'https://demo.onedata.org/oai_pmh'})
 
@@ -405,7 +374,7 @@ def _post_harvest_event(api_client, *, harvest_run_id, harvest_url, repo_code, r
     return res
 
 
-def test_zenodo_dependency_without_hal(api_client, reset_dataset_db, reset_file_db, reset_index):
+def test_zenodo_dependency_without_hal(api_client, reset_dataset_db, reset_file_db):
     """
     Try to harvest Zenodo with having harvested HAL first.
     This should fail since Zenodo depends on HAL.
@@ -419,7 +388,7 @@ def test_zenodo_dependency_without_hal(api_client, reset_dataset_db, reset_file_
     )
 
 
-def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, reset_file_db, reset_index):
+def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, reset_file_db):
     """
     Zenodo's endpoint config depends on HAL as a master set. When opening a
     Zenodo harvest run, the response should list Zenodo-referenced DOIs found

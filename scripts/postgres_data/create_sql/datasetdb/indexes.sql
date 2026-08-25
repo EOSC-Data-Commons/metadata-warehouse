@@ -21,12 +21,11 @@ CREATE INDEX IF NOT EXISTS idx_records_endpoint_id ON records(endpoint_id);
 CREATE INDEX IF NOT EXISTS idx_records_repository_id ON records(repository_id);
 CREATE INDEX IF NOT EXISTS idx_records_record_identifier ON records(record_identifier);
 CREATE INDEX IF NOT EXISTS idx_records_resource_type ON records(resource_type);
-CREATE INDEX IF NOT EXISTS idx_records_doi ON records(doi) WHERE doi IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_records_opensearch_synced ON records(opensearch_synced) WHERE opensearch_synced = false;
 CREATE INDEX IF NOT EXISTS idx_records_created_at ON records USING brin(created_at);
 CREATE INDEX IF NOT EXISTS idx_records_updated_at ON records USING brin(updated_at);
 CREATE INDEX IF NOT EXISTS idx_records_datacite_json ON records USING gin(datacite_json);
 CREATE INDEX IF NOT EXISTS idx_records_title_fulltext ON records USING gin(to_tsvector('english', title));
+CREATE INDEX IF NOT EXISTS idx_records_embeddings ON records USING hnsw (embeddings vector_cosine_ops);
 
 -- Harvest Runs Indexes
 CREATE INDEX IF NOT EXISTS idx_harvest_runs_endpoint_id ON harvest_runs(endpoint_id);

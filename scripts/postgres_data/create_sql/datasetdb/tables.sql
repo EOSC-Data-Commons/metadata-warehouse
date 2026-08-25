@@ -13,6 +13,8 @@
 -- ============================================
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- ============================================
 -- 3. TABLES
 -- ============================================
@@ -148,25 +150,21 @@ CREATE TABLE IF NOT EXISTS records (
     repository_id UUID NOT NULL,
     record_identifier VARCHAR(255) NOT NULL,
     resource_type resource_type NOT NULL,
-    doi VARCHAR(255),
-    url VARCHAR(2048),
+    url VARCHAR(2048) UNIQUE NOT NULL,
     title TEXT NOT NULL,
     raw_metadata XML NOT NULL,
     metadata_format content_format NOT NULL DEFAULT 'XML',
     metadata_protocol harvest_protocol NOT NULL,
     datacite_json JSONB,
     additional_metadata TEXT,
-    embeddings FLOAT8[],
+    embeddings vector(384),
     embedding_model VARCHAR(100),
     datestamp TIMESTAMP WITH TIME ZONE NOT NULL,
     version INTEGER NOT NULL DEFAULT 1,
-    opensearch_synced BOOLEAN NOT NULL DEFAULT false,
-    opensearch_synced_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT records_pkey PRIMARY KEY (id),
     CONSTRAINT records_endpoint_id_record_identifier_key UNIQUE (endpoint_id, record_identifier),
-    CONSTRAINT records_doi_or_url_check CHECK (doi IS NOT NULL OR url IS NOT NULL),
     CONSTRAINT records_endpoint_id_fkey FOREIGN KEY (endpoint_id)
         REFERENCES endpoints(id) ON DELETE CASCADE,
     CONSTRAINT records_repository_id_fkey FOREIGN KEY (repository_id)
@@ -178,7 +176,6 @@ COMMENT ON COLUMN records.id IS 'Composite: endpoint_id::record_identifier';
 COMMENT ON COLUMN records.repository_id IS 'Denormalized for query performance';
 COMMENT ON COLUMN records.record_identifier IS 'OAI-PMH identifier or unique record ID';
 COMMENT ON COLUMN records.resource_type IS 'Type of record: Dataset, JournalArticle, Software, etc.';
-COMMENT ON COLUMN records.doi IS 'Digital Object Identifier';
 COMMENT ON COLUMN records.url IS 'Primary URL if no DOI';
 COMMENT ON COLUMN records.title IS 'Record title';
 COMMENT ON COLUMN records.raw_metadata IS 'Original harvested metadata (XML, JSON, etc.)';
@@ -186,12 +183,10 @@ COMMENT ON COLUMN records.metadata_format IS 'Format of the raw metadata';
 COMMENT ON COLUMN records.metadata_protocol IS 'Protocol used to harvest this record';
 COMMENT ON COLUMN records.datacite_json IS 'Processed DataCite JSON';
 COMMENT ON COLUMN records.additional_metadata IS 'Additional metadata from REST APIs, etc.';
-COMMENT ON COLUMN records.embeddings IS 'Vector embeddings array for storage (search happens in OpenSearch)';
+COMMENT ON COLUMN records.embeddings IS 'Vector embeddings for search';
 COMMENT ON COLUMN records.embedding_model IS 'Model used for embeddings';
 COMMENT ON COLUMN records.datestamp IS 'From OAI-PMH header';
 COMMENT ON COLUMN records.version IS 'Version number';
-COMMENT ON COLUMN records.opensearch_synced IS 'Whether synced to OpenSearch';
-COMMENT ON COLUMN records.opensearch_synced_at IS 'When last synced to OpenSearch';
 
 
 
