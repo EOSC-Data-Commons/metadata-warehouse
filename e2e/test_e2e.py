@@ -12,8 +12,10 @@ load_dotenv('.env')
 
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
-ADDRESS = os.environ.get('POSTGRES_ADDRESS')
-PORT = os.environ.get('POSTGRES_PORT')
+POSTGRES_ADDRESS = os.environ.get('POSTGRES_ADDRESS')
+POSTGRES_PORT = os.environ.get('POSTGRES_PORT')
+OPENSEARCH_ADDRESS = os.environ.get('OPENSEARCH_ADDRESS')
+OPENSEARCH_PORT = os.environ.get('OPENSEARCH_PORT')
 TEST_DATASET_DB = 'testdatasetdb'
 TEST_FILE_DB = 'testfiledb'
 TEST_INDEX = 'test_index'
@@ -53,9 +55,9 @@ def reset_db(name: str, path: str):
     with psycopg.connect(
         dbname='postgres',
         user=USER,
-        host='127.0.0.1',
+        host=POSTGRES_ADDRESS if POSTGRES_ADDRESS else '127.0.0.1',
         password=PW,
-        port=5432,
+        port=int(POSTGRES_PORT) if POSTGRES_PORT else 5432,
         autocommit=True,
     ) as conn:
         with conn.cursor() as cursor:
@@ -63,7 +65,7 @@ def reset_db(name: str, path: str):
             if not cursor.fetchone():
                 cursor.execute(f'CREATE DATABASE {name}')
 
-    with psycopg.connect(dbname=name, user=USER, host='127.0.0.1', password=PW, port=5432) as conn:
+    with psycopg.connect(dbname=name, user=USER, host=POSTGRES_ADDRESS if POSTGRES_ADDRESS else '127.0.0.1', password=PW, port=int(POSTGRES_PORT) if POSTGRES_PORT else 5432) as conn:
         with conn.cursor() as cursor:
             # Drop and recreate schema
             cursor.execute('DROP SCHEMA IF EXISTS public CASCADE')
@@ -95,8 +97,8 @@ def reset_index():
     client = OpenSearch(
         hosts=[
             {
-                'host': ADDRESS if ADDRESS else '127.0.0.1',
-                'port': int(PORT) if PORT else 9200,
+                'host': OPENSEARCH_ADDRESS if OPENSEARCH_ADDRESS else '127.0.0.1',
+                'port': int(OPENSEARCH_PORT) if OPENSEARCH_PORT else 9200,
             }
         ],
         http_auth=None,
