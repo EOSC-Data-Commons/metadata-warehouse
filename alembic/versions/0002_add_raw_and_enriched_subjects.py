@@ -1,7 +1,7 @@
 """add_raw_and_enriched_subjects
 
 Revision ID: 0002_record_subjects
-Revises:
+Revises: 0001_baseline
 Create Date: 2026-08-14 10:30:12.770935
 
 """
