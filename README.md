@@ -115,17 +115,19 @@ In development, it may be more convenient to load pre-harvested static data:
   If it already exists and should be **dropped and reinitialized**, 
   additionally provide the flag --reset. 
 
+- the script defines the initial state of the database and should be stamped as the migration baseline.  
+  **All further changes** to the database should be done as Alembic migrations.  
+  To stamp the baseline and upgrade to the latest version:  
+  ```sh
+  alembic stamp 0001_baseline  
+  alembic upgrade head
+  ```
+
 - load XML data from `scripts/postgres_data/data` (populates table `harvest_events`):
   ```sh
    uv run import_data.py
   ```
   See [Prepare Data For Local Import](#Prepare-Data-For-Local-Import) for further details about local data preparation.
-
-- for *datasetdb*: upgrade database to the latest version:
-  ```sh
-  alembic stamp 0001_baseline  
-  alembic upgrade head
-  ```
 
 - transform data from `scripts/postgres_data/data` to a local dir
   (to test transformation, alternative to using the Celery process):
