@@ -24,21 +24,21 @@ def upgrade() -> None:
 
     # create raw_subjects and enriched_subjects columns
     op.add_column(
-        "records",
+        'records',
         sa.Column(
-            "raw_subjects",
+            'raw_subjects',
             sa.ARRAY(sa.Text()),
             nullable=False,
-            server_default=sa.text("ARRAY[]::text[]"),
+            server_default=sa.text('ARRAY[]::text[]'),
         ),
     )
     op.add_column(
-        "records",
+        'records',
         sa.Column(
-            "enriched_subjects",
+            'enriched_subjects',
             sa.ARRAY(sa.Text()),
             nullable=False,
-            server_default=sa.text("ARRAY[]::text[]"),
+            server_default=sa.text('ARRAY[]::text[]'),
         ),
     )
 
@@ -51,9 +51,8 @@ def upgrade() -> None:
         """)
 
 
-
 def downgrade() -> None:
     """Downgrade schema."""
 
-    op.drop_column("records", "raw_subjects")
-    op.drop_column("records", "enriched_subjects")
+    op.drop_column('records', 'raw_subjects')
+    op.drop_column('records', 'enriched_subjects')
