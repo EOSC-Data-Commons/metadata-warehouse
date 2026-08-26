@@ -65,7 +65,13 @@ def reset_db(name: str, path: str):
             if not cursor.fetchone():
                 cursor.execute(f'CREATE DATABASE {name}')
 
-    with psycopg.connect(dbname=name, user=USER, host=POSTGRES_ADDRESS if POSTGRES_ADDRESS else '127.0.0.1', password=PW, port=int(POSTGRES_PORT) if POSTGRES_PORT else 5432) as conn:
+    with psycopg.connect(
+        dbname=name,
+        user=USER,
+        host=POSTGRES_ADDRESS if POSTGRES_ADDRESS else '127.0.0.1',
+        password=PW,
+        port=int(POSTGRES_PORT) if POSTGRES_PORT else 5432,
+    ) as conn:
         with conn.cursor() as cursor:
             # Drop and recreate schema
             cursor.execute('DROP SCHEMA IF EXISTS public CASCADE')
