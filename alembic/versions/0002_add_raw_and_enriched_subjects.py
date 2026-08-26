@@ -22,14 +22,28 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema."""
 
+    # create raw_subjects and enriched_subjects columns
+    op.add_column(
+        "records",
+        sa.Column(
+            "raw_subjects",
+            sa.ARRAY(sa.Text()),
+            nullable=False,
+            server_default=sa.text("ARRAY[]::text[]"),
+        ),
+    )
+    op.add_column(
+        "records",
+        sa.Column(
+            "enriched_subjects",
+            sa.ARRAY(sa.Text()),
+            nullable=False,
+            server_default=sa.text("ARRAY[]::text[]"),
+        ),
+    )
+
+    # fill raw_subjects based on datacite_json
     op.execute("""
-        ---- create raw_subjects and enriched_subjects columns
-
-        ALTER TABLE records ADD COLUMN raw_subjects text[] DEFAULT ARRAY[]::text[];
-        ALTER TABLE records ADD COLUMN enriched_subjects text[] DEFAULT ARRAY[]::text[];
-
-        ---- fill raw_subjects based on datacite_json
-
         UPDATE records
         SET raw_subjects = ARRAY(
             SELECT jsonb_array_elements(datacite_json->'subjects')->>'subject'
@@ -37,12 +51,9 @@ def upgrade() -> None:
         """)
 
 
+
 def downgrade() -> None:
     """Downgrade schema."""
 
-    op.execute("""
-        ALTER TABLE records
-        DROP COLUMN raw_subjects;
-        ALTER TABLE records
-        DROP COLUMN enriched_subjects;
-        """)
+    op.drop_column("records", "raw_subjects")
+    op.drop_column("records", "enriched_subjects")
