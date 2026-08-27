@@ -11,7 +11,7 @@ load_dotenv()
 
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
-ADDRESS = os.environ.get('POSTGRES_ADDRESS')
+ADDRESS = os.environ.get('POSTGRES_ADDRESS_HOST')
 PORT = os.environ.get('POSTGRES_PORT')
 
 if not USER or not PW:

@@ -10,7 +10,7 @@ load_dotenv()
 # DB connection parameters
 USER = os.environ.get('POSTGRES_USER', 'postgres')
 PW = os.environ.get('POSTGRES_PASSWORD', 'postgres')
-ADDRESS = os.environ.get('POSTGRES_ADDRESS', '127.0.0.1')
+ADDRESS = os.environ.get('POSTGRES_ADDRESS_HOST', '127.0.0.1')
 PORT = int(os.environ.get('POSTGRES_PORT', '5432'))
 DB_NAME = os.environ.get('POSTGRES_DB', 'postgres')
 

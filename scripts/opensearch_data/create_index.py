@@ -10,7 +10,7 @@ load_dotenv()
 
 INDEX_NAME = os.environ.get('INDEX_NAME')
 embedding_dims = os.environ.get('EMBEDDING_DIMS')
-ADDRESS = os.environ.get('OPENSEARCH_ADDRESS')
+ADDRESS = os.environ.get('OPENSEARCH_ADDRESS_HOST')
 PORT = os.environ.get('OPENSEARCH_PORT')
 
 if not INDEX_NAME or not embedding_dims:
