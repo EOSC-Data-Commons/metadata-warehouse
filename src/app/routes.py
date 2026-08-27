@@ -32,6 +32,7 @@ from app.db_methods import (
 )
 from config.postgres_config import PostgresConfig
 from logger.setup_logger import logger
+from transform.tasks import JobType
 
 tags_metadata = [
     {'name': 'health', 'description': 'Health route'},
@@ -54,11 +55,14 @@ def init_index(
     harvest_run_id: str = Query(default=None, description='Id of the harvest run to be indexed'),
     index_name: str = Query(default=None, description='Name of the OpenSearch index to use for indexing'),
     reuse_embeddings: bool = Query(default=False, description='Whether to reuse embeddings or not'),
+    job_types: Optional[list[JobType]] = Query(
+        default=None, description='Optional list of job types to run. If omitted, all job types are run.'
+    ),
 ) -> IndexGetResponse:
     # this long-running method is synchronous and runs in an external threadpool, see https://fastapi.tiangolo.com/async/#path-operation-functions
     # this way, it does not block the server
     try:
-        results = create_jobs_in_queue(harvest_run_id, index_name, reuse_embeddings)
+        results = create_jobs_in_queue(harvest_run_id, index_name, reuse_embeddings, job_types)
     except HTTPException:
         raise
     except Exception as e:

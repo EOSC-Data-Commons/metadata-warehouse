@@ -61,9 +61,13 @@ FASTEMBED_CACHE_DIR = os.environ.get('FASTEMBED_CACHE_DIR', '/root/.cache/fastem
 
 celery_app = Celery('tasks')
 
-
 # celery_app.task_serializer = 'json'
 # celery_app.ignore_result = False
+
+
+class JobType(str, Enum):
+    TRANSFORM_TASK = 'TransformTask'
+    FILE_METADATA_TASK = 'FileMetadataTask'
 
 
 class ProviderCode(str, Enum):
@@ -98,6 +102,7 @@ class FileMetadataTask(Task):  # type: ignore
             harvest_event.record_identifier,
             file.file_identifier or file.filename,
             file.filename or file.file_identifier,
+            str(file.path_crawl_rel),
             'datahugger',
             harvest_event.identifier_type,
             'Dataset',
@@ -214,6 +219,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                         record_identifier,
                         file_identifier,
                         file_name,
+                        path,
                         file_information_method,
                         identifier_type,
                         identifier_granularity,
@@ -226,7 +232,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                         file_created_at,
                         file_last_modified_at
                     ) VALUES (
-                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s,
                         %s::file_identifier_type,
                         %s::identifier_granularity_level,
                         %s, %s,
