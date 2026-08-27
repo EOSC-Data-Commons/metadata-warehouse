@@ -12,9 +12,9 @@ load_dotenv('.env')
 
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
-POSTGRES_ADDRESS = os.environ.get('POSTGRES_ADDRESS')
+POSTGRES_ADDRESS = os.environ.get('POSTGRES_ADDRESS_HOST')
 POSTGRES_PORT = os.environ.get('POSTGRES_PORT')
-OPENSEARCH_ADDRESS = os.environ.get('OPENSEARCH_ADDRESS')
+OPENSEARCH_ADDRESS = os.environ.get('OPENSEARCH_ADDRESS_HOST')
 OPENSEARCH_PORT = os.environ.get('OPENSEARCH_PORT')
 TEST_DATASET_DB = 'testdatasetdb'
 TEST_FILE_DB = 'testfiledb'
