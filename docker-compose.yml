@@ -122,7 +122,7 @@ services:
                 condition: service_healthy
 
     postgres:
-        image: postgres:17-alpine
+        image: pgvector/pgvector:pg17
         environment:
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
