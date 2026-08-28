@@ -8,20 +8,20 @@ from alembic import context
 
 load_dotenv()
 
-USER=os.environ.get("POSTGRES_ADMIN")
-pg_user = USER if USER else "postgres"
+USER = os.environ.get('POSTGRES_ADMIN')
+pg_user = USER if USER else 'postgres'
 
-PW=os.environ.get("POSTGRES_PASSWORD")
-pg_pass = PW if PW else "test"
+PW = os.environ.get('POSTGRES_PASSWORD')
+pg_pass = PW if PW else 'test'
 
-ADRESS=os.environ.get("POSTGRES_ADDRESS")
-pg_adress = ADRESS if ADRESS else "127.0.0.1"
+ADRESS = os.environ.get('POSTGRES_ADDRESS')
+pg_adress = ADRESS if ADRESS else '127.0.0.1'
 
-PORT=os.environ.get("POSTGRES_PORT")
+PORT = os.environ.get('POSTGRES_PORT')
 pg_port = PORT if PORT else 5432
 
-DATABASE=os.environ.get("POSTGRES_DB")
-pg_db = DATABASE if DATABASE else "testdatasetdb"
+DATABASE = os.environ.get('POSTGRES_DB')
+pg_db = DATABASE if DATABASE else 'testdatasetdb'
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
