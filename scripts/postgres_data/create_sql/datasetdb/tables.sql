@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS records (
     repository_id UUID NOT NULL,
     record_identifier VARCHAR(255) NOT NULL,
     resource_type resource_type NOT NULL,
-    url VARCHAR(2048) UNIQUE NOT NULL,
+    url VARCHAR(2048) NOT NULL,
     title TEXT NOT NULL,
     raw_metadata XML NOT NULL,
     metadata_format content_format NOT NULL DEFAULT 'XML',
