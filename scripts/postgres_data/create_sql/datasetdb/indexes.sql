@@ -26,6 +26,7 @@ CREATE INDEX IF NOT EXISTS idx_records_updated_at ON records USING brin(updated_
 CREATE INDEX IF NOT EXISTS idx_records_datacite_json ON records USING gin(datacite_json);
 CREATE INDEX IF NOT EXISTS idx_records_title_fulltext ON records USING gin(to_tsvector('english', title));
 CREATE INDEX IF NOT EXISTS idx_records_embeddings ON records USING hnsw (embeddings vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS idx_records_url ON records(url);
 
 -- Harvest Runs Indexes
 CREATE INDEX IF NOT EXISTS idx_harvest_runs_endpoint_id ON harvest_runs(endpoint_id);

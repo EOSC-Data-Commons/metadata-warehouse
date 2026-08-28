@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Any
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query
@@ -32,6 +32,7 @@ from app.db_methods import (
 )
 from config.postgres_config import PostgresConfig
 from logger.setup_logger import logger
+from transform.tasks import find_duplicates
 
 tags_metadata = [
     {'name': 'health', 'description': 'Health route'},
@@ -66,6 +67,12 @@ def init_index(
 
     logger.info(f'Got results: {results}')
     return IndexGetResponse(number_of_batches=results)
+
+
+@app.post('/deduplicate', tags=['index'], summary='Deduplicate records')
+def trigger_deduplication() -> Any:
+    task = find_duplicates.delay()
+    return {'task_id': task.id}
 
 
 @app.get('/health', tags=['health'], summary='Get health status')
