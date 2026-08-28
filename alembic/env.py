@@ -8,13 +8,28 @@ from alembic import context
 
 load_dotenv()
 
+USER=os.environ.get("POSTGRES_ADMIN")
+pg_user = USER if USER else "postgres"
+
+PW=os.environ.get("POSTGRES_PASSWORD")
+pg_pass = PW if PW else "test"
+
+ADRESS=os.environ.get("POSTGRES_ADDRESS")
+pg_adress = ADRESS if ADRESS else "127.0.0.1"
+
+PORT=os.environ.get("POSTGRES_PORT")
+pg_port = PORT if PORT else 5432
+
+DATABASE=os.environ.get("POSTGRES_DB")
+pg_db = DATABASE if DATABASE else "testdatasetdb"
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
 config.set_main_option(
     'sqlalchemy.url',
-    f'postgresql+psycopg://{os.environ["POSTGRES_ADMIN"]}:{os.environ["POSTGRES_PASSWORD"]}@{os.environ.get("POSTGRES_ADDRESS", "127.0.0.1")}:{os.environ.get("POSTGRES_PORT", 5432)}/{os.environ["POSTGRES_DB"]}',
+    f'postgresql+psycopg://{pg_user}:{pg_pass}@{pg_adress}:{pg_port}/{pg_db}',
 )
 
 
