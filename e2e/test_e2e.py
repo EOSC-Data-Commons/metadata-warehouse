@@ -1,16 +1,16 @@
 import json
+import logging
 import os
 import time
 
 import httpx
 import psycopg
 import pytest
+from alembic.config import Config
 from dotenv import load_dotenv
 from opensearchpy import OpenSearch
 
 from alembic import command
-from alembic.config import Config
-import logging
 
 load_dotenv('.env')
 
