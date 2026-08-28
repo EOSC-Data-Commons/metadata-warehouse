@@ -11,7 +11,7 @@ DEDUP_JOB_LOCK_KEY = 727001
 BATCH_SIZE = 500
 
 
-class FindDuplicatesTask(Task): # type: ignore
+class FindDuplicatesTask(Task):  # type: ignore
     postgres_config: PostgresConfig
 
     def __init__(self) -> None:
@@ -90,7 +90,7 @@ PROVIDER_PRECEDENCE: dict[str, dict[str, Any]] = {
 UNKNOWN_RANK = 999
 
 
-class DeduplicationTask(Task): # type: ignore
+class DeduplicationTask(Task):  # type: ignore
     postgres_config: PostgresConfig
 
     def __init__(self) -> None:
