@@ -340,8 +340,8 @@ def test_create_and_close_harvest_run(
     # note this does not check for a successful transformation
     assert res_index.status_code == 200
 
-    transform_task = wait_for_task(flower_client, 'transform.tasks.transform_batch')
-    filemeta_task = wait_for_task(flower_client, 'transform.tasks.add_file_metadata')
+    transform_task = wait_for_task(flower_client, 'transform.transform_task.transform_batch')
+    filemeta_task = wait_for_task(flower_client, 'transform.file_meta_task.add_file_metadata')
 
     assert transform_task and transform_task['state'] == 'SUCCESS'
     assert '10.17026/AR/0AKDPK' in transform_task['args']
