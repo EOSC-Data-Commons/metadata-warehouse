@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Optional, Any
+from typing import Any, Optional
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query
