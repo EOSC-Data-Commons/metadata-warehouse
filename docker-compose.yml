@@ -240,7 +240,7 @@ services:
             POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
             POSTGRES_PORT: "${POSTGRES_PORT}"
             FILE_DB: "${FILE_DB}"
-            TOOL_REGISTRY_API: "https://dev.tools-registry.eosc-data-commons.eu/api/v1"
+            TOOL_REGISTRY_API: "https://tool-registry:80"
         networks:
             - warehouse-backend
         ports:
