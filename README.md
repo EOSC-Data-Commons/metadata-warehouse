@@ -1,5 +1,8 @@
 # Metadata Warehouse
 
+The Metadata Warehouse stores data harvested by the [crawler](https://github.com/EOSC-Data-Commons/metadata-crawlers/) and transforms and validates this data for discovery.
+For an architecture overview of how the different components interact, see https://doi.org/10.5281/zenodo.21068516.
+
 ## Docker Compose Setup
 
 This repo contains a `docker-compose.yml` file which configures the containers and their interaction.
@@ -162,14 +165,14 @@ and the harvest run is then closed. Note that a transformation can only be perfo
   http://127.0.0.1:8080/health
   ```
 
-- To obtain a harvest run id and status for a given endpoint (https://dabar.srce.hr/oai):
+- To obtain a harvest run id and status for a given endpoint (https://dabar.srce.hr/oai/):
   ```sh
-  http://127.0.0.1:8080/harvest_run?harvest_url=https%3A%2F%2Fdabar.srce.hr%2Foai
+  http://127.0.0.1:8080/harvest_run?harvest_url=https%3A%2F%2Fdabar.srce.hr%2Foai%2F
   ```
 
 - start transformation process:
   ```sh
-  http://127.0.0.1:8080/index?harvest_run_id=xyz
+  http://127.0.0.1:8080/index?harvest_run_id=xyz&index_name=test_datacite
   ```
 - see transformation task results in flower:
   ```sh
