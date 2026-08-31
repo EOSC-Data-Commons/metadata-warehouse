@@ -1,7 +1,13 @@
-import logging
 from logging.config import dictConfig
 
 from config.logging_config import LOGGING_CONFIG
 
-dictConfig(LOGGING_CONFIG)
-logger = logging.getLogger('fast_api')
+
+def setup_logging() -> None:
+    try:
+        dictConfig(LOGGING_CONFIG)
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        raise
