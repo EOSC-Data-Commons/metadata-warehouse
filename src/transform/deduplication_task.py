@@ -6,6 +6,7 @@ from psycopg.rows import dict_row
 
 from config.postgres_config import PostgresConfig
 from transform.celery_app_def import celery_app, logger
+from utils.deduplication_utils import pick_winner
 
 DEDUP_JOB_LOCK_KEY = 727001
 BATCH_SIZE = 500
@@ -65,55 +66,11 @@ def find_duplicates(self: Any) -> Any:
         logger.info(f'Dispatched {dispatched} deduplication merge tasks')
 
 
-PROVIDER_PRECEDENCE: dict[str, dict[str, Any]] = {
-    'ZENODO': {
-        'rank': 10,
-        'harvest_urls': [
-            'https://zenodo.org/oai2d',
-        ],
-    },
-    'DANS': {
-        'rank': 20,
-        'harvest_urls': [
-            'https://phys-techsciences.datastations.nl/oai',  # preferred DANS endpoint
-            'https://archaeology.datastations.nl/oai',  # fallback
-        ],
-    },
-    'HAL': {
-        'rank': 30,
-        'harvest_urls': [
-            'https://api.archives-ouvertes.fr/oai/hal',
-        ],
-    },
-}
-
-UNKNOWN_RANK = 999
-
-
 class DeduplicationTask(Task):  # type: ignore
     postgres_config: PostgresConfig
 
     def __init__(self) -> None:
         self.postgres_config = PostgresConfig()
-
-    @staticmethod
-    def _precedence_key(row: dict[str, Any]) -> tuple[int, int]:
-        code_entry = PROVIDER_PRECEDENCE.get(row['code'])
-        if code_entry is None:
-            return UNKNOWN_RANK, UNKNOWN_RANK
-
-        code_rank = code_entry['rank']
-        harvest_urls = code_entry.get('harvest_urls', [])
-        try:
-            url_rank = harvest_urls.index(row['harvest_url'])
-        except ValueError:
-            url_rank = len(harvest_urls)  # known code, unlisted url -> lowest priority within that code
-
-        return code_rank, url_rank
-
-    @staticmethod
-    def pick_winner(rows: list[dict[str, Any]]) -> dict[str, Any]:
-        return min(rows, key=DeduplicationTask._precedence_key)
 
 
 @celery_app.task(base=DeduplicationTask, bind=True, ignore_result=True)
@@ -143,7 +100,7 @@ def remove_duplicates(self: Any, record_ids: list[str]) -> Any:
 
             logger.info(rows)
 
-            winner = self.pick_winner(rows)  # PROVIDER_PRECEDENCE
+            winner = pick_winner(rows)  # PROVIDER_PRECEDENCE
             loser_ids = [r['id'] for r in rows if r['id'] != winner['id']]
 
             cur.execute('DELETE FROM records WHERE id = ANY(%s)', (loser_ids,))
