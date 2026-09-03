@@ -420,7 +420,9 @@ def _close_harvest_run(api_client, run_id):
     return res_close
 
 
-def _post_harvest_event(api_client, *, harvest_run_id, harvest_url, repo_code, record_identifier, raw_metadata, additional_metadata=None):
+def _post_harvest_event(
+    api_client, *, harvest_run_id, harvest_url, repo_code, record_identifier, raw_metadata, additional_metadata=None
+):
     res = api_client.post(
         '/harvest_event',
         json={
@@ -436,6 +438,7 @@ def _post_harvest_event(api_client, *, harvest_run_id, harvest_url, repo_code, r
     )
     assert res.status_code == 200
     return res
+
 
 def _create_and_close_harvest_run(
     api_client,
@@ -484,6 +487,7 @@ def _create_and_close_harvest_run(
     assert expected_doi in filemeta_task['args']
 
     return {'run_id': create_response['id'], 'transform_task': transform_task, 'filemeta_task': filemeta_task}
+
 
 def test_zenodo_dependency_without_hal(api_client, reset_dataset_db, reset_file_db, reset_index):
     """
@@ -573,6 +577,7 @@ def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, 
     assert identifiers_2 == {'10.5281/zenodo.222', '10.5281/zenodo.333'} | ZENODO_STATIC_DOIS
     assert '10.5281/zenodo.111' not in identifiers_2
 
+
 def test_deduplication(api_client, flower_client, reset_dataset_db, reset_file_db, wait_for_task, postgres_client):
     with open('e2e/test_data/dans.xml') as f:
         xml = f.read()
@@ -612,7 +617,7 @@ def test_deduplication(api_client, flower_client, reset_dataset_db, reset_file_d
     expected_url = 'https://doi.org/10.17026/ar/0akdpk'  # normalized form of the DOI
 
     cur = postgres_client.cursor()
-    cur.execute("SELECT id, endpoint_id FROM records WHERE url = %s", (expected_url,))
+    cur.execute('SELECT id, endpoint_id FROM records WHERE url = %s', (expected_url,))
     rows_before = cur.fetchall()
     assert len(rows_before) == 2
 
@@ -625,7 +630,6 @@ def test_deduplication(api_client, flower_client, reset_dataset_db, reset_file_d
     assert dedup_task and dedup_task['state'] == 'SUCCESS'
 
     # --- verify only one record remains ---
-    cur.execute("SELECT id, endpoint_id FROM records WHERE url = %s", (expected_url,))
+    cur.execute('SELECT id, endpoint_id FROM records WHERE url = %s', (expected_url,))
     rows_after = cur.fetchall()
     assert len(rows_after) == 1
-

@@ -94,6 +94,7 @@ PROVIDER_PRECEDENCE: dict[str, dict[str, Any]] = {
 
 UNKNOWN_RANK = 999
 
+
 def _precedence_key(row: dict[str, Any]) -> tuple[int, int]:
     code_entry = PROVIDER_PRECEDENCE.get(row['code'])
     if code_entry is None:
