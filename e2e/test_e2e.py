@@ -34,6 +34,20 @@ def api_client():
 
 
 @pytest.fixture
+def postgres_client():
+    """Direct Postgres connection to the test dataset db, for asserting on table state."""
+    with psycopg.connect(
+        dbname=TEST_DATASET_DB,
+        user=USER,
+        host=POSTGRES_ADDRESS if POSTGRES_ADDRESS else '127.0.0.1',
+        password=PW,
+        port=int(POSTGRES_PORT) if POSTGRES_PORT else 5432,
+        row_factory=psycopg.rows.dict_row,
+    ) as conn:
+        yield conn
+
+
+@pytest.fixture
 def flower_client():
     with httpx.Client(base_url=FLOWER_BASE_URL, timeout=TIMEOUT) as client:
         yield client
@@ -128,8 +142,14 @@ def reset_index():
 
 @pytest.fixture
 def wait_for_task():
-    def _wait_for_task(flower_client, task_name, timeout=TIMEOUT):
-        """Wait for a task to complete successfully."""
+    def _wait_for_task(flower_client, task_name, parent_id=None, timeout=TIMEOUT):
+        """Wait for a task to complete successfully.
+
+        If parent_id is provided, waits specifically for a task matching
+        task_name whose parent_id matches — needed when multiple invocations
+        of the same task type may be in flight or already recorded, and you
+        only know the id of the task that dispatched it.
+        """
         start_time = time.time()
 
         while time.time() - start_time < timeout:
@@ -138,9 +158,14 @@ def wait_for_task():
                 tasks = response.json()
 
                 if tasks:
-                    first_task = next(iter(tasks.values()))
-                    if first_task.get('state') == 'SUCCESS':
-                        return first_task
+                    if parent_id is not None:
+                        for task in tasks.values():
+                            if task.get('parent_id') == parent_id and task.get('state') == 'SUCCESS':
+                                return task
+                    else:
+                        first_task = next(iter(tasks.values()))
+                        if first_task.get('state') == 'SUCCESS':
+                            return first_task
             except Exception:
                 pass
 
@@ -340,8 +365,8 @@ def test_create_and_close_harvest_run(
     # note this does not check for a successful transformation
     assert res_index.status_code == 200
 
-    transform_task = wait_for_task(flower_client, 'transform.tasks.transform_batch')
-    filemeta_task = wait_for_task(flower_client, 'transform.tasks.add_file_metadata')
+    transform_task = wait_for_task(flower_client, 'transform.transform_task.transform_batch')
+    filemeta_task = wait_for_task(flower_client, 'transform.file_meta_task.add_file_metadata')
 
     assert transform_task and transform_task['state'] == 'SUCCESS'
     assert '10.17026/AR/0AKDPK' in transform_task['args']
@@ -395,14 +420,16 @@ def _close_harvest_run(api_client, run_id):
     return res_close
 
 
-def _post_harvest_event(api_client, *, harvest_run_id, harvest_url, repo_code, record_identifier, raw_metadata):
+def _post_harvest_event(
+    api_client, *, harvest_run_id, harvest_url, repo_code, record_identifier, raw_metadata, additional_metadata=None
+):
     res = api_client.post(
         '/harvest_event',
         json={
             'record_identifier': record_identifier,
             'datestamp': '2026-02-17T15:43:03.326Z',
             'raw_metadata': raw_metadata,
-            'additional_metadata': None,
+            'additional_metadata': additional_metadata,
             'harvest_url': harvest_url,
             'repo_code': repo_code,
             'harvest_run_id': harvest_run_id,
@@ -411,6 +438,55 @@ def _post_harvest_event(api_client, *, harvest_run_id, harvest_url, repo_code, r
     )
     assert res.status_code == 200
     return res
+
+
+def _create_and_close_harvest_run(
+    api_client,
+    flower_client,
+    wait_for_task,
+    *,
+    harvest_run_url,
+    repo_code,
+    record_identifier,
+    raw_metadata,
+    additional_metadata=None,
+    expected_doi,
+    index_name=TEST_INDEX,
+):
+    res_create = api_client.post('/harvest_run', json={'harvest_url': harvest_run_url})
+    assert res_create.status_code == 200
+    create_response = res_create.json()
+
+    post_he = _post_harvest_event(
+        api_client,
+        harvest_run_id=create_response['id'],
+        harvest_url=harvest_run_url,
+        repo_code=repo_code,
+        record_identifier=record_identifier,
+        raw_metadata=raw_metadata,
+        additional_metadata=additional_metadata,
+    )
+
+    assert post_he.status_code == 200
+
+    _close_harvest_run(api_client, create_response['id'])
+
+    res_index = api_client.get(
+        '/index',
+        params={'harvest_run_id': create_response['id'], 'index_name': index_name},
+    )
+    assert res_index.status_code == 200
+
+    transform_task = wait_for_task(flower_client, 'transform.transform_task.transform_batch')
+    filemeta_task = wait_for_task(flower_client, 'transform.file_meta_task.add_file_metadata')
+
+    assert transform_task and transform_task['state'] == 'SUCCESS'
+    assert expected_doi in transform_task['args']
+
+    assert filemeta_task and filemeta_task['state'] == 'SUCCESS'
+    assert expected_doi in filemeta_task['args']
+
+    return {'run_id': create_response['id'], 'transform_task': transform_task, 'filemeta_task': filemeta_task}
 
 
 def test_zenodo_dependency_without_hal(api_client, reset_dataset_db, reset_file_db, reset_index):
@@ -500,3 +576,60 @@ def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, 
     identifiers_2 = set(zenodo_run_2['master_set_identifiers'])
     assert identifiers_2 == {'10.5281/zenodo.222', '10.5281/zenodo.333'} | ZENODO_STATIC_DOIS
     assert '10.5281/zenodo.111' not in identifiers_2
+
+
+def test_deduplication(api_client, flower_client, reset_dataset_db, reset_file_db, wait_for_task, postgres_client):
+    with open('e2e/test_data/dans.xml') as f:
+        xml = f.read()
+    with open('e2e/test_data/dans_additional.json') as f:
+        additional_meta = f.read()
+
+    _create_and_close_harvest_run(
+        api_client,
+        flower_client,
+        wait_for_task,
+        harvest_run_url='https://archaeology.datastations.nl/oai',
+        repo_code='DANS',
+        record_identifier='10.34894/G8PZKV',
+        raw_metadata=xml,
+        additional_metadata=additional_meta,
+        expected_doi='10.17026/AR/0AKDPK',
+    )
+
+    with open('e2e/test_data/dans.xml') as f:
+        xml = f.read()
+    with open('e2e/test_data/dans_additional.json') as f:
+        additional_meta = f.read()
+
+    _create_and_close_harvest_run(
+        api_client,
+        flower_client,
+        wait_for_task,
+        harvest_run_url='https://phys-techsciences.datastations.nl/oai',
+        repo_code='DANS',
+        record_identifier='10.34894/G8PZKV',
+        raw_metadata=xml,
+        additional_metadata=additional_meta,
+        expected_doi='10.17026/AR/0AKDPK',
+    )
+
+    # --- verify the duplicate exists ---
+    expected_url = 'https://doi.org/10.17026/ar/0akdpk'  # normalized form of the DOI
+
+    cur = postgres_client.cursor()
+    cur.execute('SELECT id, endpoint_id FROM records WHERE url = %s', (expected_url,))
+    rows_before = cur.fetchall()
+    assert len(rows_before) == 2
+
+    # --- run deduplication ---
+    res_dedup = api_client.post('/deduplicate')
+    assert res_dedup.status_code == 200
+    dedup_task_id = res_dedup.json()['task_id']
+
+    dedup_task = wait_for_task(flower_client, 'transform.deduplication_task.remove_duplicates', parent_id=dedup_task_id)
+    assert dedup_task and dedup_task['state'] == 'SUCCESS'
+
+    # --- verify only one record remains ---
+    cur.execute('SELECT id, endpoint_id FROM records WHERE url = %s', (expected_url,))
+    rows_after = cur.fetchall()
+    assert len(rows_after) == 1

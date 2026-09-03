@@ -296,14 +296,6 @@ class TestNormalizeDatacite(unittest.TestCase):
         res = normalize_datacite_json.normalize_date_string('unknown/2025')
         self.assertEqual(res, None)
 
-    def test_make_id_with_url(self):
-        res = normalize_datacite_json.make_id({'url': 'https://example.com'})
-        self.assertEqual(res, 'https://example.com')
-
-    def test_make_id_with_doi(self):
-        res = normalize_datacite_json.make_id({'doi': '10.123/123'})
-        self.assertEqual(res, 'https://doi.org/10.123/123')
-
     def test_get_resource_type_with_text_node(self):
         test_res = {
             'http://datacite.org/schema/kernel-4:resourceType': {'@resourceTypeGeneral': 'Dataset', '#text': 'test'}
@@ -329,3 +321,20 @@ class TestNormalizeDatacite(unittest.TestCase):
         res = normalize_datacite_json.normalize_lang_string('en')
 
         self.assertEqual(res, 'en')
+
+    def test_clean_doi(self):
+
+        some_doi = '10.17026/dans-xdm-q2pc'
+        cleaned = normalize_datacite_json.clean_doi(some_doi)
+
+        self.assertEqual(cleaned, '10.17026/dans-xdm-q2pc')
+
+        some_doi2 = 'doi:10.17026/dans-xdm-q2pc'
+        cleaned2 = normalize_datacite_json.clean_doi(some_doi2)
+
+        self.assertEqual(cleaned2, '10.17026/dans-xdm-q2pc')
+
+        some_doi3 = 'https://doi.org/10.17026/dans-xdm-q2pc'
+        cleaned3 = normalize_datacite_json.clean_doi(some_doi3)
+
+        self.assertEqual(cleaned3, '10.17026/dans-xdm-q2pc')
