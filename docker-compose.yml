@@ -85,7 +85,7 @@ services:
             POSTGRES_PORT: "${POSTGRES_PORT}"
             OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
             OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
-            EGI_API_URL: "${EGI_API_URL}"
+            EMBED_API_URL: "${EMBED_API_URL}"
         healthcheck:
             test: celery -A transform.tasks status
             interval: 10s
@@ -116,7 +116,7 @@ services:
             OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
             CELERY_BATCH_SIZE: "${CELERY_BATCH_SIZE}"
-            EGI_API_URL: "${EGI_API_URL}"
+            EMBED_API_URL: "${EMBED_API_URL}"
         depends_on:
             postgres:
                 condition: service_healthy

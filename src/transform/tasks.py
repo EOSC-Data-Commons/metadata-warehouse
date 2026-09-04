@@ -61,8 +61,8 @@ FASTEMBED_CACHE_DIR = os.environ.get('FASTEMBED_CACHE_DIR', '/root/.cache/fastem
 
 celery_app = Celery('tasks')
 
-EGI_API_KEY = os.environ.get('EGI_API_KEY')
-EGI_API_URL = os.environ.get('EGI_API_URL')
+EMBED_API_KEY = os.environ.get('EMBED_API_KEY')
+EMBED_API_URL = os.environ.get('EMBED_API_URL')
 
 # celery_app.task_serializer = 'json'
 # celery_app.ignore_result = False
@@ -419,8 +419,8 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                     batch=normalized,
                     logger=logger,
                     embedding_model=self.embedding_transformer,
-                    api_key=EGI_API_KEY,
-                    base_url=EGI_API_URL,
+                    api_key=EMBED_API_KEY,
+                    base_url=EMBED_API_URL,
                     model_name=EMBEDDING_MODEL,
                 )
                 logger.info(f'Calculated embeddings for {len(src_with_emb)}')

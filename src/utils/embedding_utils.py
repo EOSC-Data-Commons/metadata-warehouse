@@ -75,7 +75,7 @@ def create_opensearch_source(
     )
 
 
-def embed(
+def _embed(
     texts: list[str],
     api_key: str,
     base_url: str,
@@ -104,7 +104,7 @@ def embed(
         for attempt in range(retries):
             try:
                 response = session.post(
-                    f'{base_url}/embeddings',
+                    f'{base_url}',
                     json={'model': model, 'input': [prefix + text[:cap] for text in batch]},
                     timeout=timeout,
                 )
@@ -173,7 +173,7 @@ def add_embeddings_to_source(
         name_parts = model_name.split('/')
         embedding_model_name = name_parts[-1] if len(name_parts) > 1 else name_parts[0]
         try:
-            embeddings = embed(
+            embeddings = _embed(
                 embedding_texts,
                 logger=logger,
                 api_key=api_key,
