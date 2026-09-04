@@ -7,7 +7,6 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 load_dotenv()
-
 USER = os.environ.get('POSTGRES_ADMIN')
 pg_user = USER if USER else 'postgres'
 
@@ -27,10 +26,12 @@ pg_db = DATABASE if DATABASE else 'testdatasetdb'
 # access to the values within the .ini file in use.
 config = context.config
 
-config.set_main_option(
-    'sqlalchemy.url',
-    f'postgresql+psycopg://{pg_user}:{pg_pass}@{pg_adress}:{pg_port}/{pg_db}',
-)
+# set the config if the caller hasn't explicitly set it yet (e.g. in tests)
+if not config.get_main_option('sqlalchemy.url'):
+    config.set_main_option(
+        'sqlalchemy.url',
+        f'postgresql+psycopg://{pg_user}:{pg_pass}@{pg_adress}:{pg_port}/{pg_db}',
+    )
 
 
 # Interpret the config file for Python logging.
