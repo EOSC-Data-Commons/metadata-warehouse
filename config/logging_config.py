@@ -30,7 +30,7 @@ LOGGING_CONFIG = {
             'level': 'WARN',
             'propagate': True,
         },
-        'urllib3': {'handlers': ['default'], 'level': 'DEBUG', 'propagate': False},
+        'urllib3': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
         'requests': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
         'transform.tasks': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
     },

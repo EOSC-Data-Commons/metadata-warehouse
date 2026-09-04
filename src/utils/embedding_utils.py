@@ -110,13 +110,17 @@ def embed(
                 )
                 if response.status_code == 400 and 'context length' in response.text:
                     cap //= 2  # too long even cut, try harder before giving up
+                    logger.info(f'Reducing max chars to {cap}')
                     continue
                 if not response.ok:
+                    request_headers = dict(response.request.headers)
+                    request_headers['Authorization'] = 'Bearer ***'
+
                     logger.error(
                         f'Embedding request failed (batch start={start}, attempt={attempt}): '
                         f'{response.status_code} {response.reason}\n'
                         f'Request URL: {response.request.url}\n'
-                        f'Request headers: {dict(response.request.headers)}\n'
+                        f'Request headers: {request_headers}\n'
                         f'Response headers: {dict(response.headers)}\n'
                         f'Response body: {response.text}'
                     )
@@ -178,8 +182,8 @@ def add_embeddings_to_source(
                 batch_size=len(batch),
             )
             logger.info(f'Embeddings calculated for {embedding_model_name} from with API')
-        except requests.RequestException:
-            logger.exception('Embedding API failed after retries, falling back to local model.')
+        except (requests.RequestException, RuntimeError):
+            logger.exception('Embedding API failed after retries with, falling back to local model.')
             embeddings = _embed_locally(embedding_texts, embedding_model)
     else:
         logger.info(f'calculating embeddings locally')
