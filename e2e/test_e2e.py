@@ -95,7 +95,7 @@ def reset_db(name: str, path: str):
     # TODO: Hardcoded to only apply to (test)datasetdb. If needed, work out how
     # to use separate versioning for filedb
 
-    if path == "datasetdb":
+    if path == 'datasetdb':
         # Don't show alembic INFO messages
         logging.getLogger('alembic').setLevel(logging.WARNING)
 
@@ -105,9 +105,8 @@ def reset_db(name: str, path: str):
         )
         alembic_cfg.config_file_name = None  # prevent env.py overwritting logger settings
 
-        command.stamp(alembic_cfg, "0001_baseline")
-        command.upgrade(alembic_cfg, "head")
-            
+        command.stamp(alembic_cfg, '0001_baseline')
+        command.upgrade(alembic_cfg, 'head')
 
 
 @pytest.fixture
@@ -559,9 +558,6 @@ def _column_exists(conn, table_name, column_name, schema='public'):
             (schema, table_name, column_name),
         )
         return cur.fetchone()[0]
-
-
- 
 
 
 def test_alembic_upgrade_downgrade_one_version(reset_dataset_db):
