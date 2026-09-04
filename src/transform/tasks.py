@@ -30,6 +30,8 @@ from psycopg.rows import dict_row
 from config.logging_config import LOGGING_CONFIG
 from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
+from transform.index_datasets import IndexOptions
+from transform.index_datasets import index_datasets as index_datasets_run
 from utils import handle_xml, normalize_datacite_json
 from utils.embedding_utils import (
     OpenSearchSourceWithEmbedding,
@@ -61,6 +63,8 @@ FASTEMBED_CACHE_DIR = os.environ.get('FASTEMBED_CACHE_DIR', '/root/.cache/fastem
 
 celery_app = Celery('tasks')
 
+# a solo worker sends no heartbeat while a task runs, and the dropped connection redelivers the run
+celery_app.conf.broker_heartbeat = 0
 
 # celery_app.task_serializer = 'json'
 # celery_app.ignore_result = False
@@ -524,3 +528,33 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
             raise e
 
     return success
+
+
+@celery_app.task(bind=True, ignore_result=True)
+def index_datasets(self: Any, /, **kwargs: Any) -> dict[str, int]:
+    """Project harvested datasetDB records into the appDB hybrid search tables.
+
+    Unlike transform_batch this is not a per-batch job: the indexer diffs records.updated_at against
+    what appDB already holds and picks up whatever is stale, so it needs no harvest_run_id and is
+    safe to run at any time.
+
+    It runs on the default queue, so it occupies this --pool=solo worker for the whole run and any
+    transform_batch queued meanwhile waits its turn. Keep runs short with `limit` unless a full
+    backfill is what you want. Only one may write appDB at a time, enforced by an advisory lock.
+
+    Accepts any IndexOptions field as a keyword, so the trigger can override the DB endpoints and
+    the embeddings backend per run. Progress goes to stdout, which celery redirects into the task
+    logger, so it shows up in `docker compose logs celery` and in flower.
+    """
+    options = IndexOptions(**kwargs)
+    logger.info(
+        f'task {self.request.id}: indexing datasets into {options.appdb}, limit={options.limit}, reset={options.reset}'
+    )
+    counts = index_datasets_run(options)
+    logger.info(f'indexed {counts.datasets} datasets ({counts.chunks} chunks, {counts.failed} failed)')
+    return {
+        'datasets': counts.datasets,
+        'chunks': counts.chunks,
+        'skipped': counts.skipped,
+        'failed': counts.failed,
+    }
