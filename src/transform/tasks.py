@@ -417,6 +417,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 logger.info(f'About to Calculate embeddings for {len(normalized)}')
                 src_with_emb = add_embeddings_to_source(
                     batch=normalized,
+                    logger=logger,
                     embedding_model=self.embedding_transformer,
                     api_key=EGI_API_KEY,
                     base_url=EGI_API_URL,

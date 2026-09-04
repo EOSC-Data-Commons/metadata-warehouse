@@ -1,3 +1,4 @@
+import logging
 import time
 from pathlib import Path
 from typing import Any, NamedTuple, Optional
@@ -78,6 +79,7 @@ def embed(
     texts: list[str],
     api_key: str,
     base_url: str,
+    logger: logging.Logger,
     model: str = 'nomic-embed-text-v2-moe',
     prefix: str = 'search_document: ',
     batch_size: int = 16,
@@ -109,6 +111,15 @@ def embed(
                 if response.status_code == 400 and 'context length' in response.text:
                     cap //= 2  # too long even cut, try harder before giving up
                     continue
+                if not response.ok:
+                    logger.error(
+                        f'Embedding request failed (batch start={start}, attempt={attempt}): '
+                        f'{response.status_code} {response.reason}\n'
+                        f'Request URL: {response.request.url}\n'
+                        f'Request headers: {dict(response.request.headers)}\n'
+                        f'Response headers: {dict(response.headers)}\n'
+                        f'Response body: {response.text}'
+                    )
                 response.raise_for_status()
                 # the API may answer out of order, so sort by index before taking the vectors
                 data = sorted(response.json()['data'], key=lambda item: item['index'])
@@ -124,6 +135,12 @@ def embed(
     return vectors
 
 
+def _embed_locally(texts: list[str], embedding_model: TextEmbedding) -> list[list[float]]:
+    """Embed texts using the local model, returning plain Python lists (not ndarrays)."""
+    embeddings_ndarr = list(embedding_model.embed(texts))
+    return [emb.tolist() for emb in embeddings_ndarr]
+
+
 def add_embeddings_to_source(
     batch: list[SourceWithEmbeddingText],
     embedding_model: TextEmbedding,
@@ -131,6 +148,7 @@ def add_embeddings_to_source(
     embedding_field_name: str = 'emb',
     api_key: str | None = None,
     base_url: str | None = None,
+    logger: logging.Logger | None = None,
 ) -> list[OpenSearchSourceWithEmbedding]:
     """
     Given a batch of `SourceWithEmbeddingText`, calculates the embeddings and returns the documents with the embeddings (integrated).
@@ -142,21 +160,30 @@ def add_embeddings_to_source(
     :param api_key: optional API key. If set, embeddings are calculated via a remote API call
         instead of locally.
     :param base_url: base URL of the embedding API (only used if `api_key` is set).
+    :param logger: optional logger for reporting fallback/errors. If not set, a module-level logger is used.
     """
+    logger = logger or logging.getLogger(__name__)
     embedding_texts = [ele.textToEmbed for ele in batch]
 
     if api_key and base_url and model_name:
         name_parts = model_name.split('/')
-        if len(name_parts) > 1:
-            embedding_model_name = name_parts[-1]
-        else:
-            embedding_model_name = name_parts[0]
-        embeddings = embed(
-            embedding_texts, api_key=api_key, base_url=base_url, model=embedding_model_name, batch_size=len(batch)
-        )
+        embedding_model_name = name_parts[-1] if len(name_parts) > 1 else name_parts[0]
+        try:
+            embeddings = embed(
+                embedding_texts,
+                logger=logger,
+                api_key=api_key,
+                base_url=base_url,
+                model=embedding_model_name,
+                batch_size=len(batch),
+            )
+            logger.info(f'Embeddings calculated for {embedding_model_name} from with API')
+        except requests.RequestException:
+            logger.exception('Embedding API failed after retries, falling back to local model.')
+            embeddings = _embed_locally(embedding_texts, embedding_model)
     else:
-        embeddings_ndarr = list(embedding_model.embed(embedding_texts))
-        embeddings = [emb.tolist() for emb in embeddings_ndarr]
+        logger.info(f'calculating embeddings locally')
+        embeddings = _embed_locally(embedding_texts, embedding_model)
 
     if len(embeddings) != len(batch):
         raise ValueError('Embedding model returned an unexpected number of vectors.')

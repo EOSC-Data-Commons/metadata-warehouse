@@ -87,7 +87,9 @@ class TestEmbeddingsUtils(unittest.TestCase):
                 ),
             ),
         ]
-        res: list[OpenSearchSourceWithEmbedding] = embedding_utils.add_embeddings_to_source(data, embedding_model, 'my_model')
+        res: list[OpenSearchSourceWithEmbedding] = embedding_utils.add_embeddings_to_source(
+            data, embedding_model, 'my_model'
+        )
 
         self.assertEqual(len(res), 3)
 
