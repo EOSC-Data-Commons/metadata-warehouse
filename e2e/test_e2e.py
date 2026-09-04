@@ -1,12 +1,16 @@
 import json
+import logging
 import os
 import time
 
 import httpx
 import psycopg
 import pytest
+from alembic.config import Config
 from dotenv import load_dotenv
 from opensearchpy import OpenSearch
+
+from alembic import command
 
 load_dotenv('.env')
 
@@ -86,6 +90,23 @@ def reset_db(name: str, path: str):
                 with open(filepath) as f:
                     sql_statements = f.read()
                 cursor.execute(sql_statements)
+
+    # Use Alembic to upgrade database to latest version
+    # TODO: Hardcoded to only apply to (test)datasetdb. If needed, work out how
+    # to use separate versioning for filedb
+
+    if path == 'datasetdb':
+        # Don't show alembic INFO messages
+        logging.getLogger('alembic').setLevel(logging.WARNING)
+
+        alembic_cfg = Config('alembic.ini')
+        alembic_cfg.set_main_option(
+            'sqlalchemy.url', f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS}:{POSTGRES_PORT}/{TEST_DATASET_DB}'
+        )
+        alembic_cfg.config_file_name = None  # prevent env.py overwritting logger settings
+
+        command.stamp(alembic_cfg, '0001_baseline')
+        command.upgrade(alembic_cfg, 'head')
 
 
 @pytest.fixture
@@ -500,3 +521,81 @@ def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, 
     identifiers_2 = set(zenodo_run_2['master_set_identifiers'])
     assert identifiers_2 == {'10.5281/zenodo.222', '10.5281/zenodo.333'} | ZENODO_STATIC_DOIS
     assert '10.5281/zenodo.111' not in identifiers_2
+
+
+# --- Alembic migrations
+def _table_exists(conn, table_name, schema='public'):
+    """
+    Check if a given table exists in the database.
+    Returns True/False
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = %s AND table_name = %s
+            )
+            """,
+            (schema, table_name),
+        )
+        return cur.fetchone()[0]
+
+
+def _column_exists(conn, table_name, column_name, schema='public'):
+    """
+    Check if a given column exists in the specified database table.
+    Returns True/False
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = %s AND table_name = %s AND column_name = %s
+            )
+            """,
+            (schema, table_name, column_name),
+        )
+        return cur.fetchone()[0]
+
+
+def test_alembic_upgrade_downgrade_one_version(reset_dataset_db):
+    # Don't show alembic INFO messages
+    logging.getLogger('alembic').setLevel(logging.WARNING)
+
+    alembic_cfg = Config('alembic.ini')
+    alembic_cfg.set_main_option(
+        'sqlalchemy.url', f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS}:{POSTGRES_PORT}/{TEST_DATASET_DB}'
+    )
+    alembic_cfg.config_file_name = None  # prevent env.py overwritting logger settings
+
+    with psycopg.connect(
+        dbname=TEST_DATASET_DB,
+        user=USER,
+        host=POSTGRES_ADDRESS if POSTGRES_ADDRESS else '127.0.0.1',
+        password=PW,
+        port=int(POSTGRES_PORT) if POSTGRES_PORT else 5432,
+    ) as conn:
+        # The database should have been initialized with alembic and have the alembic_version table
+        assert _table_exists(conn, 'alembic_version')
+
+        # We'll test the baseline schema and the first alembic version upgrade
+
+        # The first revision adds two columns.
+        # We check that the "raw_subjects" and "enriched_subjects" don't exist initially,
+        # And after upgrading one version they should be there
+
+        command.downgrade(alembic_cfg, '0001_baseline')
+
+        raw_exist = _column_exists(conn, 'records', 'raw_subjects')
+        enriched_exist = _column_exists(conn, 'records', 'enriched_subjects')
+
+        assert not (raw_exist or enriched_exist)
+
+        command.upgrade(alembic_cfg, '0002_record_subjects')
+
+        raw_exist = _column_exists(conn, 'records', 'raw_subjects')
+        enriched_exist = _column_exists(conn, 'records', 'enriched_subjects')
+
+        assert raw_exist and enriched_exist
