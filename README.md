@@ -45,11 +45,11 @@ To run the containers:
 
 ## Prepare Data For Local Import
 
-In production, the DB is populated by running the crawler. 
+In production, the DB is populated by running the crawler.
 In development, it may be more convenient to load pre-harvested static data:
 - create a folder per repository, e.g., `scripts/postgres_data/data/dans_arch`
-- create an XML file containing records such as 
-  ```xml 
+- create an XML file containing records such as
+  ```xml
   <Records xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
      <record xmlns="http://www.openarchives.org/OAI/2.0/">
      ...
@@ -58,19 +58,19 @@ In development, it may be more convenient to load pre-harvested static data:
   </Records>
   ```
 - fetch additional metadata using `scripts/postgres_data/dataverse.py` (Dataverse) or `scripts/postgres_data/get_meta.py` (HAL, Zenodo)
-  Combine additional metadata files in one virtual structure using 
-  
+  Combine additional metadata files in one virtual structure using
+
   Dataverse:
    ```python
     import json, glob
-    
+
     lookup = {}
     for f in glob.glob('*.json'):
         with open(f) as fh:
             obj = json.load(fh)
         key = obj["data"]["datasetPersistentId"]
         lookup[key] = obj  # or just the fields you need
-    
+
     # Optionally save it
     with open('lookup.json', 'w') as out:
         json.dump(lookup, out)
@@ -79,7 +79,7 @@ In development, it may be more convenient to load pre-harvested static data:
   HAL:
   ```python
   import json, glob
-    
+
     lookup = {}
     for f in glob.glob('*.json'):
         with open(f) as fh:
@@ -90,10 +90,10 @@ In development, it may be more convenient to load pre-harvested static data:
         else:
             print(f)
             print(obj)
-    
+
     # Optionally save it
     with open('lookup.json', 'w') as out:
-        json.dump(lookup, out)      
+        json.dump(lookup, out)
   ```
 - check the settings in `scripts/postgres_data/import_data.py`:
   ```python
@@ -113,13 +113,13 @@ In development, it may be more convenient to load pre-harvested static data:
   uv run create_db.py --db $dbname [--reset]
   ```
   This will create and init the specified DB if it does not exist yet. If it already exists and should be **dropped and reinitialized**, additionally provide the flag `--reset`.
-  
+
   You can also provide a specific env file for different environment, e.g. here for staging, with a `.staging.env` in the `scripts/postgres_data` folder:
 
   ```sh
   uv run --env-file .staging.env create_db.py --db $dbname --reset
   ```
-  
+
 - load XML data from `scripts/postgres_data/data` (populates table `harvest_events`):
   ```sh
    uv run import_data.py
@@ -131,9 +131,72 @@ In development, it may be more convenient to load pre-harvested static data:
   ```sh
   uv run transform.py -i harvests_{repo_suffix} -o {repo_suffix}_json -s JSON_schema_file [-n] [-v]
   ```
-  If the -n flag is provided, the JSON data will be normalized 
+  If the -n flag is provided, the JSON data will be normalized
   (the raw JSON may look differently based on the input XML, see these [specs](https://www.xml.com/pub/a/2006/05/31/converting-between-xml-and-json.html)).
   If the -v flag is set, the JSON will be validated against the JSON schema file `utils/schema.json`
+
+## Index datasets for hybrid search in Postgres
+
+> [!CAUTION]
+>
+> Work in progress
+
+Projects the harvested `datasetdb.records` into the `datasets` and `record_embeddings` tables of
+`appDB`, with BM25 ([`pg_textsearch`](https://github.com/timescale/pg_textsearch)) and vector
+([`pgvectorscale`](https://github.com/timescale/pgvectorscale)) indexes.
+
+The run is **incremental and resumable**: a record is (re)indexed only when it is missing from appDB
+or was updated in datasetDB since it was last indexed, so an interrupted run just continues and
+repeated runs converge. Requires an appDB created with `uv run create_db.py --db appdb`.
+
+Run it as a celery task (queued by `/index` after a harvest run, or on demand):
+
+```sh
+docker compose exec celery celery -A transform.tasks call transform.tasks.index_datasets --kwargs '{"limit": 5000}'
+docker compose logs -f celery
+```
+
+Run it as a CLI from a checkout. `--target-host 127.0.0.1` writes the local postgres instead of the
+`postgres` service name:
+
+```sh
+PYTHONPATH=src uv run python -m transform.index_datasets --count --target-host 127.0.0.1
+PYTHONPATH=src uv run python -m transform.index_datasets --target-host 127.0.0.1
+```
+
+Available options:
+
+| option | what it does |
+| --- | --- |
+| `--count` | report what is left to index, per repository, then exit |
+| `--limit N` | index at most N datasets, then stop. Keeps a run short enough not to hog the worker |
+| `--endpoint {ferro,cesnet,egi}` | which embeddings API, default `ferro` (see below) |
+| `--base-url URL` | override that endpoint's URL, e.g. a second ferro deployment |
+| `--concurrency N` | override the endpoint's parallel request count |
+| `--reset` | delete every indexed dataset and its embeddings first, then index from scratch |
+| `--defer-indexes` | drop the BM25 and vector indexes for the run and rebuild them at the end. Implied by `--reset` |
+| `--verify N` | re-embed N random stored chunks and compare to the stored vectors, then exit |
+| `--source-host` / `--source-port` / `--source-db` | read datasetDB somewhere other than `POSTGRES_*` |
+| `--target-host` / `--target-port` / `--appdb` | write appDB somewhere other than `POSTGRES_*` |
+| `--log-splits` | one line per batch the verification rejects, instead of only totals |
+
+>Use `--defer-indexes` for a **bulk load** from scratch only: building the whole diskANN graph by inserting 1.3M
+rows one at a time is far slower than one pass over the finished table. For an incremental run, measured recall does not degrade
+as rows are added or re-indexed. What does accumulate is index size.
+>
+>So if the index size gets too big you can reduce it by running a re-indexing from postgres directly (no need to run this pipeline that will re-generate embeddings for nothing)
+
+All three embedding endpoints are vLLM behind the same OpenAI-compatible API, running `nomic-embed-text-v2-moe`.
+
+| `--endpoint` | where | measured | key |
+| --- | --- | --- | --- |
+| `ferro` *(default)* | our vLLM on a GPU VM | **~500 texts/s** | none |
+| `egi` | shared EGI API | ~400-600 texts/s | `EGI_API_KEY` |
+| `cesnet` | shared Cesnet API | ~170 texts/s effective | `CESNET_API_KEY` |
+
+`ferro` has no rate limit: batches of 64 with 64 requests in flight, which is where the GPU
+plateaus. Otherwise `egi` is recommended, but has rate limits. Keys go in `keys.env` (see
+`keys.env.template`), which the `celery` service loads.
 
 ## Create OpenSearch Index
 
@@ -224,12 +287,12 @@ To format all files properly, run:
 
 ## Run E2E Tests
 
-Before running the e2e tests locally, set the env vars `POSTGRES_DB` and `FILE_DB` 
-to `testdatasetdb` and `testfiledb`, respectively, since the e2e tests and the API 
+Before running the e2e tests locally, set the env vars `POSTGRES_DB` and `FILE_DB`
+to `testdatasetdb` and `testfiledb`, respectively, since the e2e tests and the API
 must use the same DBs.
 
-Note that the e2e tests reset `testdatasetdb` and `testfiledb` on each run. Because 
-the test DB names are hardcoded in the e2e tests, your production DBs will not be 
+Note that the e2e tests reset `testdatasetdb` and `testfiledb` on each run. Because
+the test DB names are hardcoded in the e2e tests, your production DBs will not be
 overwritten.
 
 To run the e2e tests:
@@ -239,7 +302,7 @@ uv run pytest -s e2e
 
 ## Commit Message Conventions
 
-Keep to this commit message [style](https://www.conventionalcommits.org/en/v1.0.0/#summary). 
+Keep to this commit message [style](https://www.conventionalcommits.org/en/v1.0.0/#summary).
 For semantic versioning, see these [release-please](https://github.com/googleapis/release-please#how-should-i-write-my-commits).
 Set up pre-commit hooks to check your messages before commiting them to the repo:
 - `uv sync --frozen --all-extras --dev`
