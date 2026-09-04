@@ -1,6 +1,8 @@
+import time
 from pathlib import Path
 from typing import Any, NamedTuple, Optional
 
+import requests
 from fastembed import TextEmbedding
 from numpy import ndarray
 
@@ -49,7 +51,7 @@ def extract_fields_from_source(source: dict[str, Any], field_name: str, subfield
 
 
 def create_opensearch_source(
-    src: dict[str, Any], embedding: ndarray[Any], batch_ele: SourceWithEmbeddingText, embedding_field_name: str
+    src: dict[str, Any], embedding: list[float], batch_ele: SourceWithEmbeddingText, embedding_field_name: str
 ) -> OpenSearchSourceWithEmbedding:
     """
 
@@ -63,7 +65,7 @@ def create_opensearch_source(
     return OpenSearchSourceWithEmbedding(
         src={
             **src,
-            embedding_field_name: embedding.tolist(),
+            embedding_field_name: embedding,
             '_additional_metadata': batch_ele.event.additional_metadata,
             '_repo': batch_ele.event.code,
             '_harvest_url': batch_ele.event.harvest_url,
@@ -72,18 +74,89 @@ def create_opensearch_source(
     )
 
 
+def embed(
+    texts: list[str],
+    api_key: str,
+    base_url: str,
+    model: str = 'nomic-embed-text-v2-moe',
+    prefix: str = 'search_document: ',
+    batch_size: int = 16,
+    max_chars: int = 1000,
+    retries: int = 4,
+    timeout: int = 120,
+) -> list[list[float]]:
+    """Embed a list of texts, returning one vector per text, in the same order.
+
+    prefix: 'search_document: ' for things you store, 'search_query: ' for a user query.
+            nomic needs it, and the wrong one silently degrades retrieval.
+    max_chars: the model window is 512 tokens; longer texts are cut, and cut harder if the
+               endpoint still rejects them (it ignores truncate_prompt_tokens).
+    """
+    session = requests.Session()
+    session.headers['Authorization'] = f'Bearer {api_key}'
+    vectors: list[list[float]] = []
+
+    for start in range(0, len(texts), batch_size):
+        batch = texts[start : start + batch_size]
+        cap = max_chars
+        for attempt in range(retries):
+            try:
+                response = session.post(
+                    f'{base_url}/embeddings',
+                    json={'model': model, 'input': [prefix + text[:cap] for text in batch]},
+                    timeout=timeout,
+                )
+                if response.status_code == 400 and 'context length' in response.text:
+                    cap //= 2  # too long even cut, try harder before giving up
+                    continue
+                response.raise_for_status()
+                # the API may answer out of order, so sort by index before taking the vectors
+                data = sorted(response.json()['data'], key=lambda item: item['index'])
+                vectors.extend(item['embedding'] for item in data)
+                break
+            except requests.RequestException:
+                if attempt == retries - 1:
+                    raise
+                time.sleep(2**attempt)  # 1s, 2s, 4s
+        else:
+            raise RuntimeError(f'embeddings failed for batch at {start} after {retries} attempts')
+
+    return vectors
+
+
 def add_embeddings_to_source(
-    batch: list[SourceWithEmbeddingText], embedding_model: TextEmbedding, embedding_field_name: str = 'emb'
+    batch: list[SourceWithEmbeddingText],
+    embedding_model: TextEmbedding,
+    model_name: str | None,
+    embedding_field_name: str = 'emb',
+    api_key: str | None = None,
+    base_url: str | None = None,
 ) -> list[OpenSearchSourceWithEmbedding]:
     """
     Given a batch of `SourceWithEmbeddingText`, calculates the embeddings and returns the documents with the embeddings (integrated).
 
     :param batch: a batch of source documents with their embedding texts.
-    :param embedding_model: the model to be used for embedding.
+    :param embedding_model: the model to be used for embedding (used only if `api_key` is not set).
+    :param model_name: name of the embedding model
     :param embedding_field_name: name of the embedding field in the source document.
+    :param api_key: optional API key. If set, embeddings are calculated via a remote API call
+        instead of locally.
+    :param base_url: base URL of the embedding API (only used if `api_key` is set).
     """
     embedding_texts = [ele.textToEmbed for ele in batch]
-    embeddings = list(embedding_model.embed(embedding_texts))
+
+    if api_key and base_url and model_name:
+        name_parts = model_name.split('/')
+        if len(name_parts) > 1:
+            embedding_model_name = name_parts[-1]
+        else:
+            embedding_model_name = name_parts[0]
+        embeddings = embed(
+            embedding_texts, api_key=api_key, base_url=base_url, model=embedding_model_name, batch_size=len(batch)
+        )
+    else:
+        embeddings_ndarr = list(embedding_model.embed(embedding_texts))
+        embeddings = [emb.tolist() for emb in embeddings_ndarr]
 
     if len(embeddings) != len(batch):
         raise ValueError('Embedding model returned an unexpected number of vectors.')
