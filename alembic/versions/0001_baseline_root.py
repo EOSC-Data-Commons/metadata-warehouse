@@ -15,7 +15,7 @@ from alembic import op
 # revision identifiers, used by Alembic.
 revision: str = '0001_baseline'
 down_revision: Union[str, Sequence[str], None] = None
-branch_labels: Union[str, Sequence[str], None] = None
+branch_labels: Union[str, Sequence[str], None] = None # TODO: specify datasetdb?
 depends_on: Union[str, Sequence[str], None] = None
 
 

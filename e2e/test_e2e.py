@@ -91,6 +91,24 @@ def reset_db(name: str, path: str):
                     sql_statements = f.read()
                 cursor.execute(sql_statements)
 
+    # Use Alembic to upgrade database to latest version
+    # TODO: Hardcoded to only apply to (test)datasetdb. If needed, work out how
+    # to use separate versioning for filedb
+
+    if path == "datasetdb":
+        # Don't show alembic INFO messages
+        logging.getLogger('alembic').setLevel(logging.WARNING)
+
+        alembic_cfg = Config('alembic.ini')
+        alembic_cfg.set_main_option(
+            'sqlalchemy.url', f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS}:{POSTGRES_PORT}/{TEST_DATASET_DB}'
+        )
+        alembic_cfg.config_file_name = None  # prevent env.py overwritting logger settings
+
+        command.stamp(alembic_cfg, "0001_baseline")
+        command.upgrade(alembic_cfg, "head")
+            
+
 
 @pytest.fixture
 def reset_dataset_db():
@@ -543,6 +561,9 @@ def _column_exists(conn, table_name, column_name, schema='public'):
         return cur.fetchone()[0]
 
 
+ 
+
+
 def test_alembic_upgrade_downgrade_one_version(reset_dataset_db):
     # Don't show alembic INFO messages
     logging.getLogger('alembic').setLevel(logging.WARNING)
@@ -560,17 +581,16 @@ def test_alembic_upgrade_downgrade_one_version(reset_dataset_db):
         password=PW,
         port=int(POSTGRES_PORT) if POSTGRES_PORT else 5432,
     ) as conn:
-        # When we stamp the baseline, an alembic_version table should be created
-        assert not _table_exists(conn, 'alembic_version')
-
-        command.stamp(alembic_cfg, 'base')
-
+        # The database should have been initialized with alembic and have the alembic_version table
         assert _table_exists(conn, 'alembic_version')
+
+        # We'll test the baseline schema and the first alembic version upgrade
 
         # The first revision adds two columns.
         # We check that the "raw_subjects" and "enriched_subjects" don't exist initially,
-        # After upgrading one version they should be there,
-        # And after downgrading they should be gone again
+        # And after upgrading one version they should be there
+
+        command.downgrade(alembic_cfg, '0001_baseline')
 
         raw_exist = _column_exists(conn, 'records', 'raw_subjects')
         enriched_exist = _column_exists(conn, 'records', 'enriched_subjects')
@@ -583,10 +603,3 @@ def test_alembic_upgrade_downgrade_one_version(reset_dataset_db):
         enriched_exist = _column_exists(conn, 'records', 'enriched_subjects')
 
         assert raw_exist and enriched_exist
-
-        command.downgrade(alembic_cfg, '0001_baseline')
-
-        raw_exist = _column_exists(conn, 'records', 'raw_subjects')
-        enriched_exist = _column_exists(conn, 'records', 'enriched_subjects')
-
-        assert not (raw_exist or enriched_exist)
