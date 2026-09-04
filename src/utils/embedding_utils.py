@@ -104,7 +104,7 @@ def _embed(
         for attempt in range(retries):
             try:
                 response = session.post(
-                    f'{base_url}',
+                    f'{base_url}/embeddings',
                     json={'model': model, 'input': [prefix + text[:cap] for text in batch]},
                     timeout=timeout,
                 )
