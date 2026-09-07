@@ -13,13 +13,17 @@ dependencies = [
     "requests>=2.32.5",
     "lxml>=6.0.2",
     "python-dotenv>=1.2.2",
-    "metadata-harvester @ git+https://github.com/EOSC-Data-Commons/metadata-crawlers.git@make-it-python-importable",
 ]
 
 [project.optional-dependencies]
 # The transform API only, kept out of the base set because airflow pins its own fastapi
 api = [
     "fastapi[standard]>=0.135.1",
+]
+# harvest_endpoint only. A git dependency, so it is installed where git exists (the airflow image)
+# and left out of the transform image, which has no git and never harvests
+harvest = [
+    "metadata-harvester @ git+https://github.com/EOSC-Data-Commons/metadata-crawlers.git@make-it-python-importable",
 ]
 
 [dependency-groups]

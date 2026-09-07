@@ -1706,7 +1706,6 @@ dependencies = [
     { name = "fastembed" },
     { name = "jsonschema" },
     { name = "lxml" },
-    { name = "metadata-harvester" },
     { name = "opensearch-py" },
     { name = "psycopg", extra = ["binary"] },
     { name = "python-dotenv" },
@@ -1717,6 +1716,9 @@ dependencies = [
 [package.optional-dependencies]
 api = [
     { name = "fastapi", extra = ["standard"] },
+]
+harvest = [
+    { name = "metadata-harvester" },
 ]
 
 [package.dev-dependencies]
@@ -1739,14 +1741,14 @@ requires-dist = [
     { name = "fastembed", specifier = ">=0.7.4" },
     { name = "jsonschema", specifier = ">=4.26.0" },
     { name = "lxml", specifier = ">=6.0.2" },
-    { name = "metadata-harvester", git = "https://github.com/EOSC-Data-Commons/metadata-crawlers.git?rev=make-it-python-importable" },
+    { name = "metadata-harvester", marker = "extra == 'harvest'", git = "https://github.com/EOSC-Data-Commons/metadata-crawlers.git?rev=make-it-python-importable" },
     { name = "opensearch-py", specifier = ">=3.1.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.3" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "xmltodict", specifier = ">=1.0.4" },
 ]
-provides-extras = ["api"]
+provides-extras = ["api", "harvest"]
 
 [package.metadata.requires-dev]
 dev = [

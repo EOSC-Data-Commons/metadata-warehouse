@@ -22,7 +22,7 @@ USER airflow
 # resolve a slightly different fastembed/datahugger than the transform image; both are within the
 # declared ranges, and `docker compose build` prints what each one got.
 COPY pyproject.toml /tmp/warehouse/pyproject.toml
-RUN uv pip install --no-cache "apache-airflow==${AIRFLOW_VERSION}" -r /tmp/warehouse/pyproject.toml
+RUN uv pip install --no-cache "apache-airflow==${AIRFLOW_VERSION}" --extra harvest -r /tmp/warehouse/pyproject.toml
 
 # Baked in so the image runs standalone; docker-compose.yml mounts the same paths for hot reload
 COPY --chown=airflow:root ./src /opt/airflow/warehouse/src
