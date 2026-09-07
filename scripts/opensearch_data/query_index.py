@@ -17,7 +17,7 @@ if not INDEX_NAME or not EMBEDDING_MODEL:
     raise ValueError('Missing INDEX_NAME environment variable')
 
 client = OpenSearch(
-    hosts=[{'host': ADDRESS, 'port':PORT}],
+    hosts=[{'host': ADDRESS, 'port': PORT}],
     http_auth=None,
     use_ssl=False,
 )
