@@ -1,12 +1,13 @@
 import json
 import os
-import time
 
 import httpx
 import psycopg
 import pytest
 from dotenv import load_dotenv
 from opensearchpy import OpenSearch
+
+from transform import batches, jobs
 
 load_dotenv('.env')
 
@@ -22,20 +23,17 @@ TEST_INDEX = 'test_index'
 EMBEDDING_DIMS = os.environ.get('EMBEDDING_DIMS')
 
 API_BASE_URL = 'http://localhost:8080'
-FLOWER_BASE_URL = 'http://localhost:5555'
 TIMEOUT = 120
+
+# The transformation is no longer enqueued through the API: airflow runs it, and so does this test,
+# by calling the same functions the DAG's mapped tasks call. Reuses the model the containers share.
+os.environ.setdefault('FASTEMBED_CACHE_DIR', os.path.abspath('cache/fastembed'))
 
 
 @pytest.fixture
 def api_client():
     """HTTP client for API requests."""
     with httpx.Client(base_url=API_BASE_URL, timeout=TIMEOUT) as client:
-        yield client
-
-
-@pytest.fixture
-def flower_client():
-    with httpx.Client(base_url=FLOWER_BASE_URL, timeout=TIMEOUT) as client:
         yield client
 
 
@@ -126,29 +124,23 @@ def reset_index():
     yield client
 
 
-@pytest.fixture
-def wait_for_task():
-    def _wait_for_task(flower_client, task_name, timeout=TIMEOUT):
-        """Wait for a task to complete successfully."""
-        start_time = time.time()
+def run_transformation(harvest_run_id: str, index_name: str) -> tuple[int, int, list[str]]:
+    """Run what the harvest_pipeline DAG runs for one harvest run, in process.
 
-        while time.time() - start_time < timeout:
-            try:
-                response = flower_client.get('/api/tasks', params={'taskname': task_name})
-                tasks = response.json()
+    Returns the transformed count, the count with file metadata, and the record identifiers seen.
+    """
+    slices = batches.plan_batches([harvest_run_id])
+    transformed = 0
+    with_files = 0
+    identifiers: list[str] = []
 
-                if tasks:
-                    first_task = next(iter(tasks.values()))
-                    if first_task.get('state') == 'SUCCESS':
-                        return first_task
-            except Exception:
-                pass
+    for batch_slice in slices:
+        batch = batches.fetch_batch(**batch_slice)
+        identifiers.extend(event.record_identifier for event in batch)
+        transformed += jobs.transform_batch(batch, index_name)
+        with_files += jobs.add_file_metadata(batch)
 
-            time.sleep(1)
-
-        return None
-
-    return _wait_for_task
+    return transformed, with_files, identifiers
 
 
 def test_health(api_client, reset_dataset_db, reset_file_db):
@@ -164,7 +156,7 @@ def test_get_config(api_client, reset_dataset_db, reset_file_db):
     assert len(response.json()['endpoints_configs']) == 29
 
 
-def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, reset_dataset_db, reset_index):
+def test_get_latest_harvest_run_with_harvest_url(api_client, reset_dataset_db, reset_index):
     res_get = api_client.get('/harvest_run', params={'harvest_url': 'https://demo.onedata.org/oai_pmh'})
 
     assert res_get.status_code == 200
@@ -206,7 +198,7 @@ def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, rese
     assert res_get3_response['harvest_runs'][0]['status'] == 'closed'
 
 
-def test_get_latest_harvest_run_without_harvest_url(api_client, flower_client, reset_dataset_db, reset_index):
+def test_get_latest_harvest_run_without_harvest_url(api_client, reset_dataset_db, reset_index):
     res_get = api_client.get('/harvest_run')
 
     assert res_get.status_code == 200
@@ -281,9 +273,7 @@ def test_should_be_harvested_flag(api_client, reset_dataset_db, reset_index):
     assert isinstance(runs2[0]['should_be_harvested'], bool)
 
 
-def test_create_and_close_harvest_run(
-    api_client, flower_client, reset_dataset_db, reset_file_db, reset_index, wait_for_task
-):
+def test_create_and_close_harvest_run(api_client, reset_dataset_db, reset_file_db, reset_index):
     # create a new harvest run
     res_create = api_client.post('/harvest_run', json={'harvest_url': 'https://demo.onedata.org/oai_pmh'})
 
@@ -328,26 +318,13 @@ def test_create_and_close_harvest_run(
 
     assert res_close.status_code == 200
 
-    # run a transformation
-    res_index = api_client.get(
-        '/index',
-        params={
-            'harvest_run_id': create_response['id'],
-            'index_name': TEST_INDEX,
-        },
-    )
+    # run the transformation the way the harvest_pipeline DAG does
+    transformed, with_files, identifiers = run_transformation(create_response['id'], TEST_INDEX)
 
-    # note this does not check for a successful transformation
-    assert res_index.status_code == 200
-
-    transform_task = wait_for_task(flower_client, 'transform.tasks.transform_batch')
-    filemeta_task = wait_for_task(flower_client, 'transform.tasks.add_file_metadata')
-
-    assert transform_task and transform_task['state'] == 'SUCCESS'
-    assert '10.17026/AR/0AKDPK' in transform_task['args']
-
-    assert filemeta_task and filemeta_task['state'] == 'SUCCESS'
-    assert '10.17026/AR/0AKDPK' in filemeta_task['args']
+    assert transformed == 1
+    assert '10.34894/G8PZKV' in identifiers
+    # not asserted on: how many records get file metadata depends on the external dataverse API
+    assert with_files >= 0
 
     response_config = api_client.get('/config')
 

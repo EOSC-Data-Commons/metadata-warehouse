@@ -1,4 +1,142 @@
+# Shared by every airflow service: same image, same environment, same mounts.
+# Adapted from https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html
+# with the metadata DB moved into the warehouse postgres. CeleryExecutor: the scheduler hands tasks
+# to airflow-worker over rabbitmq, so workers scale with `--scale airflow-worker=N` and can later
+# move to their own machines.
+x-airflow-common: &airflow-common
+    build:
+        dockerfile: ./docker/airflow/Dockerfile
+        context: .
+    environment: &airflow-common-env
+        AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+        AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+        # Its own database in the warehouse postgres. A password with URL reserved characters
+        # (@ : / ?) has to be percent encoded here.
+        AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: >-
+            postgresql+psycopg2://${POSTGRES_ADMIN}:${POSTGRES_PASSWORD}@${POSTGRES_ADDRESS:-postgres}:${POSTGRES_PORT:-5432}/${AIRFLOW_DB:-airflowdb}
+        AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW_FERNET_KEY}"
+        AIRFLOW__API_AUTH__JWT_SECRET: "${AIRFLOW_JWT_SECRET}"
+        AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+        AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+        AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+        # The queue the scheduler publishes to, and where task results are read back from. The
+        # result backend is postgres, not the broker: celery's amqp backend is deprecated.
+        AIRFLOW__CELERY__BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
+        AIRFLOW__CELERY__RESULT_BACKEND: >-
+            db+postgresql://${POSTGRES_ADMIN}:${POSTGRES_PASSWORD}@${POSTGRES_ADDRESS:-postgres}:${POSTGRES_PORT:-5432}/${AIRFLOW_DB:-airflowdb}
+        # Each transform task loads its own fastembed model, so parallelism is bounded by RAM, not
+        # by CPU. Worker concurrency is the per-container slot count, parallelism the cluster wide
+        # ceiling, so raise both (or add workers) to run more batches at once.
+        AIRFLOW__CELERY__WORKER_CONCURRENCY: "${AIRFLOW_WORKER_CONCURRENCY:-2}"
+        AIRFLOW__CORE__PARALLELISM: "${AIRFLOW_PARALLELISM:-2}"
+        AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: "${AIRFLOW_PARALLELISM:-2}"
+        AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+        # The warehouse jobs the DAGs call, same variables the transform service gets
+        PYTHONPATH: /opt/airflow/warehouse/src:/opt/airflow/warehouse
+        WAREHOUSE_API_URL: "${WAREHOUSE_API_URL}"
+        INDEX_NAME: "${INDEX_NAME}"
+        TRANSFORM_BATCH_SIZE: "${TRANSFORM_BATCH_SIZE}"
+        EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
+        POSTGRES_USER: "${POSTGRES_ADMIN}"
+        POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+        POSTGRES_DB: "${POSTGRES_DB}"
+        FILE_DB: "${FILE_DB}"
+        POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
+        POSTGRES_PORT: "${POSTGRES_PORT}"
+        OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
+        OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
+    volumes:
+        # Mounted as well as baked into the image, so editing a DAG or a job needs no rebuild
+        - ./dags:/opt/airflow/dags
+        - ./src:/opt/airflow/warehouse/src
+        - ./config:/opt/airflow/warehouse/config
+        - ./.cache/fastembed:/opt/airflow/cache/fastembed
+        - airflow-logs:/opt/airflow/logs
+    user: "${AIRFLOW_UID:-50000}:0"
+    networks:
+        - warehouse-backend
+    depends_on: &airflow-common-depends-on
+        postgres:
+            condition: service_healthy
+        broker:
+            condition: service_healthy
+        airflow-apiserver:
+            condition: service_healthy
+
 services:
+    # The UI and the REST API, and the execution API the workers report task state back to
+    airflow-apiserver:
+        <<: *airflow-common
+        command: api-server
+        restart: unless-stopped
+        depends_on:
+            postgres:
+                condition: service_healthy
+        environment:
+            <<: *airflow-common-env
+            # /entrypoint migrates the schema and creates the admin user before starting any
+            # component, so this needs no init container. The database itself is created by
+            # scripts/postgres_data/init_dbs.sh, with every other warehouse database.
+            _AIRFLOW_DB_MIGRATE: "true"
+            _AIRFLOW_WWW_USER_CREATE: "true"
+            _AIRFLOW_WWW_USER_USERNAME: "${AIRFLOW_ADMIN:-airflow}"
+            _AIRFLOW_WWW_USER_PASSWORD: "${AIRFLOW_ADMIN_PASSWORD}"
+        healthcheck:
+            test: [ "CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health" ]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 30s
+
+    # Schedules the DAGs and queues their tasks, the workers below run them
+    airflow-scheduler:
+        <<: *airflow-common
+        command: scheduler
+        restart: unless-stopped
+        healthcheck:
+            test: [ "CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"' ]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 30s
+        depends_on:
+            <<: *airflow-common-depends-on
+            opensearch:
+                condition: service_healthy
+
+    # Runs the queued tasks. `docker compose up -d --scale airflow-worker=3` for more capacity;
+    # opensearch is a dependency here rather than on the scheduler because the tasks write to it.
+    airflow-worker:
+        <<: *airflow-common
+        command: celery worker
+        restart: unless-stopped
+        # Give a task time to finish instead of killing it mid batch on stop or rescale
+        stop_grace_period: 5m
+        healthcheck:
+            test: [ "CMD-SHELL", 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"' ]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 60s
+        depends_on:
+            <<: *airflow-common-depends-on
+            opensearch:
+                condition: service_healthy
+
+    # Celery queue monitoring, off by default: `docker compose --profile flower up -d flower`
+    flower:
+        <<: *airflow-common
+        command: celery flower
+        restart: unless-stopped
+        profiles: [ flower ]
+        healthcheck:
+            test: [ "CMD", "curl", "--fail", "http://localhost:5555/" ]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 30s
+
+    # The task queue. Celery's own result backend is postgres, see AIRFLOW__CELERY__RESULT_BACKEND
     broker:
         image: rabbitmq:3-management-alpine
         restart: unless-stopped
@@ -15,80 +153,17 @@ services:
             timeout: 5s
             retries: 3
 
-    flower:
-        image: mher/flower
-        #build:
-        #dockerfile: ./docker/transform/Dockerfile
-        #context: .
-        networks:
-            - warehouse-backend
-        depends_on:
-            broker:
-                condition: service_healthy
-            celery:
-                condition: service_healthy
-        volumes:
-            #- ./data/results:/var/celery/results
-            - flower-data:/data # persist flower db
-        environment:
-            CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
-        command:
-          [
-              "celery",
-              "flower",
-              "--address=0.0.0.0",
-              "--loglevel=info",
-              "--persistent=True",
-              "--db=flower_db"
-#              "--port=5555"
-            #"--without-heartbeat"
-          ]
-
-    celery:
-        build:
-            dockerfile: ./docker/transform/Dockerfile
-            context: .
-        volumes:
-            - ./src:/code/src
-            - ./config:/code/config
-            - ./cache/fastembed:/root/.cache/fastembed
-        networks:
-            - warehouse-backend
-        depends_on:
-            broker:
-                condition: service_healthy
-        command:
-          [
-              "celery",
-              "-A",
-              "transform.tasks",
-              "worker",
-            #"-Q",
-            #"batches",
-              "-E",
-              "--concurrency=1",
-              "--pool=prefork",
-              "--loglevel=INFO"
-          ]
-        #volumes:
-        #- ./data/results:/var/celery/results
-        environment:
-            PYTHONPATH: /code/src:/code  # src for tasks.py, root for config/
-            CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
-            EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
-            POSTGRES_USER: "${POSTGRES_ADMIN}"
-            POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-            POSTGRES_DB: "${POSTGRES_DB}"
-            FILE_DB: "${FILE_DB}"
-            POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
-            POSTGRES_PORT: "${POSTGRES_PORT}"
-            OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
-            OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
+    # Parses the dags folder. A separate service since airflow 3, the scheduler no longer does it.
+    airflow-dag-processor:
+        <<: *airflow-common
+        command: dag-processor
+        restart: unless-stopped
         healthcheck:
-            test: celery -A transform.tasks status
-            interval: 10s
-            timeout: 5s
-            retries: 3
+            test: [ "CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"' ]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 30s
 
     transform:
         build:
@@ -97,13 +172,12 @@ services:
         volumes:
             - ./src:/code/src
             - ./config:/code/config
-            - ./cache/fastembed:/root/.cache/fastembed
+            - ./.cache/fastembed:/root/.cache/fastembed
         command: [ "fastapi", "run", "--host", "0.0.0.0", "app/routes.py", "--port", "80" ]
         networks:
             - warehouse-backend
         environment:
             PYTHONPATH: /code/src:/code
-            CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
             POSTGRES_DB: "${POSTGRES_DB}"
@@ -112,13 +186,10 @@ services:
             OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
             OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
-            CELERY_BATCH_SIZE: "${CELERY_BATCH_SIZE}"
         depends_on:
             postgres:
                 condition: service_healthy
             opensearch:
-                condition: service_healthy
-            broker:
                 condition: service_healthy
 
     postgres:
@@ -273,35 +344,13 @@ services:
         networks:
             - warehouse-backend
 
-    scheduler:
-      build:
-        dockerfile: ./docker/scheduler/Dockerfile
-        context: .
-      profiles: ["manual"]
-      command: ["python", "-m", "scheduler.run"]
-      env_file:
-        - .env
-      depends_on:
-        postgres:
-          condition: service_healthy
-        opensearch:
-          condition: service_healthy
-        transform:
-          condition: service_started
-      networks:
-        - warehouse-backend
-      volumes:
-        - /var/run/docker.sock:/var/run/docker.sock
-        - ./docker-compose.yml:/app/compose.yml
-        - ./.env:/app/.env
-
 volumes:
     postgres-data:
     pgadmin-data:
     opensearch-data:
     opensearch-dashboards-data:
+    airflow-logs:
     broker-data:
-    flower-data:
     search-api-data:
     frontend-data:
     harvester-logs:
