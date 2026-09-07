@@ -13,7 +13,7 @@ x-airflow-common: &airflow-common
         # Its own database in the warehouse postgres. A password with URL reserved characters
         # (@ : / ?) has to be percent encoded here.
         AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: >-
-            postgresql+psycopg2://${POSTGRES_ADMIN}:${POSTGRES_PASSWORD}@${POSTGRES_ADDRESS:-postgres}:${POSTGRES_PORT:-5432}/${AIRFLOW_DB:-airflowdb}
+            postgresql+psycopg2://${POSTGRES_ADMIN}:${POSTGRES_PASSWORD}@${POSTGRES_ADDRESS:-postgres}:${POSTGRES_PORT:-5432}/airflowdb
         AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW_FERNET_KEY}"
         AIRFLOW__API_AUTH__JWT_SECRET: "${AIRFLOW_JWT_SECRET}"
         AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
@@ -23,7 +23,7 @@ x-airflow-common: &airflow-common
         # result backend is postgres, not the broker: celery's amqp backend is deprecated.
         AIRFLOW__CELERY__BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
         AIRFLOW__CELERY__RESULT_BACKEND: >-
-            db+postgresql://${POSTGRES_ADMIN}:${POSTGRES_PASSWORD}@${POSTGRES_ADDRESS:-postgres}:${POSTGRES_PORT:-5432}/${AIRFLOW_DB:-airflowdb}
+            db+postgresql://${POSTGRES_ADMIN}:${POSTGRES_PASSWORD}@${POSTGRES_ADDRESS:-postgres}:${POSTGRES_PORT:-5432}/airflowdb
         # Each transform task loads its own fastembed model, so parallelism is bounded by RAM, not
         # by CPU. Worker concurrency is the per-container slot count, parallelism the cluster wide
         # ceiling, so raise both (or add workers) to run more batches at once.
@@ -201,6 +201,8 @@ services:
         restart: unless-stopped
         volumes:
             - postgres-data:/var/lib/postgresql/data
+            # airflowdb has to exist before airflow's first connection, see the script
+            - ./scripts/postgres_data/create_airflowdb.sh:/docker-entrypoint-initdb.d/10-airflowdb.sh:ro
         networks:
             - warehouse-backend
         healthcheck:

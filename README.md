@@ -195,9 +195,17 @@ echo "AIRFLOW_JWT_SECRET=$(openssl rand -hex 32)" >> .env
 ```
 
 On Linux, also set `AIRFLOW_UID` to your own `id -u` so the mounted `dags/` and the fastembed cache
-stay writable. The `airflowdb` database is created by `scripts/postgres_data/init_dbs.sh` with
-every other warehouse database; the api-server migrates its schema and creates the admin user on
-every start, so there is no init container.
+stay writable. The `airflowdb` database is created when postgres initializes its data directory,
+by `scripts/postgres_data/create_airflowdb.sh`, because the api-server migrates its schema on start
+and cannot wait for `init_dbs.sh` to be run by hand. It also creates the admin user on every start,
+so there is no init container.
+
+A postgres data directory that predates that script never runs it, so create the database once by
+hand there:
+
+```sh
+docker compose exec postgres psql -U "$POSTGRES_ADMIN" -c 'CREATE DATABASE airflowdb'
+```
 
 ### Architecture
 
