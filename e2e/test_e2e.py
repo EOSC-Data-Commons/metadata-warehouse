@@ -4,12 +4,9 @@ import os
 import httpx
 import psycopg
 import pytest
-from dotenv import load_dotenv
 from opensearchpy import OpenSearch
 
 from transform import batches, jobs
-
-load_dotenv('.env')
 
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
@@ -26,8 +23,7 @@ API_BASE_URL = 'http://localhost:8080'
 TIMEOUT = 120
 
 # The transformation is no longer enqueued through the API: airflow runs it, and so does this test,
-# by calling the same functions the DAG's mapped tasks call. Reuses the model the containers share.
-os.environ.setdefault('FASTEMBED_CACHE_DIR', os.path.abspath('cache/fastembed'))
+# by calling the same functions the DAG's mapped tasks call. See conftest.py for the environment.
 
 
 @pytest.fixture
