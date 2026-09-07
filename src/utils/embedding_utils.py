@@ -175,6 +175,7 @@ def add_embeddings_to_source(
         try:
             embeddings = _embed(
                 embedding_texts,
+                prefix='',
                 logger=logger,
                 api_key=api_key,
                 base_url=base_url,
