@@ -40,15 +40,17 @@ jobs:
                 uses: actions/cache@v5
                 with:
                     path: ./.cache/fastembed
-                    key: fastembed-${{ hashFiles('uv.lock') }}
+                    key: fastembed-v2-${{ hashFiles('uv.lock') }}
                     restore-keys: |
-                        fastembed-
+                        fastembed-v2-
 
             -   name: Config
                 run: |
                     cp docker-compose.override.yml.template docker-compose.override.yml
                     cp env.template_e2e .env
-                    cp keys.env.template keys.env 
+                    cp keys.env.template keys.env
+                    # before compose does, which would create it root owned and unwritable by pytest
+                    mkdir -p .cache/fastembed
 
             -   name: Docker Build
                 run: docker compose build
