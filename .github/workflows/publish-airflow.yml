@@ -1,4 +1,4 @@
-name: publish-scheduler
+name: publish-airflow
 
 on:
   workflow_dispatch:
@@ -37,7 +37,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/eosc-data-commons/scheduler
+          images: ghcr.io/eosc-data-commons/airflow
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -48,7 +48,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: docker/scheduler/Dockerfile
+          file: docker/airflow/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
           pull: true
           push: true

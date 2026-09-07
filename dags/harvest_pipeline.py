@@ -124,7 +124,10 @@ def harvest_pipeline() -> None:
             raise AirflowSkipException('no harvest events to transform')
         return slices
 
-    @task(execution_timeout=TRANSFORM_TIMEOUT, map_index_template='{{ task.op_kwargs["harvest_run_id"][:8] }}/{{ task.op_kwargs["batch_number"] }}')
+    @task(
+        execution_timeout=TRANSFORM_TIMEOUT,
+        map_index_template='{{ task.op_kwargs["harvest_run_id"][:8] }}/{{ task.op_kwargs["batch_number"] }}',
+    )
     def transform_batch(harvest_run_id: str, start_id: str, limit: int, batch_number: int) -> int:
         """Normalize, embed and index one batch into OpenSearch and datasetdb."""
         params = dag_params()
@@ -132,7 +135,10 @@ def harvest_pipeline() -> None:
         batch = batches.fetch_batch(harvest_run_id, start_id, limit, batch_number)
         return int(jobs.transform_batch(batch, index_name, reuse_embeddings=params['reuse_embeddings']))
 
-    @task(execution_timeout=TRANSFORM_TIMEOUT, map_index_template='{{ task.op_kwargs["harvest_run_id"][:8] }}/{{ task.op_kwargs["batch_number"] }}')
+    @task(
+        execution_timeout=TRANSFORM_TIMEOUT,
+        map_index_template='{{ task.op_kwargs["harvest_run_id"][:8] }}/{{ task.op_kwargs["batch_number"] }}',
+    )
     def add_file_metadata(harvest_run_id: str, start_id: str, limit: int, batch_number: int) -> int:
         """Resolve the files behind one batch of records and write them to filedb."""
         batch = batches.fetch_batch(harvest_run_id, start_id, limit, batch_number)
