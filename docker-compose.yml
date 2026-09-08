@@ -80,8 +80,8 @@ services:
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
             POSTGRES_DB: "${POSTGRES_DB}"
             FILE_DB: "${FILE_DB}"
-            POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
-            POSTGRES_PORT: "${POSTGRES_PORT}"
+            POSTGRES_ADDRESS_DOCKER: "${POSTGRES_ADDRESS_DOCKER}"
+            POSTGRES_PORT_DOCKER: "${POSTGRES_PORT_DOCKER}"
             OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
             OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
         healthcheck:
@@ -107,8 +107,8 @@ services:
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
             POSTGRES_DB: "${POSTGRES_DB}"
-            POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
-            POSTGRES_PORT: "${POSTGRES_PORT}"
+            POSTGRES_ADDRESS_DOCKER: "${POSTGRES_ADDRESS_DOCKER}"
+            POSTGRES_PORT_DOCKER: "${POSTGRES_PORT_DOCKER}"
             OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
             OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
@@ -162,8 +162,8 @@ services:
             postgres:
                 condition: service_healthy
         environment:
-            TOOL_REGISTRY_DATABASE__HOST: ${POSTGRES_ADDRESS}
-            TOOL_REGISTRY_DATABASE__PORT: ${POSTGRES_PORT}
+            TOOL_REGISTRY_DATABASE__HOST: ${POSTGRES_ADDRESS_DOCKER}
+            TOOL_REGISTRY_DATABASE__PORT: ${POSTGRES_PORT_DOCKER}
             TOOL_REGISTRY_DATABASE__NAME: ${TOOL_DB}
             TOOL_REGISTRY_DATABASE__USER: ${TOOL_DB_USER}
             TOOL_REGISTRY_DATABASE__PASSWORD: ${TOOL_DB_PASSWORD}
@@ -237,8 +237,8 @@ services:
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
             POSTGRES_DB: "${POSTGRES_DB}"
-            POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
-            POSTGRES_PORT: "${POSTGRES_PORT}"
+            POSTGRES_ADDRESS_DOCKER: "${POSTGRES_ADDRESS_DOCKER}"
+            POSTGRES_PORT_DOCKER: "${POSTGRES_PORT_DOCKER}"
             FILE_DB: "${FILE_DB}"
             TOOL_REGISTRY_API: "https://dev.tools-registry.eosc-data-commons.eu/api/v1"
         networks:

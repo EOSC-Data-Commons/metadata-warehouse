@@ -11,8 +11,8 @@ load_dotenv()
 
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
-ADDRESS = os.environ.get('POSTGRES_ADDRESS_HOST') or '127.0.0.1'
-PORT = int(os.environ.get('POSTGRES_PORT') or 5432)
+POSTGRES_ADDRESS_HOST = os.environ.get('POSTGRES_ADDRESS_HOST') or '127.0.0.1'
+POSTGRES_PORT_HOST = int(os.environ.get('POSTGRES_PORT_HOST') or 5432)
 
 if not USER or not PW:
     raise ValueError('Missing POSTGRES_ADMIN or POSTGRES_PASSWORD in environment.')
@@ -44,7 +44,9 @@ try:
     # Step 1: Create DB if it doesn't exist, or reset if --reset flag is set
     proceed = False
 
-    with psycopg.connect(dbname='postgres', user=USER, host=ADDRESS, password=PW, port=PORT, autocommit=True) as conn:
+    with psycopg.connect(
+        dbname='postgres', user=USER, host=POSTGRES_ADDRESS_HOST, password=PW, port=POSTGRES_PORT_HOST, autocommit=True
+    ) as conn:
         with conn.cursor() as cur:
             cur.execute('SELECT 1 FROM pg_database WHERE datname = %s', (DB,))
             exists = cur.fetchone()
@@ -61,7 +63,9 @@ try:
 
     # Step 2: Reset schema and run all SQL files in a single transaction
     if proceed:
-        with psycopg.connect(dbname=DB, user=USER, host=ADDRESS, password=PW, port=PORT) as conn:
+        with psycopg.connect(
+            dbname=DB, user=USER, host=POSTGRES_ADDRESS_HOST, password=PW, port=POSTGRES_PORT_HOST
+        ) as conn:
             with conn.cursor() as cur:
                 cur.execute('DROP SCHEMA IF EXISTS public CASCADE')
                 cur.execute('CREATE SCHEMA public')

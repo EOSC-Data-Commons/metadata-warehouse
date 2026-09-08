@@ -13,7 +13,7 @@ load_dotenv('.env')
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
 POSTGRES_ADDRESS_HOST = os.environ.get('POSTGRES_ADDRESS_HOST') or '127.0.0.1'
-POSTGRES_PORT = int(os.environ.get('POSTGRES_PORT') or 5432)
+POSTGRES_PORT_HOST = int(os.environ.get('POSTGRES_PORT_HOST') or 5432)
 OPENSEARCH_ADDRESS_HOST = os.environ.get('OPENSEARCH_ADDRESS_HOST') or '127.0.0.1'
 OPENSEARCH_PORT = int(os.environ.get('OPENSEARCH_PORT') or 9200)
 TEST_DATASET_DB = 'testdatasetdb'
@@ -57,7 +57,7 @@ def reset_db(name: str, path: str):
         user=USER,
         host=POSTGRES_ADDRESS_HOST,
         password=PW,
-        port=POSTGRES_PORT,
+        port=POSTGRES_PORT_HOST,
         autocommit=True,
     ) as conn:
         with conn.cursor() as cursor:
@@ -70,7 +70,7 @@ def reset_db(name: str, path: str):
         user=USER,
         host=POSTGRES_ADDRESS_HOST,
         password=PW,
-        port=POSTGRES_PORT,
+        port=POSTGRES_PORT_HOST,
     ) as conn:
         with conn.cursor() as cursor:
             # Drop and recreate schema
