@@ -11,8 +11,8 @@ To run the containers:
   Optionally, add the following env variables for postgres and/or OpenSearch (not needed for local dev):
     - `POSTGRES_ADDRESS_DOCKER` (default "postgres", docker network internal) and `POSTGRES_PORT_HOST` (default 5432)
     - `POSTGRES_ADDRESS_HOST` (default "127.0.0.1", host) and `POSTGRES_PORT_HOST` (default 5432)
-    - `OPENSEARCH_ADDRESS` (default "opensearch", docker network internal) and `OPENSEARCH_PORT` (default 9200)
-    - `OPENSEARCH_ADDRESS_HOST` (default "127.0.0.1", host)
+    - `OPENSEARCH_ADDRESS_DOCKER` (default "opensearch", docker network internal) and `OPENSEARCH_PORT_DOCKER` (default 9200)
+    - `OPENSEARCH_ADDRESS_HOST` (default "127.0.0.1", host) and `OPENSEARCH_ADDRESS_PORT` (default 9200)
     - `FASTAPI_ADDRESS` (default "127.0.0.1") and `FASTAPI_PORT` (default 8080)
 - API keys for search API server:
   ```sh

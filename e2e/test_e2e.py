@@ -15,7 +15,7 @@ PW = os.environ.get('POSTGRES_PASSWORD')
 POSTGRES_ADDRESS_HOST = os.environ.get('POSTGRES_ADDRESS_HOST') or '127.0.0.1'
 POSTGRES_PORT_HOST = int(os.environ.get('POSTGRES_PORT_HOST') or 5432)
 OPENSEARCH_ADDRESS_HOST = os.environ.get('OPENSEARCH_ADDRESS_HOST') or '127.0.0.1'
-OPENSEARCH_PORT = int(os.environ.get('OPENSEARCH_PORT') or 9200)
+OPENSEARCH_PORT_HOST = int(os.environ.get('OPENSEARCH_PORT_HOST') or 9200)
 TEST_DATASET_DB = 'testdatasetdb'
 TEST_FILE_DB = 'testfiledb'
 TEST_INDEX = 'test_index'
@@ -104,7 +104,7 @@ def reset_index():
         hosts=[
             {
                 'host': OPENSEARCH_ADDRESS_HOST,
-                'port': OPENSEARCH_PORT,
+                'port': OPENSEARCH_PORT_HOST,
             }
         ],
         http_auth=None,

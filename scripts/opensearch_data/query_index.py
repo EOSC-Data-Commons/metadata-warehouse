@@ -12,7 +12,7 @@ load_dotenv()
 INDEX_NAME = os.environ.get('INDEX_NAME')
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
 ADDRESS = os.environ.get('OPENSEARCH_ADDRESS_HOST') or '127.0.0.1'
-PORT = int(os.environ.get('OPENSEARCH_PORT') or 9200)
+PORT = int(os.environ.get('OPENSEARCH_PORT_HOST') or 9200)
 if not INDEX_NAME or not EMBEDDING_MODEL:
     raise ValueError('Missing INDEX_NAME environment variable')
 
