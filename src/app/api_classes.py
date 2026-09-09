@@ -9,10 +9,6 @@ class HealthGetResponse(BaseModel):
     time: datetime = Field(description='Current daytime as UTC')
 
 
-class IndexGetResponse(BaseModel):
-    number_of_batches: int = Field(description='Number of batches created in Celery queue.')
-
-
 class AdditionalMetadataParams(BaseModel):
     format: str
     endpoint: str

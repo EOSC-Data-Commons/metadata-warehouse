@@ -1,27 +1,13 @@
 services:
-    flower:
+    airflow-apiserver:
         ports:
-            - "127.0.0.1:5555:5555"
-        environment:
-            FLOWER_UNAUTHENTICATED_API: true
+            - "127.0.0.1:8081:8080"
 
     transform:
         ports:
             - "127.0.0.1:8080:80"
         # Uncomment for dev (hot reload):
         # command: [ "fastapi", "dev", "--host", "0.0.0.0", "app/routes.py", "--port", "80" ]
-
-    celery:
-        # Uncomment for dev (auto-restart on file changes):
-        # command:
-        #   [ "watchmedo", "auto-restart",
-        #     "--debug-force-polling",
-        #     "--directory=/code/src",
-        #     "--directory=/code/config",
-        #     "--pattern=*.py", "--recursive", "--",
-        #     "celery", "-A", "transform.tasks", "worker",
-        #     "-E", "--concurrency=1", "--pool=prefork", "--loglevel=DEBUG"
-        #   ]
 
     postgres:
         ports:

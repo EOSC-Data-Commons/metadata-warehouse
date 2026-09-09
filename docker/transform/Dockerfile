@@ -4,7 +4,7 @@ COPY ./pyproject.toml ./uv.lock /code/
 
 WORKDIR /code
 ENV UV_LINK_MODE=copy
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --extra api
 
 COPY ./src /code/src
 COPY ./config /code/config

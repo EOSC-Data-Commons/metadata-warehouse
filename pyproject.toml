@@ -5,31 +5,38 @@ description = "Prepare and import DataCite OAI-PMH XML metadata into PostgreSQL 
 requires-python = ">=3.12"
 dependencies = [
     "opensearch-py>=3.1.0",
-    "celery>=5.6.2",
     "xmltodict>=1.0.4",
     "jsonschema>=4.26.0",
     "fastembed>=0.7.4",
-    "watchdog>=6.0.0",
-    "fastapi[standard]>=0.135.1",
     "psycopg[binary]>=3.3.3",
-    # "flower", # only needed when not using mher/flower
     "datahugger-ng>=0.6.3",
-    "docker>=7.1.0",
     "requests>=2.32.5",
     "lxml>=6.0.2",
+    "python-dotenv>=1.2.2",
+]
+
+[project.optional-dependencies]
+# The transform API only, kept out of the base set because airflow pins its own fastapi
+api = [
+    "fastapi[standard]>=0.135.1",
+]
+# harvest_endpoint only. A git dependency, so it is installed where git exists (the airflow image)
+# and left out of the transform image, which has no git and never harvests
+harvest = [
+    "metadata-harvester @ git+https://github.com/EOSC-Data-Commons/metadata-crawlers.git@make-it-python-importable",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
+    # DAG authoring only: lets ruff/mypy resolve airflow.sdk without installing all of airflow.
+    # Keep the major.minor in step with AIRFLOW_VERSION in docker/airflow/Dockerfile.
+    "apache-airflow-task-sdk>=1.3.1,<1.4",
     "types-xmltodict>=1.0.1.20260113",
-    "celery-stubs>=0.1.3",
     "mypy>=2.1.0",
     "types-jsonschema>=4.26.0.20260202",
     "types-requests>=2.32.4.20260107",
     "lxml-stubs>=0.5.1",
-    "python-dotenv>=1.2.2",
-    "celery-types>=0.24.0",
     "ruff>=0.15.12",
     "pre-commit>=4.6.0",
 ]
@@ -39,10 +46,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+# src as well as the root, so tests import the job modules the same way the DAGs do
+pythonpath = [".", "src"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src", "config", "scheduler"]
+packages = ["src", "config"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.mypy]
 python_version = "3.12"
@@ -55,7 +66,7 @@ namespace_packages = true
 
 files = [
     "src",
-    "scheduler",
+    "dags",
     "config"
 ]
 
@@ -106,3 +117,5 @@ select = [
 "__init__.py" = ["I", "F401"]
 # Tests can use assertions and magic values
 '**/{tests,e2e}/*' = ['S101']
+# A @dag function is a list of task declarations, so its complexity is not a useful signal
+'dags/*' = ['C901']

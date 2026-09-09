@@ -1,15 +1,24 @@
+"""The python jobs the airflow DAGs call, one function per unit of work.
+
+Plain functions that know nothing about airflow or celery: an airflow worker runs each one, so
+retries, logs and concurrency are the DAG's business, not this module's. The expensive per-process
+resources (the fastembed model, the OpenSearch client) are built once per process by the cached
+accessors below, which is what a celery Task base class used to do in __init__.
+
+See dags/harvest_pipeline.py for how they are wired together.
+"""
+
 import datetime
 import json
+import logging
 import os
 from enum import Enum
+from functools import lru_cache
 from logging.config import dictConfig
 from typing import Any
 
 import psycopg
 import xmltodict
-from celery import Celery, Task
-from celery.signals import after_setup_logger
-from celery.utils.log import get_task_logger
 from datahugger import (
     DabarXmlSrcDataset,
     Dataset,
@@ -21,6 +30,7 @@ from datahugger import (
     resolve,
 )
 from fastembed import TextEmbedding
+from harvester import HarvesterSettings, run_harvest
 from jsonschema.validators import validate
 from lxml import etree as ET
 from opensearchpy import OpenSearch
@@ -30,6 +40,7 @@ from psycopg.rows import dict_row
 from config.logging_config import LOGGING_CONFIG
 from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
+from transform.warehouse_api import WAREHOUSE_API_URL
 from utils import handle_xml, normalize_datacite_json
 from utils.embedding_utils import (
     OpenSearchSourceWithEmbedding,
@@ -40,30 +51,26 @@ from utils.embedding_utils import (
 )
 from utils.queue_utils import HarvestEventQueue
 
-
-@after_setup_logger.connect()  # type: ignore[untyped-decorator, unused-ignore]
-def configurate_celery_task_logger(**kwargs: Any) -> None:
-    # https://docs.celeryq.dev/en/latest/userguide/signals.html#after-setup-logger
-    dictConfig(LOGGING_CONFIG)
-
-
-logger = get_task_logger(__name__)
+dictConfig(LOGGING_CONFIG)
+logger = logging.getLogger(__name__)
 
 # OAI-PMH XML namespaces
 OAI_RECORD = f'{handle_xml.OAI}:record'
 OAI_METADATA = f'{handle_xml.OAI}:metadata'
 
-EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
-if not EMBEDDING_MODEL:
-    raise ValueError('Missing EMBEDDING_MODEL environment variable')
 
-FASTEMBED_CACHE_DIR = os.environ.get('FASTEMBED_CACHE_DIR', '/root/.cache/fastembed')
+def require_env(name: str) -> str:
+    """Fail at import rather than halfway through a batch, the way the celery worker used to."""
+    value = os.environ.get(name)
+    if not value:
+        raise ValueError(f'Missing {name} environment variable')
+    return value
 
-celery_app = Celery('tasks')
 
+EMBEDDING_MODEL = require_env('EMBEDDING_MODEL')
 
-# celery_app.task_serializer = 'json'
-# celery_app.ignore_result = False
+# The datacite JSON schema every normalized record is validated against, next to the config package
+SCHEMA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'config', 'schema.json')
 
 
 class ProviderCode(str, Enum):
@@ -74,79 +81,163 @@ class ProviderCode(str, Enum):
     SWISSUBASE = 'SWISS'
 
 
-class FileMetadataTask(Task):  # type: ignore
-    postgres_config: PostgresConfig
-
-    def __init__(self) -> None:
-        # TODO: how to configure DB and not hard code?
-        self.postgres_config = PostgresConfig(db=os.environ.get('FILE_DB'))
-
-    def parse_checksum(self, file: FileEntry | ZipEntry) -> tuple[str | None, str | None]:
-        if not file.checksum:
-            return None, None
-
-        algo = file.checksum[0][0].replace('sha1', 'sha-1').upper()
-        value = file.checksum[0][1]
-        return algo, value
-
-    def make_file_entry(self, harvest_event: HarvestEventQueue, file: FileEntry) -> tuple[Any, ...]:
-
-        checksum_type, checksum_value = self.parse_checksum(file)
-
-        return (
-            harvest_event.harvest_url,
-            harvest_event.record_identifier,
-            file.file_identifier or file.filename,
-            file.filename or file.file_identifier,
-            'datahugger',
-            harvest_event.identifier_type,
-            'Dataset',
-            file.mimetype,
-            file.size,
-            checksum_type,
-            checksum_value,
-            file.version,
-            file.download_url,
-            file.creation_date,
-            file.last_modification_date,
-        )
-
-    def make_zip_entry(self, harvest_event: HarvestEventQueue, zip_file: ZipEntry) -> tuple[Any, ...]:
-        checksum_type, checksum_value = self.parse_checksum(zip_file)
-
-        return (
-            harvest_event.harvest_url,
-            harvest_event.record_identifier,
-            harvest_event.record_identifier,
-            harvest_event.record_identifier,
-            'datahugger',
-            harvest_event.identifier_type,
-            'Dataset',
-            'application/zip',
-            None,
-            checksum_type,
-            checksum_value,
-            zip_file.version,
-            zip_file.download_url,
-            zip_file.creation_date,
-            None,
-        )
-
-    def collect_files(self, harvest_event: HarvestEventQueue, dataset: Dataset) -> list[tuple[Any, ...]]:
-        return [self.make_file_entry(harvest_event, file) for file in dataset.crawl_file()]
+@lru_cache(maxsize=1)
+def file_db_config() -> PostgresConfig:
+    """filedb, where the per record file metadata goes."""
+    # TODO: how to configure DB and not hard code?
+    return PostgresConfig(db=os.environ.get('FILE_DB'))
 
 
-@celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
-def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
+@lru_cache(maxsize=1)
+def dataset_db_config() -> PostgresConfig:
+    """datasetdb, the harvested records and their normalized datacite JSON."""
+    return PostgresConfig()
 
+
+@lru_cache(maxsize=1)
+def opensearch_client() -> OpenSearch:
+    opensearch_config = OpenSearchConfig()
+    return OpenSearch(
+        hosts=[{'host': opensearch_config.host, 'port': opensearch_config.port}],
+        http_auth=None,
+        use_ssl=False,
+        logger=logger,
+    )
+
+
+@lru_cache(maxsize=1)
+def embedding_transformer() -> TextEmbedding:
+    """Loads the fastembed model, which is why this is cached per process and not per call.
+
+    FASTEMBED_CACHE_DIR is read here rather than at import so a caller can point it at a writable
+    directory before the first embedding: the airflow user cannot write the /root default.
+    """
+    cache_dir = os.environ.get('FASTEMBED_CACHE_DIR', '/root/.cache/fastembed')
+    logger.info(f'Setting up embedding transformer with model {EMBEDDING_MODEL} (cache {cache_dir})')
+    return TextEmbedding(model_name=EMBEDDING_MODEL, cache_dir=cache_dir)
+
+
+@lru_cache(maxsize=1)
+def datacite_schema() -> dict[Any, Any]:
+    with open(SCHEMA_PATH) as f:
+        schema: dict[Any, Any] = json.load(f)
+    return schema
+
+
+def parse_checksum(file: FileEntry | ZipEntry) -> tuple[str | None, str | None]:
+    if not file.checksum:
+        return None, None
+
+    algo = file.checksum[0][0].replace('sha1', 'sha-1').upper()
+    value = file.checksum[0][1]
+    return algo, value
+
+
+def make_file_entry(harvest_event: HarvestEventQueue, file: FileEntry) -> tuple[Any, ...]:
+    checksum_type, checksum_value = parse_checksum(file)
+
+    return (
+        harvest_event.harvest_url,
+        harvest_event.record_identifier,
+        file.file_identifier or file.filename,
+        file.filename or file.file_identifier,
+        'datahugger',
+        harvest_event.identifier_type,
+        'Dataset',
+        file.mimetype,
+        file.size,
+        checksum_type,
+        checksum_value,
+        file.version,
+        file.download_url,
+        file.creation_date,
+        file.last_modification_date,
+    )
+
+
+def make_zip_entry(harvest_event: HarvestEventQueue, zip_file: ZipEntry) -> tuple[Any, ...]:
+    checksum_type, checksum_value = parse_checksum(zip_file)
+
+    return (
+        harvest_event.harvest_url,
+        harvest_event.record_identifier,
+        harvest_event.record_identifier,
+        harvest_event.record_identifier,
+        'datahugger',
+        harvest_event.identifier_type,
+        'Dataset',
+        'application/zip',
+        None,
+        checksum_type,
+        checksum_value,
+        zip_file.version,
+        zip_file.download_url,
+        zip_file.creation_date,
+        None,
+    )
+
+
+def collect_files(harvest_event: HarvestEventQueue, dataset: Dataset) -> list[tuple[Any, ...]]:
+    return [make_file_entry(harvest_event, file) for file in dataset.crawl_file()]
+
+
+def collect_crawled_files(harvest_event: HarvestEventQueue, dataset: Dataset) -> list[tuple[Any, ...]]:
+    """Entries of a dataset crawled without a file listing, which is how swissubase is resolved.
+
+    crawl() yields zips, plain files and directories; a DirEntry carries none of the checksum and
+    version fields an entry needs, so it is skipped rather than crashing the batch.
+    """
+    entries: list[tuple[Any, ...]] = []
+    for entry in dataset.crawl():
+        if isinstance(entry, ZipEntry):
+            entries.append(make_zip_entry(harvest_event, entry))
+        elif isinstance(entry, FileEntry):
+            entries.append(make_file_entry(harvest_event, entry))
+    return entries
+
+
+def harvest_endpoint(harvest_url: str) -> bool:
+    """Harvest one OAI-PMH endpoint, writing its records through the warehouse API.
+
+    The crawler is a library now (metadata-crawlers, imported as `harvester`), so this runs in the
+    airflow task process instead of `docker compose run --rm harvester`. It reaches datasetdb the
+    same way the container did, over the transform API, so the harvest_run bookkeeping and the
+    additional-metadata fetching stay where they already are.
+
+    Returns whether the harvest was complete, and does not raise on an incomplete one. run_harvest
+    reports False for a single rejected record as readily as for an endpoint it never reached (it
+    returns `failed_events == 0`), and feeds do repeat a record identifier, which the warehouse
+    rejects with a 409. Failing the task on that would cost the whole pipeline: the sensor below it
+    is NONE_FAILED, so one quirky endpoint out of 28 would block transforming the other 27.
+
+    The outcome is recorded where it belongs instead: harvest_runs.status in datasetdb, this
+    task's return value, and the errors the harvester logs above. Nothing was harvested is handled
+    downstream too, where plan_transform_batches skips a run with no events.
+    """
+    logger.info(f'harvesting {harvest_url} through {WAREHOUSE_API_URL}')
+    settings = HarvesterSettings(
+        WAREHOUSE_API_URL=WAREHOUSE_API_URL,
+        WAREHOUSE_API_TIMEOUT=int(os.environ.get('HARVEST_API_TIMEOUT') or 30),
+    )
+    # setup_logs=False: airflow captures this process's logging, a second file handler would only
+    # write into the container filesystem where nobody reads it
+    complete = run_harvest(harvest_url, settings=settings, setup_logs=False)
+    if complete:
+        logger.info(f'harvested {harvest_url}')
+    else:
+        logger.warning(f'{harvest_url}: harvest incomplete, see the errors above and harvest_runs.status')
+    return complete
+
+
+def add_file_metadata(batch: list[HarvestEventQueue]) -> int:
+    """Resolve the files behind each record of the batch and write them to filedb."""
     success = 0
 
-    with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
+    with psycopg.connect(**file_db_config().connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
-        for ele in batch:
+        for harvest_event in batch:
             files = []
-            harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
 
             if (
                 harvest_event.additional_metadata_API
@@ -162,7 +253,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
                 ds_dv = DataverseJsonSrcDataset(url, harvest_event.additional_metadata)
 
-                files.extend(self.collect_files(harvest_event, ds_dv))
+                files.extend(collect_files(harvest_event, ds_dv))
 
             elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.ZENODO:
                 # get id from DOI: 10.5281/zenodo.570959 -> 570959
@@ -170,7 +261,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                     harvest_event.record_identifier.split('.')[-1], harvest_event.additional_metadata
                 )
 
-                files.extend(self.collect_files(harvest_event, ds_z))
+                files.extend(collect_files(harvest_event, ds_z))
 
             elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.HAL:
                 # HAL IDs contain a version suffix, needs to be removed
@@ -178,20 +269,19 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                     harvest_event.record_identifier.split('v')[0], harvest_event.additional_metadata
                 )
 
-                files.extend(self.collect_files(harvest_event, ds_hal))
+                files.extend(collect_files(harvest_event, ds_hal))
 
             elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.DABAR:
                 ds_dabar = DabarXmlSrcDataset('', harvest_event.additional_metadata)
 
-                files.extend(self.collect_files(harvest_event, ds_dabar))
+                files.extend(collect_files(harvest_event, ds_dabar))
 
             elif harvest_event.code == ProviderCode.SWISSUBASE:
                 ds_swiss = resolve(
                     f'https://www.swissubase.ch/en/catalogue/studies/1223/latest/datasets/114/{harvest_event.record_identifier}/overview'
                 )
 
-                for zip_file in ds_swiss.crawl():
-                    files.append(self.make_zip_entry(harvest_event, zip_file))
+                files.extend(collect_crawled_files(harvest_event, ds_swiss))
 
             if len(files) == 0:
                 logger.debug(f'no files for {harvest_event.record_identifier} in {harvest_event.code}')
@@ -242,50 +332,20 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
     return success
 
 
-class TransformTask(Task):  # type: ignore
-    embedding_transformer: TextEmbedding
-    client: OpenSearch
-    schema: dict[Any, Any]
-    postgres_config: PostgresConfig
-
-    def __init__(self) -> None:
-        if EMBEDDING_MODEL:
-            self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL, cache_dir=FASTEMBED_CACHE_DIR)
-            logger.info(f'Setting up embedding transformer with model {EMBEDDING_MODEL}')
-
-        opensearch_config = OpenSearchConfig()
-        self.client = OpenSearch(
-            hosts=[{'host': opensearch_config.host, 'port': opensearch_config.port}],
-            http_auth=None,
-            use_ssl=False,
-            logger=logger,
-        )
-
-        self.postgres_config = PostgresConfig()
-
-        with open('../config/schema.json') as f:
-            self.schema = json.load(f)
-
-
-@celery_app.task(base=TransformTask, bind=True, ignore_result=True)
-def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, reuse_embeddings: bool) -> Any:
-    if not self.client.indices.exists(index=index_name):
+def transform_batch(batch: list[HarvestEventQueue], index_name: str, *, reuse_embeddings: bool = False) -> Any:
+    """Normalize, embed and index one batch of harvest events into OpenSearch and datasetdb."""
+    client = opensearch_client()
+    if not client.indices.exists(index=index_name):
         raise ValueError(f'Index {index_name} does not exist in OpenSearch')
 
     # transform to JSON and normalize
-
     # Error handling: if an error is thrown, psycopg will roll back the whole transaction and the whole batch fails because the exception is re-raised,
     # making sure that only the whole batch is synced with PostgreSQL. See https://www.psycopg.org/psycopg3/docs/basic/transactions.html:
-    # "Thankfully, if you use the connection context, Psycopg will commit the connection at the end of the block
-    # (or roll it back if the block is exited with an exception)"
-    # However, this is not true for OpenSearch since we use a different client to write or delete data in OpenSearch and this actions will take immediate effect.
-    with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
+    with psycopg.connect(**dataset_db_config().connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
         normalized: list[SourceWithEmbeddingText] = []
-        for ele in batch:
-            harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
-
+        for harvest_event in batch:
             if harvest_event.is_deleted:
                 # find record in DB
                 cur.execute(
@@ -306,7 +366,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
 
                     try:
                         # delete document from OpenSearch
-                        self.client.delete(
+                        client.delete(
                             index=index_name,
                             id=opensearch_id,
                             ignore=404,
@@ -358,7 +418,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 normalized_record = normalize_datacite_json.normalize_datacite_json(
                     resource, metadata_namespace_for_access
                 )
-                validate(instance=normalized_record, schema=self.schema)
+                validate(instance=normalized_record, schema=datacite_schema())
                 normalized.append(
                     SourceWithEmbeddingText(
                         src=normalized_record,
@@ -374,9 +434,9 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
 
                 cur.execute(
                     """
-                    UPDATE harvest_events 
+                    UPDATE harvest_events
                     SET error_message = %s
-                    WHERE id = %s  
+                    WHERE id = %s
                     """,
                     (str(e), harvest_event.id),
                 )
@@ -413,7 +473,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                     )
             else:
                 logger.info(f'About to Calculate embeddings for {len(normalized)}')
-                src_with_emb = add_embeddings_to_source(normalized, self.embedding_transformer)
+                src_with_emb = add_embeddings_to_source(normalized, embedding_transformer())
                 logger.info(f'Calculated embeddings for {len(src_with_emb)}')
             preprocessed = preprocess_batch([src_with_emb_ele.src for src_with_emb_ele in src_with_emb], index_name)
         except Exception as e:
@@ -421,7 +481,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
             raise e
 
         try:
-            success, failed = bulk(self.client, preprocessed)
+            success, failed = bulk(client, preprocessed)
             if success < len(src_with_emb):
                 logger.error(
                     f'Normalized doc size was {len(src_with_emb)} but only {success} were imported into OpenSearch.'
@@ -451,8 +511,8 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 # https://neon.com/postgresql/postgresql-tutorial/postgresql-upsert
                 cur.execute(
                     """
-                    INSERT INTO records 
-                    (   
+                    INSERT INTO records
+                    (
                         record_identifier,
                         repository_id,
                         endpoint_id,
@@ -469,12 +529,12 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                         opensearch_synced_at,
                         additional_metadata,
                         datestamp
-                    ) 
+                    )
                     VALUES (
                         %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     ON CONFLICT (endpoint_id, record_identifier)
-                    DO UPDATE SET 
+                    DO UPDATE SET
                         resource_type = EXCLUDED.resource_type,
                         title = EXCLUDED.title,
                         raw_metadata = EXCLUDED.raw_metadata,
@@ -509,9 +569,9 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
 
                 cur.execute(
                     """
-                    UPDATE harvest_events 
+                    UPDATE harvest_events
                     SET error_message = NULL
-                    WHERE id = %s  
+                    WHERE id = %s
                     """,
                     [rec.harvest_event.id],
                 )

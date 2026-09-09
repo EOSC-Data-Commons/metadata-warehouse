@@ -1,25 +1,26 @@
-"""
-Client for transformer scheduler endpoints.
+"""Client for the transform API's scheduler endpoints, used by the harvest pipeline DAG.
 
-Responsibilities:
-- determine which endpoints require harvesting
-- verify harvest completion
-- trigger indexing
+The DAG talks to the API rather than to postgres for these three queries so the harvest_schedule
+logic (which endpoint is due, which run counts as closed) stays defined in one place, next to the
+tables it reads.
 """
 
 import logging
+import os
 from typing import Any
 
 import requests
 
-from scheduler.config import WAREHOUSE_API_URL
-
 logger = logging.getLogger(__name__)
+
+# `or`, not a get() default: compose passes the variable through as an empty string when unset
+WAREHOUSE_API_URL = os.environ.get('WAREHOUSE_API_URL') or 'http://transform:80'
+TIMEOUT = 30
 
 
 def order_runs_by_dependency(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
-    Return harvest runs in scheduler execution order.
+    Return harvest runs in execution order.
 
     Endpoints with no dependency are triggered first. Endpoints with a
     non-null `depends_on_endpoint_id` are triggered after all independent
@@ -28,8 +29,8 @@ def order_runs_by_dependency(runs: list[dict[str, Any]]) -> list[dict[str, Any]]
 
     The function uses a stable partition instead of computing a full
     dependency graph: the database prevents direct self-dependency, and the
-    current scheduler requirement is only to defer configured dependent
-    endpoints to the end of the same scheduler batch.
+    current requirement is only to defer configured dependent endpoints to
+    the end of the same batch.
     """
 
     independent_runs = [run for run in runs if run.get('depends_on_endpoint_id') is None]
@@ -42,10 +43,9 @@ def get_endpoints_to_harvest() -> list[str]:
     """
     Fetch harvest URLs of endpoints that should be harvested now.
 
-    Queries the transformer API and filters results by the
-    `should_be_harvested` flag returned per endpoint, which reflects
-    whether the endpoint is active and its harvest_schedule has elapsed.
-    Before returning URLs, the scheduler orders the selected endpoints so
+    Queries the transform API and filters results by the `should_be_harvested`
+    flag returned per endpoint, which reflects whether the endpoint is active
+    and its harvest_schedule has elapsed. The selected endpoints are ordered so
     independent endpoints run first and endpoints with a non-null
     `depends_on_endpoint_id` run at the end of the batch.
 
@@ -58,7 +58,7 @@ def get_endpoints_to_harvest() -> list[str]:
     Raises
     ------
     requests.HTTPError
-        If the transformer service returns a non-success response.
+        If the transform service returns a non-success response.
     requests.RequestException
         If the request fails due to network issues or timeout.
     """
@@ -67,7 +67,7 @@ def get_endpoints_to_harvest() -> list[str]:
     r = requests.get(
         f'{WAREHOUSE_API_URL}/harvest_run',
         params={'only_active': True, 'respect_schedule': True},
-        timeout=30,
+        timeout=TIMEOUT,
     )
 
     r.raise_for_status()
@@ -93,7 +93,7 @@ def are_all_runs_closed() -> bool:
         True if no open harvest run exists
     """
 
-    r = requests.post(f'{WAREHOUSE_API_URL}/scheduler/wait-for-completion', timeout=30)
+    r = requests.post(f'{WAREHOUSE_API_URL}/scheduler/wait-for-completion', timeout=TIMEOUT)
 
     r.raise_for_status()
 
@@ -105,7 +105,7 @@ def are_all_runs_closed() -> bool:
     return result
 
 
-def get_closed_run_ids(all_runs: bool = False) -> list[str]:
+def get_closed_run_ids(*, all_runs: bool = False) -> list[str]:
     """
     Fetch harvest runs closed in the last days.
 
@@ -125,7 +125,7 @@ def get_closed_run_ids(all_runs: bool = False) -> list[str]:
     r = requests.get(
         f'{WAREHOUSE_API_URL}/scheduler/closed-runs',
         params={'all_runs': all_runs},
-        timeout=30,
+        timeout=TIMEOUT,
     )
 
     r.raise_for_status()
@@ -135,27 +135,3 @@ def get_closed_run_ids(all_runs: bool = False) -> list[str]:
     logger.info('%s closed runs found', len(run_ids))
 
     return run_ids
-
-
-def trigger_index(run_ids: list[str], index_name: str) -> None:
-    """
-    Trigger transformation/indexing.
-
-    Parameters
-    ----------
-    run_ids : list[str]
-        harvest run identifiers
-    index_name : str
-        OpenSearch index name
-    """
-
-    for run_id in run_ids:
-        logger.info('trigger index for run %s', run_id)
-
-        r = requests.get(
-            f'{WAREHOUSE_API_URL}/index',
-            params={'harvest_run_id': run_id, 'index_name': index_name},
-            timeout=6000,
-        )
-
-        r.raise_for_status()
