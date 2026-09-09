@@ -22,7 +22,7 @@ from app.api_classes import (
 from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
 from logger.setup_logger import logger
-from transform.tasks import add_file_metadata, transform_batch
+from transform.tasks import add_file_metadata, index_datasets, transform_batch
 from utils.queue_utils import HarvestEventQueue, detect_identifier_type
 
 postgres_config: PostgresConfig = PostgresConfig()
@@ -584,6 +584,11 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings:
             fetch = len(batch) == limit
             # fetch = False
             batch = []
+
+    if tasks:
+        # Index the records those batches write into appDB, after them: same queue, one task at a time
+        index_datasets.delay()
+        logger.info('Queued dataset indexing after the transformation batches')
 
     return tasks
 
