@@ -1,5 +1,7 @@
 import logging
 import time
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, NamedTuple, Optional
 
@@ -75,6 +77,22 @@ def create_opensearch_source(
     )
 
 
+def _retry_after_seconds(response: requests.Response) -> float | None:
+    """Seconds to wait as asked by the Retry-After header, either a delay or an HTTP date. None if absent/unparsable."""
+    value = response.headers.get('Retry-After')
+    if not value:
+        return None
+    value = value.strip()
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        pass
+    try:
+        return max(0.0, (parsedate_to_datetime(value) - datetime.now(UTC)).total_seconds())
+    except (TypeError, ValueError):
+        return None
+
+
 def _embed(
     texts: list[str],
     api_key: str,
@@ -102,6 +120,7 @@ def _embed(
         batch = texts[start : start + batch_size]
         cap = max_chars
         for attempt in range(retries):
+            retry_after: float | None = None
             try:
                 response = session.post(
                     f'{base_url}/embeddings',
@@ -112,6 +131,8 @@ def _embed(
                     cap //= 2  # too long even cut, try harder before giving up
                     logger.info(f'Reducing max chars to {cap}')
                     continue
+                if response.status_code == 429:
+                    retry_after = _retry_after_seconds(response)
                 if not response.ok:
                     request_headers = dict(response.request.headers)
                     request_headers['Authorization'] = 'Bearer ***'
@@ -132,7 +153,10 @@ def _embed(
             except requests.RequestException:
                 if attempt == retries - 1:
                     raise
-                time.sleep(2**attempt)  # 1s, 2s, 4s
+                # honour the server's Retry-After when it sent one, else exponential backoff (1s, 2s, 4s)
+                delay = retry_after if retry_after is not None else 2**attempt
+                logger.info(f'Retrying embedding batch at {start} in {delay:.1f}s')
+                time.sleep(delay)
         else:
             raise RuntimeError(f'embeddings failed for batch at {start} after {retries} attempts')
 
