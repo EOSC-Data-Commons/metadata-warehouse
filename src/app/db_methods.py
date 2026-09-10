@@ -578,7 +578,7 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings:
                     batch = []
 
             if batch:
-                logger.info(f'Putting final batch of {len(batch)} in queue')
+                logger.info(f'Putting final batch {tasks} of {len(batch)} in queue')
                 transform_batch.delay(batch, index_name, reuse_embeddings)
                 add_file_metadata.delay(batch)
                 tasks += 1
