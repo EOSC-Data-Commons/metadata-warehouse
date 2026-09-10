@@ -130,6 +130,10 @@ def _embed(
                 if response.status_code == 400 and 'context length' in response.text:
                     cap //= 2  # too long even cut, try harder before giving up
                     logger.info(f'Reducing max chars to {cap}')
+                    if cap == 0:
+                        raise RuntimeError(
+                            f'Unable to fit text within embedding model context: cap reached 0 with {retries} retries and {max_chars} max_chars'
+                        )
                     continue
                 if response.status_code == 429:
                     retry_after = _retry_after_seconds(response)
