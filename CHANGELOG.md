@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.7.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.6.0...v1.7.0) (2026-09-10)
+
+
+### Features
+
+* **config:** add Nfdi4earth ([#175](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/175)) ([d67952f](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/d67952f43f86e7ecbfa200d513274f932754ce8e))
+* **embeddings:** add support for EGI API ([#172](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/172)) ([a75d71c](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/a75d71cc5e794d61bf277422c9a67f75a429152c))
+
+
+### Bug Fixes
+
+* **e2e:** set correct OpenSearch port ([#169](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/169)) ([6fe5297](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/6fe5297cd4093c8a8d6d1c3d49e877f80d131a99))
+
 ## [1.6.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.5.0...v1.6.0) (2026-07-30)
 
 
