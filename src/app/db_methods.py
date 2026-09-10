@@ -512,6 +512,7 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings:
         # which re-scans and discards prior rows on every iteration and gets
         # very slow at large offsets
         with conn.cursor(name='harvest_events_stream', row_factory=dict_row) as cur:
+            # https://www.psycopg.org/psycopg3/docs/api/cursors.html#psycopg.ServerCursor.itersize
             cur.itersize = BATCH_SIZE
             cur.execute(
                 """
