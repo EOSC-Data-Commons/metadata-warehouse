@@ -198,8 +198,8 @@ def add_embeddings_to_source(
     embedding_texts = [ele.textToEmbed for ele in batch]
 
     if api_key and base_url and model_name:
-        name_parts = model_name.split('/')
-        embedding_model_name = name_parts[-1] if len(name_parts) > 1 else name_parts[0]
+        # model names: BAAI/bge-small-en-v1.5 (fastembed) -> bge-small-en-v1.5 (API)
+        embedding_model_name = model_name.split('/')[-1]
         try:
             embeddings = _embed(
                 embedding_texts,
