@@ -98,7 +98,7 @@ def _embed(
     api_key: str,
     base_url: str,
     logger: logging.Logger,
-    model: str = 'nomic-embed-text-v2-moe',
+    model: str,
     prefix: str = 'search_document: ',
     batch_size: int = 16,
     max_chars: int = 1000,
