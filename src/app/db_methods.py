@@ -496,20 +496,23 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings:
         logger=logger,
     )
 
-    if not client.indices.exists(index=index_name):
-        raise HTTPException(status_code=400, detail=f'Index {index_name} does not exist.')
+    try:
+        if not client.indices.exists(index=index_name):
+            raise HTTPException(status_code=400, detail=f'Index {index_name} does not exist.')
+    finally:
+        client.close()
 
     batch: list[HarvestEventQueue] = []
     tasks = 0
-    offset = 0
-    limit = BATCH_SIZE
-    fetch = True
 
     logger.info(f'Preparing jobs for index: {index_name}')
 
     with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
-        cur = conn.cursor()
-        while fetch:
+        # named (server-side) cursor streams rows instead of paging via OFFSET,
+        # which re-scans and discards prior rows on every iteration and gets
+        # very slow at large offsets
+        with conn.cursor(name='harvest_events_stream', row_factory=dict_row) as cur:
+            cur.itersize = BATCH_SIZE
             cur.execute(
                 """
             SELECT he.id, 
@@ -531,13 +534,11 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings:
         JOIN repositories r ON he.repository_id = r.id
             WHERE harvest_run_id = %s and hr.status = 'closed' 
             ORDER BY he.id
-            LIMIT %s
-            OFFSET %s
             """,
-                (harvest_run_id, limit, offset),
+                (harvest_run_id,),
             )
 
-            for doc in cur.fetchall():
+            for doc in cur:
                 # https://www.psycopg.org/psycopg3/docs/basic/adapt.html#uuid-adaptation
                 # https://docs.python.org/3/library/uuid.html#uuid.UUID
                 # str(uuid) returns a string in the form 12345678-1234-5678-1234-567812345678 where the 32 hexadecimal digits represent the UUID.
@@ -568,22 +569,19 @@ def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings:
                     )
                 )
 
-            if len(batch) == 0:
-                # batch is empty
-                break
+                if len(batch) == BATCH_SIZE:
+                    # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
+                    logger.info(f'Putting batch {tasks} of {len(batch)} in queue')
+                    transform_batch.delay(batch, index_name, reuse_embeddings)
+                    add_file_metadata.delay(batch)
+                    tasks += 1
+                    batch = []
 
-            # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
-            logger.info(f'Putting batch of {len(batch)} in queue with offset {offset}')
-            transform_batch.delay(batch, index_name, reuse_embeddings)
-            add_file_metadata.delay(batch)
-            tasks += 1
-
-            # increment offset by limit
-            offset += limit
-            # will be false if query returned fewer results than limit
-            fetch = len(batch) == limit
-            # fetch = False
-            batch = []
+            if batch:
+                logger.info(f'Putting final batch of {len(batch)} in queue')
+                transform_batch.delay(batch, index_name, reuse_embeddings)
+                add_file_metadata.delay(batch)
+                tasks += 1
 
     return tasks
 
