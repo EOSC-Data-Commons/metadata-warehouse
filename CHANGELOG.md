@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.7.0...v1.7.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* **enqueue batches:** use a cursor based method instead of offset ([#177](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/177)) ([b765004](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/b765004b27a0d9cdd6a85d4d19492661cd3de4ff))
+
 ## [1.7.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.6.0...v1.7.0) (2026-09-10)
 
 
