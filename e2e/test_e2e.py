@@ -39,9 +39,9 @@ def postgres_client():
     with psycopg.connect(
         dbname=TEST_DATASET_DB,
         user=USER,
-        host=POSTGRES_ADDRESS if POSTGRES_ADDRESS else '127.0.0.1',
+        host=POSTGRES_ADDRESS_HOST,
         password=PW,
-        port=int(POSTGRES_PORT) if POSTGRES_PORT else 5432,
+        port=POSTGRES_PORT_HOST,
         row_factory=psycopg.rows.dict_row,
     ) as conn:
         yield conn
