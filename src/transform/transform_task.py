@@ -39,6 +39,7 @@ FASTEMBED_CACHE_DIR = os.environ.get('FASTEMBED_CACHE_DIR', '/root/.cache/fastem
 EMBED_API_KEY = os.environ.get('EMBED_API_KEY')
 EMBED_API_URL = os.environ.get('EMBED_API_URL')
 
+
 class TransformTask(Task):  # type: ignore
     embedding_transformer: TextEmbedding
     client: OpenSearch
