@@ -23,6 +23,7 @@ LOGGING_CONFIG = {
     },
     'loggers': {
         '': {'handlers': ['default'], 'level': 'INFO'},
+        'app': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
         'celery.task': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
         'opensearch': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
         'watchfiles.main': {
