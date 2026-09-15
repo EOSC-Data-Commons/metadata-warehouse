@@ -72,6 +72,7 @@ services:
           ]
         #volumes:
         #- ./data/results:/var/celery/results
+        env_file: [ keys.env ]
         environment:
             PYTHONPATH: /code/src:/code  # src for tasks.py, root for config/
             CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
@@ -80,10 +81,11 @@ services:
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
             POSTGRES_DB: "${POSTGRES_DB}"
             FILE_DB: "${FILE_DB}"
-            POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
-            POSTGRES_PORT: "${POSTGRES_PORT}"
-            OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
-            OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
+            POSTGRES_ADDRESS_DOCKER: "${POSTGRES_ADDRESS_DOCKER}"
+            POSTGRES_PORT_DOCKER: "${POSTGRES_PORT_DOCKER}"
+            OPENSEARCH_ADDRESS_DOCKER: "${OPENSEARCH_ADDRESS_DOCKER}"
+            OPENSEARCH_PORT_DOCKER: "${OPENSEARCH_PORT_DOCKER}"
+            EMBED_API_URL: "${EMBED_API_URL}"
         healthcheck:
             test: celery -A transform.tasks status
             interval: 10s
@@ -101,18 +103,20 @@ services:
         command: [ "fastapi", "run", "--host", "0.0.0.0", "app/routes.py", "--port", "80" ]
         networks:
             - warehouse-backend
+        env_file: [ keys.env ]
         environment:
             PYTHONPATH: /code/src:/code
             CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
             POSTGRES_DB: "${POSTGRES_DB}"
-            POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
-            POSTGRES_PORT: "${POSTGRES_PORT}"
-            OPENSEARCH_ADDRESS: "${OPENSEARCH_ADDRESS}"
-            OPENSEARCH_PORT: "${OPENSEARCH_PORT}"
+            POSTGRES_ADDRESS_DOCKER: "${POSTGRES_ADDRESS_DOCKER}"
+            POSTGRES_PORT_DOCKER: "${POSTGRES_PORT_DOCKER}"
+            OPENSEARCH_ADDRESS_DOCKER: "${OPENSEARCH_ADDRESS_DOCKER}"
+            OPENSEARCH_PORT_DOCKER: "${OPENSEARCH_PORT_DOCKER}"
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
             CELERY_BATCH_SIZE: "${CELERY_BATCH_SIZE}"
+            EMBED_API_URL: "${EMBED_API_URL}"
         depends_on:
             postgres:
                 condition: service_healthy
@@ -162,8 +166,8 @@ services:
             postgres:
                 condition: service_healthy
         environment:
-            TOOL_REGISTRY_DATABASE__HOST: ${POSTGRES_ADDRESS}
-            TOOL_REGISTRY_DATABASE__PORT: ${POSTGRES_PORT}
+            TOOL_REGISTRY_DATABASE__HOST: ${POSTGRES_ADDRESS_DOCKER}
+            TOOL_REGISTRY_DATABASE__PORT: ${POSTGRES_PORT_DOCKER}
             TOOL_REGISTRY_DATABASE__NAME: ${TOOL_DB}
             TOOL_REGISTRY_DATABASE__USER: ${TOOL_DB_USER}
             TOOL_REGISTRY_DATABASE__PASSWORD: ${TOOL_DB_PASSWORD}
@@ -231,14 +235,14 @@ services:
         depends_on:
             postgres:
                 condition: service_healthy
-        command: 
+        command:
             ["rp"]
         environment:
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
             POSTGRES_DB: "${POSTGRES_DB}"
-            POSTGRES_ADDRESS: "${POSTGRES_ADDRESS}"
-            POSTGRES_PORT: "${POSTGRES_PORT}"
+            POSTGRES_ADDRESS_DOCKER: "${POSTGRES_ADDRESS_DOCKER}"
+            POSTGRES_PORT_DOCKER: "${POSTGRES_PORT_DOCKER}"
             FILE_DB: "${FILE_DB}"
             TOOL_REGISTRY_API: "https://dev.tools-registry.eosc-data-commons.eu/api/v1"
         networks:
