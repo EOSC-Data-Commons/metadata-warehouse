@@ -13,8 +13,8 @@ class PostgresConfig:
         user = os.environ.get('POSTGRES_USER')
         resolved_db = db if db else os.environ.get('POSTGRES_DB')
         password = os.environ.get('POSTGRES_PASSWORD')
-        address = os.environ.get('POSTGRES_ADDRESS')
-        port = os.environ.get('POSTGRES_PORT')
+        address = os.environ.get('POSTGRES_ADDRESS_DOCKER')
+        port = os.environ.get('POSTGRES_PORT_DOCKER')
 
         if user and password and resolved_db:
             self.user = user

@@ -11,13 +11,13 @@ load_dotenv()
 
 INDEX_NAME = os.environ.get('INDEX_NAME')
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
-ADDRESS = os.environ.get('OPENSEARCH_ADDRESS')
-PORT = os.environ.get('OPENSEARCH_PORT')
+ADDRESS = os.environ.get('OPENSEARCH_ADDRESS_HOST') or '127.0.0.1'
+PORT = int(os.environ.get('OPENSEARCH_PORT_HOST') or 9200)
 if not INDEX_NAME or not EMBEDDING_MODEL:
     raise ValueError('Missing INDEX_NAME environment variable')
 
 client = OpenSearch(
-    hosts=[{'host': ADDRESS if ADDRESS else '127.0.0.1', 'port': int(PORT) if PORT else 9200}],
+    hosts=[{'host': ADDRESS, 'port': PORT}],
     http_auth=None,
     use_ssl=False,
 )
