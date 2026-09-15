@@ -36,6 +36,8 @@ if not EMBEDDING_MODEL:
 
 FASTEMBED_CACHE_DIR = os.environ.get('FASTEMBED_CACHE_DIR', '/root/.cache/fastembed')
 
+EMBED_API_KEY = os.environ.get('EMBED_API_KEY')
+EMBED_API_URL = os.environ.get('EMBED_API_URL')
 
 class TransformTask(Task):  # type: ignore
     embedding_transformer: TextEmbedding
@@ -208,7 +210,14 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                     )
             else:
                 logger.info(f'About to Calculate embeddings for {len(normalized)}')
-                src_with_emb = add_embeddings_to_source(normalized, self.embedding_transformer)
+                src_with_emb = add_embeddings_to_source(
+                    batch=normalized,
+                    logger=logger,
+                    embedding_model=self.embedding_transformer,
+                    api_key=EMBED_API_KEY,
+                    base_url=EMBED_API_URL,
+                    model_name=EMBEDDING_MODEL,
+                )
                 logger.info(f'Calculated embeddings for {len(src_with_emb)}')
             preprocessed = preprocess_batch([src_with_emb_ele.src for src_with_emb_ele in src_with_emb], index_name)
         except Exception as e:
