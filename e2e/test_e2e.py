@@ -12,10 +12,10 @@ load_dotenv('.env')
 
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
-POSTGRES_ADDRESS = os.environ.get('POSTGRES_ADDRESS')
-POSTGRES_PORT = os.environ.get('POSTGRES_PORT')
-OPENSEARCH_ADDRESS = os.environ.get('OPENSEARCH_ADDRESS')
-OPENSEARCH_PORT = os.environ.get('OPENSEARCH_PORT')
+POSTGRES_ADDRESS_HOST = os.environ.get('POSTGRES_ADDRESS_HOST') or '127.0.0.1'
+POSTGRES_PORT_HOST = int(os.environ.get('POSTGRES_PORT_HOST') or 5432)
+OPENSEARCH_ADDRESS_HOST = os.environ.get('OPENSEARCH_ADDRESS_HOST') or '127.0.0.1'
+OPENSEARCH_PORT_HOST = int(os.environ.get('OPENSEARCH_PORT_HOST') or 9200)
 TEST_DATASET_DB = 'testdatasetdb'
 TEST_FILE_DB = 'testfiledb'
 TEST_INDEX = 'test_index'
@@ -55,9 +55,9 @@ def reset_db(name: str, path: str):
     with psycopg.connect(
         dbname='postgres',
         user=USER,
-        host=POSTGRES_ADDRESS if POSTGRES_ADDRESS else '127.0.0.1',
+        host=POSTGRES_ADDRESS_HOST,
         password=PW,
-        port=int(POSTGRES_PORT) if POSTGRES_PORT else 5432,
+        port=POSTGRES_PORT_HOST,
         autocommit=True,
     ) as conn:
         with conn.cursor() as cursor:
@@ -68,9 +68,9 @@ def reset_db(name: str, path: str):
     with psycopg.connect(
         dbname=name,
         user=USER,
-        host=POSTGRES_ADDRESS if POSTGRES_ADDRESS else '127.0.0.1',
+        host=POSTGRES_ADDRESS_HOST,
         password=PW,
-        port=int(POSTGRES_PORT) if POSTGRES_PORT else 5432,
+        port=POSTGRES_PORT_HOST,
     ) as conn:
         with conn.cursor() as cursor:
             # Drop and recreate schema
@@ -103,8 +103,8 @@ def reset_index():
     client = OpenSearch(
         hosts=[
             {
-                'host': OPENSEARCH_ADDRESS if OPENSEARCH_ADDRESS else '127.0.0.1',
-                'port': int(OPENSEARCH_PORT) if OPENSEARCH_PORT else 9200,
+                'host': OPENSEARCH_ADDRESS_HOST,
+                'port': OPENSEARCH_PORT_HOST,
             }
         ],
         http_auth=None,
