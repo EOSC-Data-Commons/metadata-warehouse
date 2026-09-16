@@ -101,7 +101,8 @@ def reset_db(name: str, path: str):
 
         alembic_cfg = Config('alembic.ini')
         alembic_cfg.set_main_option(
-            'sqlalchemy.url', f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS_HOST}:{POSTGRES_PORT_HOST}/{TEST_DATASET_DB}'
+            'sqlalchemy.url',
+            f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS_HOST}:{POSTGRES_PORT_HOST}/{TEST_DATASET_DB}',
         )
         alembic_cfg.config_file_name = None  # prevent env.py overwritting logger settings
 
@@ -561,12 +562,19 @@ def _column_exists(conn, table_name, column_name, schema='public'):
 
 
 def test_alembic_upgrade_downgrade_one_version(reset_dataset_db):
+    """
+    Test for alembic integration in datasetdb,
+    as well that migrating from version 0001_baseline
+    to 0002_record_subjects cretes the expected subjects columns.
+    """
+
     # Don't show alembic INFO messages
     logging.getLogger('alembic').setLevel(logging.WARNING)
 
     alembic_cfg = Config('alembic.ini')
     alembic_cfg.set_main_option(
-        'sqlalchemy.url', f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS_HOST}:{POSTGRES_PORT_HOST}/{TEST_DATASET_DB}'
+        'sqlalchemy.url',
+        f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS_HOST}:{POSTGRES_PORT_HOST}/{TEST_DATASET_DB}',
     )
     alembic_cfg.config_file_name = None  # prevent env.py overwritting logger settings
 
