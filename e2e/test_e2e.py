@@ -1,7 +1,6 @@
 import json
 import os
 import time
-from time import sleep
 
 import httpx
 import psycopg
@@ -640,7 +639,7 @@ def test_deduplication(api_client, flower_client, reset_dataset_db, reset_file_d
 
     # TODO: fix this properly: currently, wait_for_task has to no way to distinguish between the first and second call of _create_and_close_harvest_run
     # so the second call might not have been completed, but we get a positive result from the first run
-    sleep(5)
+    time.sleep(5)
 
     # --- verify the duplicate exists ---
     expected_url = 'https://doi.org/10.17026/AR/0AKDPK'
