@@ -1,5 +1,7 @@
 import json
 import os
+from time import sleep
+
 import time
 
 import httpx
@@ -24,6 +26,7 @@ EMBEDDING_DIMS = os.environ.get('EMBEDDING_DIMS')
 API_BASE_URL = 'http://localhost:8080'
 FLOWER_BASE_URL = 'http://localhost:5555'
 TIMEOUT = 120
+MAX_TASK_AGE = 10
 
 
 @pytest.fixture
@@ -142,7 +145,14 @@ def reset_index():
 
 @pytest.fixture
 def wait_for_task():
-    def _wait_for_task(flower_client, task_name, parent_id=None, timeout=TIMEOUT):
+    def _wait_for_task(
+        flower_client,
+        task_name,
+        expected_args: str | None = None,
+        parent_id: str | None = None,
+        timeout=TIMEOUT,
+        max_task_age=MAX_TASK_AGE,
+    ):
         """Wait for a task to complete successfully.
 
         If parent_id is provided, waits specifically for a task matching
@@ -160,12 +170,28 @@ def wait_for_task():
                 if tasks:
                     if parent_id is not None:
                         for task in tasks.values():
-                            if task.get('parent_id') == parent_id and task.get('state') == 'SUCCESS':
+                            succeeded = task.get('succeeded')
+                            if (
+                                succeeded
+                                and task.get('parent_id') == parent_id
+                                and task.get('state') == 'SUCCESS'
+                                and abs(succeeded - start_time) <= max_task_age
+                            ):
                                 return task
                     else:
                         first_task = next(iter(tasks.values()))
-                        if first_task.get('state') == 'SUCCESS':
-                            return first_task
+                        succeeded = first_task.get('succeeded')
+                        if (
+                            succeeded
+                            and first_task.get('state') == 'SUCCESS'
+                            and abs(succeeded - start_time) <= max_task_age
+                        ):
+                            if expected_args is not None:
+                                args = first_task.get('args')
+                                if args and expected_args in args:
+                                    return first_task
+                            else:
+                                return first_task
             except Exception:
                 pass
 
@@ -365,8 +391,8 @@ def test_create_and_close_harvest_run(
     # note this does not check for a successful transformation
     assert res_index.status_code == 200
 
-    transform_task = wait_for_task(flower_client, 'transform.transform_task.transform_batch')
-    filemeta_task = wait_for_task(flower_client, 'transform.file_meta_task.add_file_metadata')
+    transform_task = wait_for_task(flower_client, 'transform.transform_task.transform_batch', '10.17026/AR/0AKDPK')
+    filemeta_task = wait_for_task(flower_client, 'transform.file_meta_task.add_file_metadata', '10.17026/AR/0AKDPK')
 
     assert transform_task and transform_task['state'] == 'SUCCESS'
     assert '10.17026/AR/0AKDPK' in transform_task['args']
@@ -477,8 +503,8 @@ def _create_and_close_harvest_run(
     )
     assert res_index.status_code == 200
 
-    transform_task = wait_for_task(flower_client, 'transform.transform_task.transform_batch')
-    filemeta_task = wait_for_task(flower_client, 'transform.file_meta_task.add_file_metadata')
+    transform_task = wait_for_task(flower_client, 'transform.transform_task.transform_batch', expected_doi)
+    filemeta_task = wait_for_task(flower_client, 'transform.file_meta_task.add_file_metadata', expected_doi)
 
     assert transform_task and transform_task['state'] == 'SUCCESS'
     assert expected_doi in transform_task['args']
@@ -612,6 +638,10 @@ def test_deduplication(api_client, flower_client, reset_dataset_db, reset_file_d
         additional_metadata=additional_meta,
         expected_doi='10.17026/AR/0AKDPK',
     )
+
+    # TODO: fix this properly: currently, wait_for_task has to no way to distinguish between the first and second call of _create_and_close_harvest_run
+    # so the second call might not have been completed, but we get a positive result from the first run
+    sleep(5)
 
     # --- verify the duplicate exists ---
     expected_url = 'https://doi.org/10.17026/AR/0AKDPK'
