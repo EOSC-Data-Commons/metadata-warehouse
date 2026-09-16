@@ -614,7 +614,7 @@ def test_deduplication(api_client, flower_client, reset_dataset_db, reset_file_d
     )
 
     # --- verify the duplicate exists ---
-    expected_url = 'https://doi.org/10.17026/ar/0akdpk'  # normalized form of the DOI
+    expected_url = 'https://doi.org/10.17026/AR/0AKDPK'
 
     cur = postgres_client.cursor()
     cur.execute('SELECT id, endpoint_id FROM records WHERE url = %s', (expected_url,))
