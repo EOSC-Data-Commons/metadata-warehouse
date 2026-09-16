@@ -3,7 +3,8 @@
     "type": "object",
     "properties": {
         "url": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^https?://"
         },
         "titles": {
             "type": "array",

@@ -323,7 +323,6 @@ class TestNormalizeDatacite(unittest.TestCase):
         self.assertEqual(res, 'en')
 
     def test_clean_doi(self):
-
         some_doi = '10.17026/dans-xdm-q2pc'
         cleaned = normalize_datacite_json.clean_doi(some_doi)
 
@@ -338,3 +337,61 @@ class TestNormalizeDatacite(unittest.TestCase):
         cleaned3 = normalize_datacite_json.clean_doi(some_doi3)
 
         self.assertEqual(cleaned3, '10.17026/dans-xdm-q2pc')
+
+    def test_get_resolvable_url_doi_case(self):
+        res = {
+            'http://datacite.org/schema/kernel-4:identifier': {
+                '@identifierType': 'DOI',
+                '#text': '10.17026/DANS-2AB-DPMM',
+            }
+        }
+
+        normalized = normalize_datacite_json.get_resolvable_url(res, 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(normalized, 'https://doi.org/10.17026/DANS-2AB-DPMM')
+
+        res2 = {
+            'http://datacite.org/schema/kernel-4:identifier': {
+                '@identifierType': 'DOI',
+                '#text': 'https://doi.org/10.17026/DANS-2AB-DPMM',
+            }
+        }
+
+        normalized2 = normalize_datacite_json.get_resolvable_url(res2, 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(normalized2, 'https://doi.org/10.17026/DANS-2AB-DPMM')
+
+    def test_get_resolvable_url_ark_case(self):
+        res = {
+            'http://datacite.org/schema/kernel-4:identifier': {
+                '@identifierType': 'ARK',
+                '#text': 'ark:/72163/1/081C/KfnRJvxJQ1WyIP59EbDbrwi',
+            }
+        }
+
+        normalized = normalize_datacite_json.get_resolvable_url(res, 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(normalized, 'https://n2t.net/ark:/72163/1/081C/KfnRJvxJQ1WyIP59EbDbrwi')
+
+        res2 = {
+            'http://datacite.org/schema/kernel-4:identifier': {
+                '@identifierType': 'ARK',
+                '#text': 'https://ark.dasch.swiss/ark:/72163/1/081C/KfnRJvxJQ1WyIP59EbDbrwi',
+            }
+        }
+
+        normalized2 = normalize_datacite_json.get_resolvable_url(res2, 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(normalized2, 'https://ark.dasch.swiss/ark:/72163/1/081C/KfnRJvxJQ1WyIP59EbDbrwi')
+
+    def test_get_resolvable_url_url_case(self):
+        res = {
+            'http://datacite.org/schema/kernel-4:identifier': {
+                '@identifierType': 'URL',
+                '#text': 'https://urn.nsk.hr/urn:nbn:hr:168:054069',
+            }
+        }
+
+        normalized = normalize_datacite_json.get_resolvable_url(res, 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(normalized, 'https://urn.nsk.hr/urn:nbn:hr:168:054069')

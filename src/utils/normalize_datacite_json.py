@@ -1,4 +1,5 @@
 import datetime
+import json
 import re
 import sys
 from typing import Any, Callable, Optional
@@ -7,6 +8,7 @@ XML = 'http://www.w3.org/XML/1998/namespace'
 DATE_FORMAT = '%Y-%m-%d'
 DOI_BASE = 'https://doi.org/'
 DOI_PREFIX_RE = re.compile(r'^(https?://(dx\.)?doi\.org/|doi:)', re.IGNORECASE)
+ARK_BASE = 'https://n2t.net/'
 
 
 def get_identifier(entry: dict[str, Any], identifier_type: str, datacite_schema: str) -> Any | None:
@@ -270,24 +272,27 @@ def normalize_lang_string(lang: str) -> str:
 def clean_doi(doi: str) -> str:
     d = doi.strip()
     d = DOI_PREFIX_RE.sub('', d)
-    return d.lower()
+    return d
+
+
+def get_resolvable_url(res: dict[str, Any], datacite_schema: str) -> str | None:
+    doi = get_identifier(res, 'DOI', datacite_schema)
+    if isinstance(doi, str) and doi.strip():
+        return DOI_BASE + clean_doi(doi)
+
+    ark = get_identifier(res, 'ARK', datacite_schema)
+    if isinstance(ark, str) and ark.strip():
+        ark = ark.strip()
+        return ark if ark.startswith('http') else ARK_BASE + ark
+
+    raw_url = get_identifier(res, 'URL', datacite_schema) or get_identifier(res, 'URN', datacite_schema)
+    return raw_url.strip() if isinstance(raw_url, str) and raw_url.strip() else None
 
 
 def normalize_datacite_json(res: dict[str, Any], datacite_schema: str) -> dict[str, Any]:
-    # print(json.dumps(input))
-
+    #print(json.dumps(res, indent=2))
     try:
-        doi = get_identifier(res, 'DOI', datacite_schema)
-        url: str | None
-        if isinstance(doi, str):
-            url = DOI_BASE + clean_doi(doi)
-        else:
-            raw_url = (
-                get_identifier(res, 'URL', datacite_schema)
-                or get_identifier(res, 'URN', datacite_schema)
-                or get_identifier(res, 'ARK', datacite_schema)
-            )
-            url = raw_url.strip().rstrip('/') if isinstance(raw_url, str) else None
+        url = get_resolvable_url(res, datacite_schema)
 
         res = {
             'url': url,
