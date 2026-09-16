@@ -1,8 +1,7 @@
 import json
 import os
-from time import sleep
-
 import time
+from time import sleep
 
 import httpx
 import psycopg
