@@ -82,7 +82,8 @@ if __name__ == '__main__':
         or args.o is None
         or not os.path.isdir(args.o)
         or (args.s and not os.path.isfile(args.s))
-        or args.v and not args.s
+        or args.v
+        and not args.s
     ):
         parser.print_help()
         exit(1)

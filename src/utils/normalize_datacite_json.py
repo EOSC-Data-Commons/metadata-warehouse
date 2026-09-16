@@ -290,7 +290,7 @@ def get_resolvable_url(res: dict[str, Any], datacite_schema: str) -> str | None:
 
 
 def normalize_datacite_json(res: dict[str, Any], datacite_schema: str) -> dict[str, Any]:
-    #print(json.dumps(res, indent=2))
+    # print(json.dumps(res, indent=2))
     try:
         url = get_resolvable_url(res, datacite_schema)
 
