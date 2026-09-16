@@ -101,7 +101,7 @@ def reset_db(name: str, path: str):
 
         alembic_cfg = Config('alembic.ini')
         alembic_cfg.set_main_option(
-            'sqlalchemy.url', f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS}:{POSTGRES_PORT}/{TEST_DATASET_DB}'
+            'sqlalchemy.url', f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS_HOST}:{POSTGRES_PORT_HOST}/{TEST_DATASET_DB}'
         )
         alembic_cfg.config_file_name = None  # prevent env.py overwritting logger settings
 
@@ -566,16 +566,16 @@ def test_alembic_upgrade_downgrade_one_version(reset_dataset_db):
 
     alembic_cfg = Config('alembic.ini')
     alembic_cfg.set_main_option(
-        'sqlalchemy.url', f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS}:{POSTGRES_PORT}/{TEST_DATASET_DB}'
+        'sqlalchemy.url', f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS_HOST}:{POSTGRES_PORT_HOST}/{TEST_DATASET_DB}'
     )
     alembic_cfg.config_file_name = None  # prevent env.py overwritting logger settings
 
     with psycopg.connect(
         dbname=TEST_DATASET_DB,
         user=USER,
-        host=POSTGRES_ADDRESS if POSTGRES_ADDRESS else '127.0.0.1',
+        host=POSTGRES_ADDRESS_HOST if POSTGRES_ADDRESS_HOST else '127.0.0.1',
         password=PW,
-        port=int(POSTGRES_PORT) if POSTGRES_PORT else 5432,
+        port=int(POSTGRES_PORT_HOST) if POSTGRES_PORT_HOST else 5432,
     ) as conn:
         # The database should have been initialized with alembic and have the alembic_version table
         assert _table_exists(conn, 'alembic_version')
