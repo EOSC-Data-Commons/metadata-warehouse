@@ -21,7 +21,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    
+
     # Change the Enum to include DASCH_API
     op.execute("""
         ALTER TYPE harvest_protocol
@@ -35,7 +35,6 @@ def upgrade() -> None:
         SET harvest_params = '{"metadata_prefix": "oai_datacite", "set": ["entityType:Record"], "additional_metadata_params": {"endpoint": "https://repository.dasch.swiss/dpe/records/", "protocol": "DASCH_API", "format": "None"}}'
         WHERE name = 'DaSCH';
         """)
-
 
 
 def downgrade() -> None:
@@ -81,14 +80,14 @@ def downgrade() -> None:
             ALTER TABLE endpoints 
                 ALTER COLUMN protocol SET DEFAULT 'OAI-PMH'::harvest_protocol;
             """)
-    
+
     # Now, update the endpoints table so that DaSCh has its initial harvest_params
     op.execute("""
             UPDATE endpoints
             SET harvest_params = '{"metadata_prefix": "oai_datacite","set": ["entityType:ResearchProject"]}'
             WHERE name = 'DaSCH';
             """)
-   
+
     # Re-create the view
     op.execute("""
         CREATE VIEW v_active_harvest_endpoints AS
@@ -104,4 +103,3 @@ def downgrade() -> None:
             JOIN repositories r ON e.repository_id = r.id
             WHERE e.is_active = true AND r.is_active = true;
     """)
-
