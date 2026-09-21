@@ -29,7 +29,7 @@ def upgrade() -> None:
         """)
 
     # Update harvest_params for DaSCH endpoint
-    # The paramas are JSON that initially only has entityType:ResearchProject
+    # The paramas are JSON that initially only has metadata_prefix and set
     op.execute("""
         UPDATE endpoints
         SET harvest_params = '{"metadata_prefix": "oai_datacite", "set": ["entityType:Record"], "additional_metadata_params": {"endpoint": "https://repository.dasch.swiss/dpe/records/", "protocol": "DASCH_API", "format": "None"}}'
@@ -41,9 +41,26 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
 
-    #TODO:
-    # ALTER TYPE or recreate TYPE to only the informaton it used to have
-    # UPDATE endpoints table for dasch to data it used to have
+    # No rows contain the dropped type, it's only part of the harvest_params additional metadata.
+    # So we don't need to clean the values first.
 
-    op.drop_column('records', 'raw_subjects')
-    op.drop_column('records', 'enriched_subjects')
+    # We need to recreate the ENUM as a new object with a different name, then swap it instead of the upgraded version (containing the extra DASCH_API)
+    # Then drop the original and change the enum name to the old name.
+    # If we didn't do that, we'd lose the column data when changing type!
+    op.execute("""
+            CREATE TYPE harvest_protocol_new AS ENUM ('OAI-PMH', 'REST_API', 'FINBIF_API', 'MDPOSIT_API', 'EMPIAR_API', 'NFDI4EARTH_API');
+            
+            ALTER TABLE endpoints 
+                ALTER COLUMN harvest_protocol TYPE harvest_protocol_new 
+                USING harvest_protocol::text::harvest_protocol_new;
+            
+            DROP TYPE harvest_protocol;
+            ALTER TYPE harvest_protocol_new RENAME TO harvest_protocol;
+            """)
+    
+    # Now, update the endpoints table so that DaSCh has its initial harvest_params
+    op.execute("""
+            UPDATE endpoints
+            SET harvest_params = '{"metadata_prefix": "oai_datacite","set": ["entityType:ResearchProject"]}'
+            WHERE name = 'DaSCH';
+            """)
