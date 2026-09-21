@@ -41,21 +41,45 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
 
+    # The downgrade includes changing the column type to restore the enum, so we have to drop and then re-create
+    # all views that depend on the column.
+    op.execute("""
+        DROP VIEW v_active_harvest_endpoints;
+    """)
+
     # No rows contain the dropped type, it's only part of the harvest_params additional metadata.
     # So we don't need to clean the values first.
 
     # We need to recreate the ENUM as a new object with a different name, then swap it instead of the upgraded version (containing the extra DASCH_API)
     # Then drop the original and change the enum name to the old name.
     # If we didn't do that, we'd lose the column data when changing type!
+    # Also, we need to make it so endpoints.protocol doesn't have a default during the switch and then recreate it,
+    # otherwise the ALTER will fail.
+
+    # IMPORTANT: multiple columns use this enum! We need to alter each one. Only 'endpoints' has a default.
     op.execute("""
             CREATE TYPE harvest_protocol_new AS ENUM ('OAI-PMH', 'REST_API', 'FINBIF_API', 'MDPOSIT_API', 'EMPIAR_API', 'NFDI4EARTH_API');
             
+            -- swap enum in all tables using it
             ALTER TABLE endpoints 
-                ALTER COLUMN harvest_protocol TYPE harvest_protocol_new 
-                USING harvest_protocol::text::harvest_protocol_new;
+                ALTER COLUMN protocol DROP DEFAULT,
+                ALTER COLUMN protocol TYPE harvest_protocol_new 
+                    USING protocol::text::harvest_protocol_new;
             
+            ALTER TABLE harvest_events 
+            ALTER COLUMN metadata_protocol TYPE harvest_protocol_new 
+                USING metadata_protocol::text::harvest_protocol_new;
+
+            ALTER TABLE records 
+            ALTER COLUMN metadata_protocol TYPE harvest_protocol_new 
+                USING metadata_protocol::text::harvest_protocol_new;        
+
+            -- drop enum, rename the newly created one to the same name    
             DROP TYPE harvest_protocol;
             ALTER TYPE harvest_protocol_new RENAME TO harvest_protocol;
+
+            ALTER TABLE endpoints 
+                ALTER COLUMN protocol SET DEFAULT 'OAI-PMH'::harvest_protocol;
             """)
     
     # Now, update the endpoints table so that DaSCh has its initial harvest_params
@@ -64,3 +88,20 @@ def downgrade() -> None:
             SET harvest_params = '{"metadata_prefix": "oai_datacite","set": ["entityType:ResearchProject"]}'
             WHERE name = 'DaSCH';
             """)
+   
+    # Re-create the view
+    op.execute("""
+        CREATE VIEW v_active_harvest_endpoints AS
+            SELECT e.id AS endpoint_id,
+                e.name AS endpoint_name,
+                e.harvest_url,
+                e.protocol,
+                e.scientific_discipline,
+                r.name AS repository_name,
+                r.code AS repository_code,
+                r.base_url AS repository_url
+            FROM endpoints e
+            JOIN repositories r ON e.repository_id = r.id
+            WHERE e.is_active = true AND r.is_active = true;
+    """)
+
