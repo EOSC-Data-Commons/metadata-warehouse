@@ -128,6 +128,7 @@ class EmbeddedChunk:
 
     chunk: Chunk
     vector: list[float]
+    model: str
 
     def as_row(self) -> tuple[Any, ...]:
         return (
@@ -137,7 +138,7 @@ class EmbeddedChunk:
             self.chunk.text,
             # the vector input function parses the '[1,2,3]' text form, so no adapter is needed
             json.dumps(self.vector),
-            '',  # TODO: embedding model name
+            self.model,
         )
 
 
@@ -348,8 +349,10 @@ def dataset_chunks(row: DatasetRow) -> list[Chunk]:
 
 
 def embed_chunks(
-    chunks: list[Chunk], api_key: str, embed_api: str, model: str, logger: logging.Logger
+    chunks: list[Chunk], api_key: str, embed_api: str, model: str, batch_size: int, logger: logging.Logger
 ) -> list[EmbeddedChunk]:
     """Pair every chunk with its vector, ready to be copied into record_embeddings."""
-    vectors = embedding_utils._embed([chunk.text for chunk in chunks], api_key, embed_api, logger, model)
-    return [EmbeddedChunk(chunk, vector) for chunk, vector in zip(chunks, vectors, strict=True)]
+    vectors = embedding_utils.embed(
+        [chunk.text for chunk in chunks], api_key, embed_api, logger, model, batch_size=batch_size
+    )
+    return [EmbeddedChunk(chunk, vector, model) for chunk, vector in zip(chunks, vectors, strict=True)]

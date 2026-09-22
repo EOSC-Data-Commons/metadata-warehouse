@@ -11,6 +11,7 @@ from utils.chunk_embedding_utils import (
     DATACITE_KEYS,
     RESOURCE_TYPES,
     SourceRecord,
+    UnindexableRecordError,
     build_dataset_row,
     dataset_chunks,
     embed_chunks,
@@ -22,6 +23,8 @@ if not EMBEDDING_MODEL:
 
 EMBED_API_KEY = os.environ.get('EMBED_API_KEY')
 EMBED_API_URL = os.environ.get('EMBED_API_URL')
+if not EMBED_API_KEY or not EMBED_API_URL:
+    raise ValueError('Missing EMBED_API_KEY or EMBED_API_URL environment variable')
 
 
 class EmbeddingTask(Task):  # type: ignore
@@ -33,6 +36,7 @@ class EmbeddingTask(Task):  # type: ignore
 
 @celery_app.task(base=EmbeddingTask, bind=True, ignore_result=True)
 def embed_batch(self: Any, record_ids: list[str]) -> Any:
+    assert EMBEDDING_MODEL and EMBED_API_KEY and EMBED_API_URL
 
     with psycopg.connect(
         **self.postgres_config.connection_params, row_factory=class_row(SourceRecord), autocommit=False
@@ -65,16 +69,26 @@ def embed_batch(self: Any, record_ids: list[str]) -> Any:
     dataset_rows = []
     chunks = []
     for record in records:
-        dataset_row = build_dataset_row(record)
-        dataset_row_chunks = dataset_chunks(dataset_row)
+        try:
+            dataset_row = build_dataset_row(record)
+        except UnindexableRecordError as e:
+            logger.warning(f'skipped {record.label}: {e}')
+            continue
+        except Exception as e:  # never let one malformed record kill the run
+            logger.warning(f'skipped {record.label}: {type(e).__name__}: {e}')
+            continue
 
         dataset_rows.append(dataset_row)
-        chunks.extend(dataset_row_chunks)
+        chunks.extend(dataset_chunks(dataset_row))
 
     # embed
-    if EMBEDDING_MODEL and EMBED_API_KEY and EMBED_API_URL:
-        embedding_model_name = EMBEDDING_MODEL.split('/')[-1]
-        embedded = embed_chunks(chunks, EMBED_API_KEY, EMBED_API_URL, embedding_model_name, logger)
+    embedding_model_name = EMBEDDING_MODEL.split('/')[-1]
 
-        logger.info(f'Dataset rows: {dataset_rows}')
-        logger.info(f'Embedded chunks: {embedded}')
+    if not chunks:
+        logger.info(f'{len(records)} records fetched, but could make no chunks in this batch')
+        return
+
+    embedded = embed_chunks(chunks, EMBED_API_KEY, EMBED_API_URL, embedding_model_name, 250, logger)
+
+    logger.info(f'Dataset rows: {dataset_rows}')
+    logger.info(f'Embedded chunks: {embedded}')
