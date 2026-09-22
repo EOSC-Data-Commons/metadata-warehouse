@@ -23,8 +23,8 @@ if not EMBEDDING_MODEL:
 
 EMBED_API_KEY = os.environ.get('EMBED_API_KEY')
 EMBED_API_URL = os.environ.get('EMBED_API_URL')
-#if not EMBED_API_KEY or not EMBED_API_URL:
-#    raise ValueError('Missing EMBED_API_KEY or EMBED_API_URL environment variable')
+if not EMBED_API_KEY or not EMBED_API_URL:
+    raise ValueError('Missing EMBED_API_KEY or EMBED_API_URL environment variable')
 
 
 class EmbeddingTask(Task):  # type: ignore
