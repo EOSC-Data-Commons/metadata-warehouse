@@ -93,7 +93,7 @@ def _retry_after_seconds(response: requests.Response) -> float | None:
         return None
 
 
-def _embed(
+def embed(
     texts: list[str],
     api_key: str,
     base_url: str,
@@ -201,7 +201,7 @@ def add_embeddings_to_source(
         # model names: BAAI/bge-small-en-v1.5 (fastembed) -> bge-small-en-v1.5 (API)
         embedding_model_name = model_name.split('/')[-1]
         try:
-            embeddings = _embed(
+            embeddings = embed(
                 embedding_texts,
                 prefix='',
                 logger=logger,
