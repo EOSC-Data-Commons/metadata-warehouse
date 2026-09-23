@@ -1,7 +1,7 @@
 import unittest
 from datetime import UTC, date, datetime
 
-from src.utils.chunk_embedding_utils import (
+from utils.chunk_embedding_utils import (
     MAX_CHUNK_CHARS,
     MAX_DESCRIPTION_CHUNKS,
     DataciteJson,

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field, fields
 from datetime import date, datetime
 from typing import Any
 
-from src.utils import embedding_utils
+from utils import embedding_utils
 
 DATACITE_KEYS = (
     'titles',
