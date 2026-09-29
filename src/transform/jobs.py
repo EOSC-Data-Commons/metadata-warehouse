@@ -66,6 +66,7 @@ def require_env(name: str) -> str:
         raise ValueError(f'Missing {name} environment variable')
     return value
 
+
 EMBED_API_KEY = os.environ.get('EMBED_API_KEY')
 EMBED_API_URL = os.environ.get('EMBED_API_URL')
 
@@ -475,7 +476,14 @@ def transform_batch(batch: list[HarvestEventQueue], index_name: str, *, reuse_em
                     )
             else:
                 logger.info(f'About to Calculate embeddings for {len(normalized)}')
-                src_with_emb = add_embeddings_to_source(normalized, embedding_transformer())
+                src_with_emb = add_embeddings_to_source(
+                    batch=normalized,
+                    logger=logger,
+                    embedding_model=embedding_transformer(),
+                    api_key=EMBED_API_KEY,
+                    base_url=EMBED_API_URL,
+                    model_name=EMBEDDING_MODEL,
+                )
                 logger.info(f'Calculated embeddings for {len(src_with_emb)}')
             preprocessed = preprocess_batch([src_with_emb_ele.src for src_with_emb_ele in src_with_emb], index_name)
         except Exception as e:
