@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.8.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.7.1...v1.8.0) (2026-10-01)
+
+
+### Features
+
+* **alembic:** setup alembic migrations ([#163](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/163)) ([1c8a03e](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/1c8a03e7294c4dacdf7dac2a65931635ab03932e))
+
+
+### Bug Fixes
+
+* add index on harvest_events (harvest_run_id, id) ([#179](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/179)) ([643bb3a](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/643bb3a6f6ca9823037336defaef463366bc3a0e))
+
 ## [1.7.1](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.7.0...v1.7.1) (2026-09-11)
 
 
