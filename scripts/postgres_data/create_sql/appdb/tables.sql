@@ -7,6 +7,14 @@ CREATE TABLE rate_limits (
 	PRIMARY KEY (key)
 );
 
+CREATE TABLE stats_snapshots (
+	id SERIAL NOT NULL,
+	generated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	stats JSONB NOT NULL,
+	PRIMARY KEY (id)
+);
+CREATE INDEX ix_stats_snapshots_generated_at ON stats_snapshots (generated_at);
+
 CREATE TABLE users (
 	sub VARCHAR(255) NOT NULL,
 	email VARCHAR(320),
@@ -16,6 +24,7 @@ CREATE TABLE users (
 	aup_accepted TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
 	PRIMARY KEY (sub)
 );
+CREATE INDEX ix_users_sub ON users (sub);
 
 CREATE TABLE conversations (
 	user_id VARCHAR(255) NOT NULL,
@@ -37,3 +46,5 @@ CREATE TABLE messages (
 	PRIMARY KEY (id),
 	FOREIGN KEY(user_id, thread_id) REFERENCES conversations (user_id, thread_id) ON DELETE CASCADE
 );
+CREATE INDEX ix_messages_thread_id ON messages (thread_id);
+CREATE INDEX ix_messages_user_id ON messages (user_id);
