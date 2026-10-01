@@ -492,7 +492,7 @@ SELECT
     'OAI-PMH',
     'Multidisciplinary',
     true,
-    '{"metadata_prefix": "oai_datacite","set": ["entityType:ResearchProject"]}',
+    '{"metadata_prefix": "oai_datacite", "set": ["entityType:Record"], "additional_metadata_params": {"endpoint": "https://repository.dasch.swiss/dpe/records/", "protocol": "DASCH_API", "format": "None"}}',
     INTERVAL '1 week'
 FROM repositories r
 WHERE r.code = 'DASCH'
