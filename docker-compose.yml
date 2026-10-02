@@ -126,7 +126,11 @@ services:
                 condition: service_healthy
 
     postgres:
-        image: postgres:17-alpine
+        build:
+            dockerfile: ./docker/postgres/Dockerfile
+            context: .
+        # pg_textsearch only works when preloaded at server startup
+        command: [ "postgres", "-c", "shared_preload_libraries=pg_textsearch" ]
         environment:
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
