@@ -1,5 +1,5 @@
 import os
-from typing import Any, cast, LiteralString
+from typing import Any, LiteralString, cast
 
 import psycopg
 from celery import Task
@@ -9,15 +9,15 @@ from config.postgres_config import PostgresConfig
 from transform.celery_app_def import celery_app, logger
 from utils.chunk_embedding_utils import (
     DATACITE_KEYS,
+    DATASET_COLUMNS,
     RESOURCE_TYPES,
+    DatasetRow,
+    EmbeddedChunk,
     SourceRecord,
     UnindexableRecordError,
     build_dataset_row,
     dataset_chunks,
     embed_chunks,
-    DatasetRow,
-    EmbeddedChunk,
-    DATASET_COLUMNS,
 )
 
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
