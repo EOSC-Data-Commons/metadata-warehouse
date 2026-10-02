@@ -14,7 +14,10 @@ from utils.chunk_embedding_utils import (
     UnindexableRecordError,
     build_dataset_row,
     dataset_chunks,
-    embed_chunks, DatasetRow, EmbeddedChunk, DATASET_COLUMNS,
+    embed_chunks,
+    DatasetRow,
+    EmbeddedChunk,
+    DATASET_COLUMNS,
 )
 
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
@@ -43,14 +46,16 @@ COPY_EMBEDDINGS_SQL = """
     FROM STDIN
 """
 
+
 class EmbeddingTask(Task):  # type: ignore
     postgres_config: PostgresConfig
 
     def __init__(self) -> None:
         self.postgres_config = PostgresConfig()
 
-    def upsert_datasets(self, appdb_conn: psycopg.Connection[Any], rows: list[DatasetRow],
-                        embedded: list[EmbeddedChunk]) -> None:
+    def upsert_datasets(
+        self, appdb_conn: psycopg.Connection[Any], rows: list[DatasetRow], embedded: list[EmbeddedChunk]
+    ) -> None:
         """Write a batch of datasets and their embeddings in a single transaction."""
         with appdb_conn.cursor() as cur:
             cur.executemany(UPSERT_DATASET_SQL, [row.as_params() for row in rows])
@@ -122,8 +127,5 @@ def embed_batch(self: Any, record_ids: list[str]) -> Any:
     conn_params = {**self.postgres_config.connection_params, **{'dbname': 'appdb'}}
 
     # write to appdb
-    with psycopg.connect(
-        **conn_params, row_factory=class_row(SourceRecord), autocommit=False
-    ) as conn:
+    with psycopg.connect(**conn_params, row_factory=class_row(SourceRecord), autocommit=False) as conn:
         self.upsert_datasets(conn, dataset_rows, embedded)
-
