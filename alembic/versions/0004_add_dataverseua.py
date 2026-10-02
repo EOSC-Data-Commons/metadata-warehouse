@@ -61,7 +61,7 @@ def upgrade() -> None:
             'OAI-PMH',
             'Multidisciplinary',
             true,
-            '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://opendata.nas.gov.ua/api/datasets/:persistentId/versions/:latest-published", "protocol": "DATAVERSE_API", "format": "None"}}',
+            '{"metadata_prefix": "oai_datacite", "additional_metadata_params": {"endpoint": "https://opendata.nas.gov.ua/api/datasets/\:persistentId/versions/\:latest-published", "protocol": "DATAVERSE_API", "format": "None"}}',
             INTERVAL '1 week'
         FROM repositories r
         WHERE r.code = 'DATAVERSEUA'
