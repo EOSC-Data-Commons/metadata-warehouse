@@ -1,0 +1,15 @@
+# Keep build contexts small and free of host artefacts that would shadow the packaged code
+__pycache__/
+*.py[cod]
+.venv/
+.git/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+cache/
+logs/
+.env
+keys.env
+*.env
+!env.template
+!keys.env.template
