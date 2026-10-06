@@ -1,7 +1,10 @@
+import logging
 from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 
 class HealthGetResponse(BaseModel):

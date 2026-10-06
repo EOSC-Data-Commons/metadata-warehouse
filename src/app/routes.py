@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -31,7 +32,9 @@ from app.db_methods import (
     get_latest_harvest_run_in_db,
 )
 from config.postgres_config import PostgresConfig
-from logger.setup_logger import logger
+from logger.setup_logger import setup_logging
+
+setup_logging()
 
 tags_metadata = [
     {'name': 'health', 'description': 'Health route'},
@@ -47,6 +50,8 @@ tags_metadata = [
 app = FastAPI(openapi_tags=tags_metadata)
 postgres_config: PostgresConfig = PostgresConfig()
 connection_params = postgres_config.connection_params
+
+logger = logging.getLogger(__name__)
 
 
 @app.get('/index', tags=['index'])
