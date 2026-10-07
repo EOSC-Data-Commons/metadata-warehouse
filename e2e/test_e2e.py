@@ -768,4 +768,3 @@ def test_alembic_upgrade_downgrade_one_version(reset_dataset_db):
         enriched_exist = _column_exists(conn, 'records', 'enriched_subjects')
 
         assert raw_exist and enriched_exist
-
