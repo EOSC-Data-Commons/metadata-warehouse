@@ -4,6 +4,7 @@ Revision ID: 0005_remove_doi
 Revises: 0004_add_dataverseua
 Create Date: 2026-10-07 15:10:00
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -24,6 +25,7 @@ SELECT
     e.name as endpoint_name,
     rec.resource_type,
     COUNT(*) as record_count,
+    COUNT(DISTINCT rec.url) as unique_urls,
     COUNT(CASE WHEN rec.opensearch_synced THEN 1 END) as synced_count,
     MAX(rec.updated_at) as last_updated
 FROM records rec
@@ -52,11 +54,11 @@ GROUP BY r.name, e.name, rec.resource_type
 def upgrade() -> None:
     # 1. The view depends on records.doi, so it must go first
     #    (CREATE OR REPLACE VIEW cannot remove a column).
-    op.execute("DROP VIEW IF EXISTS v_records_statistics")
+    op.execute('DROP VIEW IF EXISTS v_records_statistics')
 
-    # 2. Data: doi -> url. The DOI takes precedence over any existing url
-    #    (url was only "Primary URL if no DOI"). Values that already are
-    #    a full DOI URL are kept as-is to avoid double prefixes.
+    # 2. Data: backfill url from doi where no url is set yet. An existing url
+    #    is never overwritten. Values that already are a full URL are kept
+    #    as-is to avoid double prefixes.
     op.execute(f"""
         UPDATE records
         SET url = CASE
@@ -64,30 +66,31 @@ def upgrade() -> None:
                 ELSE '{DOI_URL_PREFIX}' || doi
             END
         WHERE doi IS NOT NULL
+          AND url IS NULL
     """)
 
     # 3. Constraint: (doi OR url) -> url NOT NULL
     #    All rows have a url at this point (old check + step 2).
-    op.execute("ALTER TABLE records DROP CONSTRAINT IF EXISTS records_doi_or_url_check")
+    op.execute('ALTER TABLE records DROP CONSTRAINT IF EXISTS records_doi_or_url_check')
     op.alter_column('records', 'url', nullable=False)
 
     # 4. Drop doi index and column (the column comment is dropped with the column)
-    op.execute("DROP INDEX IF EXISTS idx_records_doi")
+    op.execute('DROP INDEX IF EXISTS idx_records_doi')
     op.drop_column('records', 'doi')
 
     # 5. Index on url
-    op.execute("CREATE INDEX IF NOT EXISTS idx_records_url ON records(url)")
+    op.execute('CREATE INDEX IF NOT EXISTS idx_records_url ON records(url)')
 
     # 6. Recreate the view without doi
     op.execute(VIEW_WITHOUT_DOI)
 
 
 def downgrade() -> None:
-    op.execute("DROP VIEW IF EXISTS v_records_statistics")
-    op.execute("DROP INDEX IF EXISTS idx_records_url")
+    op.execute('DROP VIEW IF EXISTS v_records_statistics')
+    op.execute('DROP INDEX IF EXISTS idx_records_url')
 
     # Restore column + comment
-    op.execute("ALTER TABLE records ADD COLUMN doi VARCHAR(255)")
+    op.execute('ALTER TABLE records ADD COLUMN doi VARCHAR(255)')
     op.execute("COMMENT ON COLUMN records.doi IS 'Digital Object Identifier'")
 
     # Data: url -> doi for DOI URLs. url is cleared for those rows, matching the
@@ -107,7 +110,7 @@ def downgrade() -> None:
         ALTER TABLE records
         ADD CONSTRAINT records_doi_or_url_check CHECK (doi IS NOT NULL OR url IS NOT NULL)
     """)
-    op.execute("CREATE INDEX IF NOT EXISTS idx_records_doi ON records(doi) WHERE doi IS NOT NULL")
+    op.execute('CREATE INDEX IF NOT EXISTS idx_records_doi ON records(doi) WHERE doi IS NOT NULL')
 
     # Restore the original view
     op.execute(VIEW_WITH_DOI)
