@@ -32,6 +32,6 @@ LOGGING_CONFIG = {
         },
         'urllib3': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
         'requests': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
-        'transform.tasks': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
+        'transform.celery_app_def': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
     },
 }

@@ -72,7 +72,7 @@ if __name__ == '__main__':
         '-s', help='path to schema file if normalized output should be validated (requires flag -n)', type=str
     )
     parser.add_argument('-n', help='If set, output JSON is normalized', action='store_true')
-    parser.add_argument('-v', help='If set, output JSON is validated', action='store_true')
+    parser.add_argument('-v', help='If set, output JSON is validated (requires flag -s to be set)', action='store_true')
 
     args = parser.parse_args()
 
@@ -82,6 +82,8 @@ if __name__ == '__main__':
         or args.o is None
         or not os.path.isdir(args.o)
         or (args.s and not os.path.isfile(args.s))
+        or args.v
+        and not args.s
     ):
         parser.print_help()
         exit(1)
