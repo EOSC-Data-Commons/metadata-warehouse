@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.8.0...v1.9.0) (2026-10-08)
+
+
+### Features
+
+* **alembic:** rewrite DaSCh migration as an alembic migration ([#182](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/182)) ([1d1b2b8](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/1d1b2b8938f1c177c73e92c8f2d6bdbd593d2bcf))
+* **deduplication, pgvector:** add deduplication and pgvector ([#188](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/188)) ([b451df9](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/b451df99862675f5379252dd4d04a011e89602c0))
+
 ## [1.8.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.7.1...v1.8.0) (2026-10-01)
 
 
