@@ -8,9 +8,11 @@ To run the containers:
   ```sh
   cp env.template .env
   ```
-  Optionally add the following env variables for postgres and/or OpenSearch (not needed for local dev):
-    - `POSTGRES_ADDRESS` (default "postgres") and `POSTGRES_PORT` (default 5432)
-    - `OPENSEARCH_ADDRESS` (default "opensearch") and `OPENSEARCH_PORT` (default 9200)
+  Optionally, add the following env variables for postgres and/or OpenSearch (not needed for local dev):
+    - `POSTGRES_ADDRESS_DOCKER` (default "postgres", docker network internal) and `POSTGRES_PORT_DOCKER` (default 5432)
+    - `POSTGRES_ADDRESS_HOST` (default "127.0.0.1", host) and `POSTGRES_PORT_HOST` (default 5432)
+    - `OPENSEARCH_ADDRESS_DOCKER` (default "opensearch", docker network internal) and `OPENSEARCH_PORT_DOCKER` (default 9200)
+    - `OPENSEARCH_ADDRESS_HOST` (default "127.0.0.1", host) and `OPENSEARCH_PORT_HOST` (default 9200)
     - `FASTAPI_ADDRESS` (default "127.0.0.1") and `FASTAPI_PORT` (default 8080)
 - API keys for search API server:
   ```sh
@@ -114,6 +116,14 @@ In development, it may be more convenient to load pre-harvested static data:
   This will create and init the specified DB if it does not exist yet.
   If it already exists and should be **dropped and reinitialized**, 
   additionally provide the flag --reset. 
+
+- the script defines the initial state of the database and should be stamped as the migration baseline.  
+  **All further changes** to the database should be done as Alembic migrations.  
+  To stamp the baseline and upgrade to the latest version:  
+  ```sh
+  alembic stamp 0001_baseline  
+  alembic upgrade head
+  ```
 
 - load XML data from `scripts/postgres_data/data` (populates table `harvest_events`):
   ```sh

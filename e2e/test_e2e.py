@@ -1,19 +1,25 @@
 import json
+import logging
 import os
 import time
 
 import httpx
 import psycopg
 import pytest
+from alembic.config import Config
 from dotenv import load_dotenv
 from opensearchpy import OpenSearch
+
+from alembic import command
 
 load_dotenv('.env')
 
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
-ADDRESS = os.environ.get('POSTGRES_ADDRESS')
-PORT = os.environ.get('POSTGRES_PORT')
+POSTGRES_ADDRESS_HOST = os.environ.get('POSTGRES_ADDRESS_HOST') or '127.0.0.1'
+POSTGRES_PORT_HOST = int(os.environ.get('POSTGRES_PORT_HOST') or 5432)
+OPENSEARCH_ADDRESS_HOST = os.environ.get('OPENSEARCH_ADDRESS_HOST') or '127.0.0.1'
+OPENSEARCH_PORT_HOST = int(os.environ.get('OPENSEARCH_PORT_HOST') or 9200)
 TEST_DATASET_DB = 'testdatasetdb'
 TEST_FILE_DB = 'testfiledb'
 TEST_INDEX = 'test_index'
@@ -22,6 +28,7 @@ EMBEDDING_DIMS = os.environ.get('EMBEDDING_DIMS')
 API_BASE_URL = 'http://localhost:8080'
 FLOWER_BASE_URL = 'http://localhost:5555'
 TIMEOUT = 120
+MAX_TASK_AGE = 10
 
 
 @pytest.fixture
@@ -29,6 +36,20 @@ def api_client():
     """HTTP client for API requests."""
     with httpx.Client(base_url=API_BASE_URL, timeout=TIMEOUT) as client:
         yield client
+
+
+@pytest.fixture
+def postgres_client():
+    """Direct Postgres connection to the test dataset db, for asserting on table state."""
+    with psycopg.connect(
+        dbname=TEST_DATASET_DB,
+        user=USER,
+        host=POSTGRES_ADDRESS_HOST,
+        password=PW,
+        port=POSTGRES_PORT_HOST,
+        row_factory=psycopg.rows.dict_row,
+    ) as conn:
+        yield conn
 
 
 @pytest.fixture
@@ -53,9 +74,9 @@ def reset_db(name: str, path: str):
     with psycopg.connect(
         dbname='postgres',
         user=USER,
-        host='127.0.0.1',
+        host=POSTGRES_ADDRESS_HOST,
         password=PW,
-        port=5432,
+        port=POSTGRES_PORT_HOST,
         autocommit=True,
     ) as conn:
         with conn.cursor() as cursor:
@@ -63,7 +84,13 @@ def reset_db(name: str, path: str):
             if not cursor.fetchone():
                 cursor.execute(f'CREATE DATABASE {name}')
 
-    with psycopg.connect(dbname=name, user=USER, host='127.0.0.1', password=PW, port=5432) as conn:
+    with psycopg.connect(
+        dbname=name,
+        user=USER,
+        host=POSTGRES_ADDRESS_HOST,
+        password=PW,
+        port=POSTGRES_PORT_HOST,
+    ) as conn:
         with conn.cursor() as cursor:
             # Drop and recreate schema
             cursor.execute('DROP SCHEMA IF EXISTS public CASCADE')
@@ -78,6 +105,24 @@ def reset_db(name: str, path: str):
                 with open(filepath) as f:
                     sql_statements = f.read()
                 cursor.execute(sql_statements)
+
+    # Use Alembic to upgrade database to latest version
+    # TODO: Hardcoded to only apply to (test)datasetdb. If needed, work out how
+    # to use separate versioning for filedb
+
+    if path == 'datasetdb':
+        # Don't show alembic INFO messages
+        logging.getLogger('alembic').setLevel(logging.WARNING)
+
+        alembic_cfg = Config('alembic.ini')
+        alembic_cfg.set_main_option(
+            'sqlalchemy.url',
+            f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS_HOST}:{POSTGRES_PORT_HOST}/{TEST_DATASET_DB}',
+        )
+        alembic_cfg.config_file_name = None  # prevent env.py overwritting logger settings
+
+        command.stamp(alembic_cfg, '0001_baseline')
+        command.upgrade(alembic_cfg, 'head')
 
 
 @pytest.fixture
@@ -95,8 +140,8 @@ def reset_index():
     client = OpenSearch(
         hosts=[
             {
-                'host': ADDRESS if ADDRESS else '127.0.0.1',
-                'port': int(PORT) if PORT else 9200,
+                'host': OPENSEARCH_ADDRESS_HOST,
+                'port': OPENSEARCH_PORT_HOST,
             }
         ],
         http_auth=None,
@@ -120,8 +165,21 @@ def reset_index():
 
 @pytest.fixture
 def wait_for_task():
-    def _wait_for_task(flower_client, task_name, timeout=TIMEOUT):
-        """Wait for a task to complete successfully."""
+    def _wait_for_task(
+        flower_client,
+        task_name,
+        expected_args: str | None = None,
+        parent_id: str | None = None,
+        timeout=TIMEOUT,
+        max_task_age=MAX_TASK_AGE,
+    ):
+        """Wait for a task to complete successfully.
+
+        If parent_id is provided, waits specifically for a task matching
+        task_name whose parent_id matches — needed when multiple invocations
+        of the same task type may be in flight or already recorded, and you
+        only know the id of the task that dispatched it.
+        """
         start_time = time.time()
 
         while time.time() - start_time < timeout:
@@ -130,9 +188,30 @@ def wait_for_task():
                 tasks = response.json()
 
                 if tasks:
-                    first_task = next(iter(tasks.values()))
-                    if first_task.get('state') == 'SUCCESS':
-                        return first_task
+                    if parent_id is not None:
+                        for task in tasks.values():
+                            succeeded = task.get('succeeded')
+                            if (
+                                succeeded
+                                and task.get('parent_id') == parent_id
+                                and task.get('state') == 'SUCCESS'
+                                and abs(succeeded - start_time) <= max_task_age
+                            ):
+                                return task
+                    else:
+                        first_task = next(iter(tasks.values()))
+                        succeeded = first_task.get('succeeded')
+                        if (
+                            succeeded
+                            and first_task.get('state') == 'SUCCESS'
+                            and abs(succeeded - start_time) <= max_task_age
+                        ):
+                            if expected_args is not None:
+                                args = first_task.get('args')
+                                if args and expected_args in args:
+                                    return first_task
+                            else:
+                                return first_task
             except Exception:
                 pass
 
@@ -153,7 +232,7 @@ def test_get_config(api_client, reset_dataset_db, reset_file_db):
     response = api_client.get('/config')
 
     assert response.status_code == 200
-    assert len(response.json()['endpoints_configs']) == 29
+    assert len(response.json()['endpoints_configs']) == 31
 
 
 def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, reset_dataset_db, reset_index):
@@ -332,8 +411,8 @@ def test_create_and_close_harvest_run(
     # note this does not check for a successful transformation
     assert res_index.status_code == 200
 
-    transform_task = wait_for_task(flower_client, 'transform.tasks.transform_batch')
-    filemeta_task = wait_for_task(flower_client, 'transform.tasks.add_file_metadata')
+    transform_task = wait_for_task(flower_client, 'transform.transform_task.transform_batch', '10.17026/AR/0AKDPK')
+    filemeta_task = wait_for_task(flower_client, 'transform.file_meta_task.add_file_metadata', '10.17026/AR/0AKDPK')
 
     assert transform_task and transform_task['state'] == 'SUCCESS'
     assert '10.17026/AR/0AKDPK' in transform_task['args']
@@ -344,7 +423,7 @@ def test_create_and_close_harvest_run(
     response_config = api_client.get('/config')
 
     assert response_config.status_code == 200
-    assert len(response_config.json()['endpoints_configs']) == 29
+    assert len(response_config.json()['endpoints_configs']) == 31
 
 
 HAL_HARVEST_URL = 'https://api.archives-ouvertes.fr/oai/hal'
@@ -387,14 +466,16 @@ def _close_harvest_run(api_client, run_id):
     return res_close
 
 
-def _post_harvest_event(api_client, *, harvest_run_id, harvest_url, repo_code, record_identifier, raw_metadata):
+def _post_harvest_event(
+    api_client, *, harvest_run_id, harvest_url, repo_code, record_identifier, raw_metadata, additional_metadata=None
+):
     res = api_client.post(
         '/harvest_event',
         json={
             'record_identifier': record_identifier,
             'datestamp': '2026-02-17T15:43:03.326Z',
             'raw_metadata': raw_metadata,
-            'additional_metadata': None,
+            'additional_metadata': additional_metadata,
             'harvest_url': harvest_url,
             'repo_code': repo_code,
             'harvest_run_id': harvest_run_id,
@@ -403,6 +484,55 @@ def _post_harvest_event(api_client, *, harvest_run_id, harvest_url, repo_code, r
     )
     assert res.status_code == 200
     return res
+
+
+def _create_and_close_harvest_run(
+    api_client,
+    flower_client,
+    wait_for_task,
+    *,
+    harvest_run_url,
+    repo_code,
+    record_identifier,
+    raw_metadata,
+    additional_metadata=None,
+    expected_doi,
+    index_name=TEST_INDEX,
+):
+    res_create = api_client.post('/harvest_run', json={'harvest_url': harvest_run_url})
+    assert res_create.status_code == 200
+    create_response = res_create.json()
+
+    post_he = _post_harvest_event(
+        api_client,
+        harvest_run_id=create_response['id'],
+        harvest_url=harvest_run_url,
+        repo_code=repo_code,
+        record_identifier=record_identifier,
+        raw_metadata=raw_metadata,
+        additional_metadata=additional_metadata,
+    )
+
+    assert post_he.status_code == 200
+
+    _close_harvest_run(api_client, create_response['id'])
+
+    res_index = api_client.get(
+        '/index',
+        params={'harvest_run_id': create_response['id'], 'index_name': index_name},
+    )
+    assert res_index.status_code == 200
+
+    transform_task = wait_for_task(flower_client, 'transform.transform_task.transform_batch', expected_doi)
+    filemeta_task = wait_for_task(flower_client, 'transform.file_meta_task.add_file_metadata', expected_doi)
+
+    assert transform_task and transform_task['state'] == 'SUCCESS'
+    assert expected_doi in transform_task['args']
+
+    assert filemeta_task and filemeta_task['state'] == 'SUCCESS'
+    assert expected_doi in filemeta_task['args']
+
+    return {'run_id': create_response['id'], 'transform_task': transform_task, 'filemeta_task': filemeta_task}
 
 
 def test_zenodo_dependency_without_hal(api_client, reset_dataset_db, reset_file_db, reset_index):
@@ -492,3 +622,149 @@ def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, 
     identifiers_2 = set(zenodo_run_2['master_set_identifiers'])
     assert identifiers_2 == {'10.5281/zenodo.222', '10.5281/zenodo.333'} | ZENODO_STATIC_DOIS
     assert '10.5281/zenodo.111' not in identifiers_2
+
+
+def test_deduplication(api_client, flower_client, reset_dataset_db, reset_file_db, wait_for_task, postgres_client):
+    with open('e2e/test_data/dans.xml') as f:
+        xml = f.read()
+    with open('e2e/test_data/dans_additional.json') as f:
+        additional_meta = f.read()
+
+    _create_and_close_harvest_run(
+        api_client,
+        flower_client,
+        wait_for_task,
+        harvest_run_url='https://archaeology.datastations.nl/oai',
+        repo_code='DANS',
+        record_identifier='10.34894/G8PZKV',
+        raw_metadata=xml,
+        additional_metadata=additional_meta,
+        expected_doi='10.17026/AR/0AKDPK',
+    )
+
+    with open('e2e/test_data/dans.xml') as f:
+        xml = f.read()
+    with open('e2e/test_data/dans_additional.json') as f:
+        additional_meta = f.read()
+
+    _create_and_close_harvest_run(
+        api_client,
+        flower_client,
+        wait_for_task,
+        harvest_run_url='https://phys-techsciences.datastations.nl/oai',
+        repo_code='DANS',
+        record_identifier='10.34894/G8PZKV',
+        raw_metadata=xml,
+        additional_metadata=additional_meta,
+        expected_doi='10.17026/AR/0AKDPK',
+    )
+
+    # TODO: fix this properly: currently, wait_for_task has to no way to distinguish between the first and second call of _create_and_close_harvest_run
+    # so the second call might not have been completed, but we get a positive result from the first run
+    time.sleep(5)
+
+    # --- verify the duplicate exists ---
+    expected_url = 'https://doi.org/10.17026/AR/0AKDPK'
+
+    cur = postgres_client.cursor()
+    cur.execute('SELECT id, endpoint_id FROM records WHERE url = %s', (expected_url,))
+    rows_before = cur.fetchall()
+    assert len(rows_before) == 2
+
+    # --- run deduplication ---
+    res_dedup = api_client.post('/deduplicate')
+    assert res_dedup.status_code == 200
+    dedup_task_id = res_dedup.json()['task_id']
+
+    dedup_task = wait_for_task(flower_client, 'transform.deduplication_task.remove_duplicates', parent_id=dedup_task_id)
+    assert dedup_task and dedup_task['state'] == 'SUCCESS'
+
+    # --- verify only one record remains ---
+    cur.execute('SELECT id, endpoint_id FROM records WHERE url = %s', (expected_url,))
+    rows_after = cur.fetchall()
+    assert len(rows_after) == 1
+
+
+# --- Alembic migrations
+def _table_exists(conn, table_name, schema='public'):
+    """
+    Check if a given table exists in the database.
+    Returns True/False
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = %s AND table_name = %s
+            )
+            """,
+            (schema, table_name),
+        )
+        return cur.fetchone()[0]
+
+
+def _column_exists(conn, table_name, column_name, schema='public'):
+    """
+    Check if a given column exists in the specified database table.
+    Returns True/False
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = %s AND table_name = %s AND column_name = %s
+            )
+            """,
+            (schema, table_name, column_name),
+        )
+        return cur.fetchone()[0]
+
+
+def test_alembic_upgrade_downgrade_one_version(reset_dataset_db):
+    """
+    Test for alembic integration in datasetdb,
+    as well that migrating from version 0001_baseline
+    to 0002_record_subjects cretes the expected subjects columns.
+    """
+
+    # Don't show alembic INFO messages
+    logging.getLogger('alembic').setLevel(logging.WARNING)
+
+    alembic_cfg = Config('alembic.ini')
+    alembic_cfg.set_main_option(
+        'sqlalchemy.url',
+        f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS_HOST}:{POSTGRES_PORT_HOST}/{TEST_DATASET_DB}',
+    )
+    alembic_cfg.config_file_name = None  # prevent env.py overwritting logger settings
+
+    with psycopg.connect(
+        dbname=TEST_DATASET_DB,
+        user=USER,
+        host=POSTGRES_ADDRESS_HOST if POSTGRES_ADDRESS_HOST else '127.0.0.1',
+        password=PW,
+        port=int(POSTGRES_PORT_HOST) if POSTGRES_PORT_HOST else 5432,
+    ) as conn:
+        # The database should have been initialized with alembic and have the alembic_version table
+        assert _table_exists(conn, 'alembic_version')
+
+        # We'll test the baseline schema and the first alembic version upgrade
+
+        # The first revision adds two columns.
+        # We check that the "raw_subjects" and "enriched_subjects" don't exist initially,
+        # And after upgrading one version they should be there
+
+        command.downgrade(alembic_cfg, '0001_baseline')
+
+        raw_exist = _column_exists(conn, 'records', 'raw_subjects')
+        enriched_exist = _column_exists(conn, 'records', 'enriched_subjects')
+
+        assert not (raw_exist or enriched_exist)
+
+        command.upgrade(alembic_cfg, '0002_record_subjects')
+
+        raw_exist = _column_exists(conn, 'records', 'raw_subjects')
+        enriched_exist = _column_exists(conn, 'records', 'enriched_subjects')
+
+        assert raw_exist and enriched_exist
