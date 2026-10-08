@@ -54,7 +54,7 @@ GROUP BY r.name, e.name, rec.resource_type
 def upgrade() -> None:
     # 1. The view depends on records.doi, so it must go first
     #    (CREATE OR REPLACE VIEW cannot remove a column).
-    op.execute('DROP VIEW IF EXISTS v_records_statistics')
+    op.execute('DROP VIEW v_records_statistics')
 
     # 2. Data: backfill url from doi where no url is set yet. An existing url
     #    is never overwritten. Values that already are a full URL are kept
@@ -71,11 +71,11 @@ def upgrade() -> None:
 
     # 3. Constraint: (doi OR url) -> url NOT NULL
     #    All rows have a url at this point (old check + step 2).
-    op.execute('ALTER TABLE records DROP CONSTRAINT IF EXISTS records_doi_or_url_check')
+    op.execute('ALTER TABLE records DROP CONSTRAINT records_doi_or_url_check')
     op.alter_column('records', 'url', nullable=False)
 
     # 4. Drop doi index and column (the column comment is dropped with the column)
-    op.execute('DROP INDEX IF EXISTS idx_records_doi')
+    op.execute('DROP INDEX idx_records_doi')
     op.drop_column('records', 'doi')
 
     # 5. Index on url
@@ -86,8 +86,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute('DROP VIEW IF EXISTS v_records_statistics')
-    op.execute('DROP INDEX IF EXISTS idx_records_url')
+    op.execute('DROP VIEW v_records_statistics')
+    op.execute('DROP INDEX idx_records_url')
 
     # Restore column + comment
     op.execute('ALTER TABLE records ADD COLUMN doi VARCHAR(255)')
