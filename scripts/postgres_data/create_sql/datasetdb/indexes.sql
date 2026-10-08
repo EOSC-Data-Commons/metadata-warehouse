@@ -16,6 +16,8 @@ CREATE INDEX IF NOT EXISTS idx_harvest_events_repository_id ON harvest_events(re
 CREATE INDEX IF NOT EXISTS idx_harvest_events_endpoint_id ON harvest_events(endpoint_id);
 CREATE INDEX IF NOT EXISTS idx_harvest_events_harvest_run_id_id ON harvest_events(harvest_run_id, id);
 CREATE INDEX IF NOT EXISTS idx_harvest_events_record_identifier ON harvest_events(record_identifier);
+-- keyset pagination in transform.batches reads one run's events in id order
+CREATE INDEX IF NOT EXISTS idx_harvest_events_run_id_id ON harvest_events(harvest_run_id, id);
 
 -- Records Indexes
 CREATE INDEX IF NOT EXISTS idx_records_endpoint_id ON records(endpoint_id);
