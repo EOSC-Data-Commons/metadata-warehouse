@@ -8,13 +8,34 @@ Responsibilities:
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 import requests
 
 from scheduler.config import WAREHOUSE_API_URL
 
 logger = logging.getLogger(__name__)
+
+
+def order_runs_by_dependency(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Return harvest runs in scheduler execution order.
+
+    Endpoints with no dependency are triggered first. Endpoints with a
+    non-null `depends_on_endpoint_id` are triggered after all independent
+    endpoints so their master endpoints, for example HAL before Zenodo, have
+    a chance to finish harvesting before the dependent crawler opens its run.
+
+    The function uses a stable partition instead of computing a full
+    dependency graph: the database prevents direct self-dependency, and the
+    current scheduler requirement is only to defer configured dependent
+    endpoints to the end of the same scheduler batch.
+    """
+
+    independent_runs = [run for run in runs if run.get('depends_on_endpoint_id') is None]
+    dependent_runs = [run for run in runs if run.get('depends_on_endpoint_id') is not None]
+
+    return independent_runs + dependent_runs
 
 
 def get_endpoints_to_harvest() -> list[str]:
@@ -24,6 +45,9 @@ def get_endpoints_to_harvest() -> list[str]:
     Queries the transformer API and filters results by the
     `should_be_harvested` flag returned per endpoint, which reflects
     whether the endpoint is active and its harvest_schedule has elapsed.
+    Before returning URLs, the scheduler orders the selected endpoints so
+    independent endpoints run first and endpoints with a non-null
+    `depends_on_endpoint_id` run at the end of the batch.
 
     Returns
     -------
@@ -50,7 +74,9 @@ def get_endpoints_to_harvest() -> list[str]:
     data = r.json()
     runs = data.get('harvest_runs') or []
 
-    urls = [run['harvest_url'] for run in runs if run.get('should_be_harvested') and run['harvest_url'] is not None]
+    runs_to_harvest = [run for run in runs if run.get('should_be_harvested') and run.get('harvest_url') is not None]
+    ordered_runs = order_runs_by_dependency(runs_to_harvest)
+    urls = [run['harvest_url'] for run in ordered_runs]
 
     logger.info('%s endpoints require harvesting', len(urls))
 
@@ -71,7 +97,7 @@ def are_all_runs_closed() -> bool:
 
     r.raise_for_status()
 
-    data: Dict[str, Any] = r.json()
+    data: dict[str, Any] = r.json()
     result = bool(data['all_closed'])
 
     logger.debug('all runs closed = %s', result)
@@ -103,7 +129,7 @@ def get_closed_run_ids(all_runs: bool = False) -> list[str]:
     )
 
     r.raise_for_status()
-    data: Dict[str, Any] = r.json()
+    data: dict[str, Any] = r.json()
     run_ids = [str(x) for x in data.get('harvest_run_ids', [])]
 
     logger.info('%s closed runs found', len(run_ids))

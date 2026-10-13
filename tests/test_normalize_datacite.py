@@ -296,14 +296,6 @@ class TestNormalizeDatacite(unittest.TestCase):
         res = normalize_datacite_json.normalize_date_string('unknown/2025')
         self.assertEqual(res, None)
 
-    def test_make_id_with_url(self):
-        res = normalize_datacite_json.make_id({'url': 'https://example.com'})
-        self.assertEqual(res, 'https://example.com')
-
-    def test_make_id_with_doi(self):
-        res = normalize_datacite_json.make_id({'doi': '10.123/123'})
-        self.assertEqual(res, 'https://doi.org/10.123/123')
-
     def test_get_resource_type_with_text_node(self):
         test_res = {
             'http://datacite.org/schema/kernel-4:resourceType': {'@resourceTypeGeneral': 'Dataset', '#text': 'test'}
@@ -329,3 +321,77 @@ class TestNormalizeDatacite(unittest.TestCase):
         res = normalize_datacite_json.normalize_lang_string('en')
 
         self.assertEqual(res, 'en')
+
+    def test_clean_doi(self):
+        some_doi = '10.17026/dans-xdm-q2pc'
+        cleaned = normalize_datacite_json.clean_doi(some_doi)
+
+        self.assertEqual(cleaned, '10.17026/dans-xdm-q2pc')
+
+        some_doi2 = 'doi:10.17026/dans-xdm-q2pc'
+        cleaned2 = normalize_datacite_json.clean_doi(some_doi2)
+
+        self.assertEqual(cleaned2, '10.17026/dans-xdm-q2pc')
+
+        some_doi3 = 'https://doi.org/10.17026/dans-xdm-q2pc'
+        cleaned3 = normalize_datacite_json.clean_doi(some_doi3)
+
+        self.assertEqual(cleaned3, '10.17026/dans-xdm-q2pc')
+
+    def test_get_resolvable_url_doi_case(self):
+        res = {
+            'http://datacite.org/schema/kernel-4:identifier': {
+                '@identifierType': 'DOI',
+                '#text': '10.17026/DANS-2AB-DPMM',
+            }
+        }
+
+        normalized = normalize_datacite_json.get_resolvable_url(res, 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(normalized, 'https://doi.org/10.17026/DANS-2AB-DPMM')
+
+        res2 = {
+            'http://datacite.org/schema/kernel-4:identifier': {
+                '@identifierType': 'DOI',
+                '#text': 'https://doi.org/10.17026/DANS-2AB-DPMM',
+            }
+        }
+
+        normalized2 = normalize_datacite_json.get_resolvable_url(res2, 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(normalized2, 'https://doi.org/10.17026/DANS-2AB-DPMM')
+
+    def test_get_resolvable_url_ark_case(self):
+        res = {
+            'http://datacite.org/schema/kernel-4:identifier': {
+                '@identifierType': 'ARK',
+                '#text': 'ark:/72163/1/081C/KfnRJvxJQ1WyIP59EbDbrwi',
+            }
+        }
+
+        normalized = normalize_datacite_json.get_resolvable_url(res, 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(normalized, 'https://n2t.net/ark:/72163/1/081C/KfnRJvxJQ1WyIP59EbDbrwi')
+
+        res2 = {
+            'http://datacite.org/schema/kernel-4:identifier': {
+                '@identifierType': 'ARK',
+                '#text': 'https://ark.dasch.swiss/ark:/72163/1/081C/KfnRJvxJQ1WyIP59EbDbrwi',
+            }
+        }
+
+        normalized2 = normalize_datacite_json.get_resolvable_url(res2, 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(normalized2, 'https://ark.dasch.swiss/ark:/72163/1/081C/KfnRJvxJQ1WyIP59EbDbrwi')
+
+    def test_get_resolvable_url_url_case(self):
+        res = {
+            'http://datacite.org/schema/kernel-4:identifier': {
+                '@identifierType': 'URL',
+                '#text': 'https://urn.nsk.hr/urn:nbn:hr:168:054069',
+            }
+        }
+
+        normalized = normalize_datacite_json.get_resolvable_url(res, 'http://datacite.org/schema/kernel-4')
+
+        self.assertEqual(normalized, 'https://urn.nsk.hr/urn:nbn:hr:168:054069')

@@ -8,9 +8,11 @@ To run the containers:
   ```sh
   cp env.template .env
   ```
-  Optionally add the following env variables for postgres and/or OpenSearch (not needed for local dev):
-    - `POSTGRES_ADDRESS` (default "postgres") and `POSTGRES_PORT` (default 5432)
-    - `OPENSEARCH_ADDRESS` (default "opensearch") and `OPENSEARCH_PORT` (default 9200)
+  Optionally, add the following env variables for postgres and/or OpenSearch (not needed for local dev):
+    - `POSTGRES_ADDRESS_DOCKER` (default "postgres", docker network internal) and `POSTGRES_PORT_DOCKER` (default 5432)
+    - `POSTGRES_ADDRESS_HOST` (default "127.0.0.1", host) and `POSTGRES_PORT_HOST` (default 5432)
+    - `OPENSEARCH_ADDRESS_DOCKER` (default "opensearch", docker network internal) and `OPENSEARCH_PORT_DOCKER` (default 9200)
+    - `OPENSEARCH_ADDRESS_HOST` (default "127.0.0.1", host) and `OPENSEARCH_PORT_HOST` (default 9200)
     - `FASTAPI_ADDRESS` (default "127.0.0.1") and `FASTAPI_PORT` (default 8080)
 - API keys for search API server:
   ```sh
@@ -115,6 +117,14 @@ In development, it may be more convenient to load pre-harvested static data:
   If it already exists and should be **dropped and reinitialized**, 
   additionally provide the flag --reset. 
 
+- the script defines the initial state of the database and should be stamped as the migration baseline.  
+  **All further changes** to the database should be done as Alembic migrations.  
+  To stamp the baseline and upgrade to the latest version:  
+  ```sh
+  alembic stamp 0001_baseline  
+  alembic upgrade head
+  ```
+
 - load XML data from `scripts/postgres_data/data` (populates table `harvest_events`):
   ```sh
    uv run import_data.py
@@ -186,6 +196,18 @@ docker compose run harvester https://lifesciences.datastations.nl/oai
 The scheduler automates the full ingestion workflow: harvesting → transformation → indexing.
 It is designed to be executed periodically via CRON.
 
+### Dependent endpoints
+
+Some repositories are configured as dependent endpoints in the `endpoints` table by setting
+`depends_on_endpoint_id`. A dependent endpoint uses identifiers collected from its master
+endpoint, so the scheduler always triggers independent endpoints first and moves dependent
+endpoints to the end of the same harvesting batch. This ensures HAL is harvested before
+Zenodo when both endpoints are due for harvesting.
+
+The rest of the scheduler pipeline is unchanged: every selected endpoint is still crawled
+sequentially, the scheduler waits until harvest runs are closed, and then closed runs are
+sent to transformation/indexing.
+
 ### Run scheduler
 
 ```sh
@@ -207,10 +229,13 @@ To format all files properly, run:
 
 ## Run E2E Tests
 
-Before running the e2e tests locally, the env var `POSTGRES_DB` needs to be set to "testdb" 
-since the e2e tests and the API have to use the same DB in order for the tests to work. 
-Note that the e2e tests reinit "testdb" on each run. Since "testdb" is hardcoded in the e2e tests, 
-the productive db "dataset" won't be overwritten by running the e2e tests. 
+Before running the e2e tests locally, set the env vars `POSTGRES_DB` and `FILE_DB` 
+to `testdatasetdb` and `testfiledb`, respectively, since the e2e tests and the API 
+must use the same DBs.
+
+Note that the e2e tests reset `testdatasetdb` and `testfiledb` on each run. Because 
+the test DB names are hardcoded in the e2e tests, your production DBs will not be 
+overwritten.
 
 To run the e2e tests:
 ```sh
@@ -226,4 +251,3 @@ Set up pre-commit hooks to check your messages before commiting them to the repo
 - `uv run pre-commit install --hook-type commit-msg`
 
 See `.pre-commit-config.yaml` for further details.
-
