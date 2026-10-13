@@ -224,6 +224,22 @@ Airflow only orchestrates, so the heavy dependencies (fastembed, ...) stay in th
 The Celery app uses the result backend `rpc://` (override with `CELERY_RESULT_BACKEND`): the result is sent back to the client
 that sent the task, no extra service needed.
 
+### DAG `harvest_and_index`
+
+Replaces the custom scheduler: harvests the endpoints that are due and indexes the harvested runs.
+
+1. `plan_endpoints` asks the API (`GET /harvest_run`) which endpoints are due (independent ones first, endpoints
+   that depend on another endpoint, e.g. Zenodo after HAL, last)
+2. `harvest_independent`, `harvest_dependent`: one mapped task per endpoint, one at a time. The crawler runs as a
+   Python module (`harvester.run_harvest`) inside the Airflow worker, its logs are part of the task log.
+   A failed endpoint fails only its own task, the others continue.
+3. `plan_indexing` collects the runs closed since the DAG run started, `index_run` triggers `transform_index` for
+   each of them (one after the other).
+
+Params: `harvest_urls` (harvest only these endpoints), `all_runs` (index all closed runs), `index_name`,
+`reuse_embeddings`, `batch_size`. Schedule: set `HARVEST_SCHEDULE` (cron) in `.env`, otherwise the DAG only runs
+when triggered manually. The crawler version is set with `HARVESTER_REF` (branch/tag/commit, built into the image).
+
 ## Scheduler
 
 The scheduler automates the full ingestion workflow: harvesting → transformation → indexing.

@@ -3,6 +3,9 @@ x-airflow-common: &airflow-common
     build:
         dockerfile: ./docker/airflow/Dockerfile
         context: .
+        args:
+            # branch/tag/commit of metadata-crawlers that is installed in the image
+            HARVESTER_REF: "${HARVESTER_REF:-master}"
     image: metadata-warehouse-airflow:3.3.2
     user: "${AIRFLOW_UID:-50000}:0"
     networks:
@@ -31,6 +34,8 @@ x-airflow-common: &airflow-common
         # defaults of DAG params (read when the DAG file is parsed)
         INDEX_NAME: "${INDEX_NAME}"
         CELERY_BATCH_SIZE: "${CELERY_BATCH_SIZE}"
+        # cron expression of the DAG harvest_and_index; empty: only manual runs
+        HARVEST_SCHEDULE: "${HARVEST_SCHEDULE:-}"
     volumes:
         - ./airflow/dags:/opt/airflow/dags
         - ./airflow/plugins:/opt/airflow/plugins
@@ -43,7 +48,7 @@ x-airflow-common: &airflow-common
         airflow-postgres:
             condition: service_healthy
 
-# Credentials/addresses of PostgreSQL and OpenSearch; only needed by the worker that runs the planning tasks.
+# Credentials/addresses of PostgreSQL, OpenSearch and the warehouse API; only needed by the worker that runs the DAG tasks.
 x-airflow-warehouse-env: &airflow-warehouse-env
     POSTGRES_USER: "${POSTGRES_ADMIN}"
     POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
@@ -52,6 +57,8 @@ x-airflow-warehouse-env: &airflow-warehouse-env
     POSTGRES_PORT_DOCKER: "${POSTGRES_PORT_DOCKER}"
     OPENSEARCH_ADDRESS_DOCKER: "${OPENSEARCH_ADDRESS_DOCKER}"
     OPENSEARCH_PORT_DOCKER: "${OPENSEARCH_PORT_DOCKER}"
+    # used by the harvester and the planning tasks
+    WAREHOUSE_API_URL: "${WAREHOUSE_API_URL}"
 
 services:
     broker:
