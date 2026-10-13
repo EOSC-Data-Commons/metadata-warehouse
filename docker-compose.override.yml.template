@@ -23,6 +23,10 @@ services:
         #     "-E", "--concurrency=1", "--pool=prefork", "--loglevel=DEBUG"
         #   ]
 
+    airflow-api-server:
+        ports:
+            - "127.0.0.1:8081:8080"
+
     postgres:
         ports:
             - "127.0.0.1:5432:5432"

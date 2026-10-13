@@ -191,6 +191,39 @@ After starting the stack with `docker compose up`, you can run the harvester for
 ```sh
 docker compose run harvester https://lifesciences.datastations.nl/oai
 ```
+## Airflow
+
+Airflow orchestrates the harvesting/transformation workflow (it replaces the custom scheduler step by step).
+It runs with the CeleryExecutor: RabbitMQ (`broker`) is the Celery broker, and a dedicated Postgres
+container (`airflow-postgres`) holds both Airflow's metadata and the Celery result backend.
+
+Services: `airflow-api-server` (UI/API), `airflow-scheduler`, `airflow-dag-processor`, `airflow-worker`
+(one-shot `airflow-init` migrates the DB and creates the admin user).
+
+Setup (after `cp env.template .env`, see the `# Airflow` block there):
+- set `AIRFLOW_FERNET_KEY`, `AIRFLOW_JWT_SECRET`, `AIRFLOW_API_SECRET_KEY` and change the default passwords
+- on Linux set `AIRFLOW_UID` to the output of `id -u`
+- ```sh
+  docker compose build airflow-init   # builds the shared Airflow image once
+  docker compose up -d
+  ```
+- UI: http://127.0.0.1:8081 (port from `docker-compose.override.yml`), login as `AIRFLOW_ADMIN_USER`
+- DAG files live in `airflow/dags`. Unpause and trigger `hello_world` to smoke-test the setup
+  (scheduler -> RabbitMQ -> worker -> warehouse API).
+
+### DAG `transform_index`
+
+Plans and runs the transformation of the harvest events of one closed harvest run (replaces `GET /index`).
+Trigger it from the UI ("Trigger DAG w/ config") with:
+- `harvest_run_id` (required), `index_name` (default `INDEX_NAME`), `reuse_embeddings`, `batch_size` (default `CELERY_BATCH_SIZE`)
+
+`plan_batches` splits the run into batches; one mapped `run_batch` task per batch loads the batch, sends it to the
+existing Celery worker (`transform_batch`, unchanged) and waits for the result; `summarize` prints the totals.
+Airflow only orchestrates, so the heavy dependencies (fastembed, ...) stay in the Celery worker image.
+
+The Celery app uses the result backend `rpc://` (override with `CELERY_RESULT_BACKEND`): the result is sent back to the client
+that sent the task, no extra service needed.
+
 ## Scheduler
 
 The scheduler automates the full ingestion workflow: harvesting → transformation → indexing.

@@ -1,3 +1,4 @@
+import os
 from logging.config import dictConfig
 from typing import Any
 
@@ -17,7 +18,9 @@ def configurate_celery_task_logger(**kwargs: Any) -> None:
 logger = get_task_logger(__name__)
 
 
-celery_app = Celery('tasks')
+# Results are needed by clients that wait for a task (the Airflow DAGs).
+# 'rpc://' sends the result back to the client that sent the task, so no extra service is needed.
+celery_app = Celery('tasks', backend=os.environ.get('CELERY_RESULT_BACKEND', 'rpc://'))
 
 # celery_app.task_serializer = 'json'
 # celery_app.ignore_result = False
