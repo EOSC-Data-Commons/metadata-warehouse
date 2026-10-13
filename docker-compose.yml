@@ -248,7 +248,7 @@ services:
             POSTGRES_ADDRESS_DOCKER: "${POSTGRES_ADDRESS_DOCKER}"
             POSTGRES_PORT_DOCKER: "${POSTGRES_PORT_DOCKER}"
             FILE_DB: "${FILE_DB}"
-            TOOL_REGISTRY_API: "https://dev.tools-registry.eosc-data-commons.eu/api/v1"
+            TOOL_REGISTRY_API: "https://tool-registry:80"
         networks:
             - warehouse-backend
         ports:
