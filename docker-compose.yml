@@ -48,7 +48,7 @@ x-airflow-common: &airflow-common
         airflow-postgres:
             condition: service_healthy
 
-# Credentials/addresses of PostgreSQL, OpenSearch and the warehouse API; only needed by the worker that runs the DAG tasks.
+# Credentials/addresses of PostgreSQL, OpenSearch and the warehouse API; only needed by the workers that run the DAG tasks.
 x-airflow-warehouse-env: &airflow-warehouse-env
     POSTGRES_USER: "${POSTGRES_ADMIN}"
     POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
@@ -448,7 +448,7 @@ services:
                 condition: service_completed_successfully
 
     # Celery worker consuming the default queue (planning, sending batches to the transform Celery worker).
-    airflow-worker:
+    airflow-worker: &airflow-worker
         <<: *airflow-common
         restart: unless-stopped
         command: celery worker --queues default
@@ -470,6 +470,26 @@ services:
                 condition: service_healthy
             airflow-init:
                 condition: service_completed_successfully
+
+    # Celery worker (Airflow executor) for the queue "transform": runs the transform tasks in the transform venv.
+    # One task at a time (concurrency 1, like the old celery service) because of the embedding model.
+    airflow-worker-transform:
+        <<: *airflow-worker
+        command: celery worker --queues transform --concurrency 1
+        env_file: [ keys.env ]
+        environment:
+            <<: [ *airflow-common-env, *airflow-warehouse-env ]
+            DUMB_INIT_SETSID: "0"
+            EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
+            EMBED_API_URL: "${EMBED_API_URL}"
+            FASTEMBED_CACHE_DIR: /opt/airflow/cache/fastembed
+        volumes:
+            - ./airflow/dags:/opt/airflow/dags
+            - ./airflow/plugins:/opt/airflow/plugins
+            - airflow-logs:/opt/airflow/logs
+            - ./src:/opt/airflow/project/src
+            - ./config:/opt/airflow/project/config
+            - ./cache/fastembed:/opt/airflow/cache/fastembed
 
 volumes:
     postgres-data:

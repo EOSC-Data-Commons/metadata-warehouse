@@ -217,12 +217,14 @@ Plans and runs the transformation of the harvest events of one closed harvest ru
 Trigger it from the UI ("Trigger DAG w/ config") with:
 - `harvest_run_id` (required), `index_name` (default `INDEX_NAME`), `reuse_embeddings`, `batch_size` (default `CELERY_BATCH_SIZE`)
 
-`plan_batches` splits the run into batches; one mapped `run_batch` task per batch loads the batch, sends it to the
-existing Celery worker (`transform_batch`, unchanged) and waits for the result; `summarize` prints the totals.
-Airflow only orchestrates, so the heavy dependencies (fastembed, ...) stay in the Celery worker image.
+`plan_batches` splits the run into batches; one mapped `run_batch` task per batch runs on `airflow-worker-transform`
+(queue `transform`, one task at a time) in the transform venv of the Airflow image (`/opt/airflow/transform-venv`,
+built from the repo's `uv.lock`). It loads the batch and runs `transform.transform_core.transform_batch_impl`,
+the same logic as the legacy Celery task. `summarize` prints the totals. The log of each batch shows how long
+loading the embedding model and the transformation took.
 
-The Celery app uses the result backend `rpc://` (override with `CELERY_RESULT_BACKEND`): the result is sent back to the client
-that sent the task, no extra service needed.
+The embedding model cache `./cache/fastembed` is mounted into `airflow-worker-transform`, which runs as `AIRFLOW_UID`
+(not root). If the model is not cached yet, make the directory writable first: `mkdir -p cache/fastembed && chmod -R a+rwX cache/fastembed`.
 
 ### DAG `harvest_and_index`
 

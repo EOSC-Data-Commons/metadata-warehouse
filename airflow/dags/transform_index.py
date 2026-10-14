@@ -1,15 +1,15 @@
 """Transform and index the harvest events of one (closed) harvest run.
 
-Replaces the FastAPI route `/index` (the enqueuing/planning part):
+Replaces the FastAPI route `/index` and the Celery task `transform_batch`:
 
     plan_batches  ->  run_batch (one mapped task per batch)  ->  summarize
 
 * `plan_batches` checks the index and the run and splits the run into batches. It returns only small batch
   descriptors (first/last event id), never the records themselves.
-* `run_batch` loads one batch from PostgreSQL, sends it to the existing Celery worker (task `transform_batch`,
-  unchanged) and waits for the result. A failing Celery task fails the Airflow task, which is then retried.
-
-Airflow only orchestrates: the heavy dependencies (fastembed, ...) stay in the Celery worker image.
+* `run_batch` runs on the Airflow worker for the queue "transform" (one task at a time), in the transform venv
+  of the image (dependencies from the repo's uv.lock, see docker/airflow/Dockerfile). In one process it loads its
+  batch from PostgreSQL and runs the unchanged transform logic (`transform.transform_core.transform_batch_impl`).
+  State, retries and logs of every batch are part of Airflow.
 """
 
 import os
@@ -21,9 +21,7 @@ from airflow.sdk import Param, dag, get_current_context, task
 DEFAULT_INDEX_NAME = os.environ.get('INDEX_NAME', 'test_datacite')
 DEFAULT_BATCH_SIZE = int(os.environ.get('CELERY_BATCH_SIZE', '250'))
 
-TRANSFORM_TASK_NAME = 'transform.transform_task.transform_batch'
-# max. time to wait for the Celery worker to finish one batch (includes waiting in the queue)
-BATCH_TIMEOUT = timedelta(hours=1)
+TRANSFORM_PYTHON = '/opt/airflow/transform-venv/bin/python'
 
 
 @dag(
@@ -61,34 +59,42 @@ def transform_index() -> None:
             for r in ranges
         ]
 
-    # The Celery worker processes one batch at a time (--concurrency=1). Two batches in flight keep it busy
-    # without blocking all slots of the Airflow worker while they wait.
+    # Queue "transform" is consumed by airflow-worker-transform (concurrency 1, embedding model, keys.env).
     # Retrying is safe: records are upserted and deletes of missing records are no-ops.
-    @task(retries=2, retry_delay=timedelta(minutes=1), max_active_tis_per_dag=2, execution_timeout=BATCH_TIMEOUT)
-    def run_batch(batch: dict[str, Any]) -> int:
-        from celery import Celery
+    #
+    # The function is executed in the transform venv, which has no Airflow: the source of the function is run there.
+    # So everything it needs has to be imported inside it, and annotations must only use builtins
+    # (they are evaluated there; `dict[str, Any]` would fail because `Any` is not imported in that process).
+    @task.external_python(
+        python=TRANSFORM_PYTHON,
+        expect_airflow=False,
+        expect_pendulum=False,
+        queue='transform',
+        retries=2,
+        retry_delay=timedelta(minutes=1),
+        execution_timeout=timedelta(hours=1),
+    )
+    def run_batch(batch: dict) -> int:
+        import logging
+        import time
+
         from planning.transform_planning import load_batch
+        from transform.transform_core import TransformResources, transform_batch_impl
+
+        # this process has no Airflow logging: send the logs of the transform code to the console (= task log)
+        logging.basicConfig(level=logging.INFO, format='%(levelname)s %(asctime)s %(name)s@%(lineno)d %(message)s')
 
         events = load_batch(batch['harvest_run_id'], batch['first_id'], batch['last_id'])
         print(f'Loaded {len(events)} of {batch["size"]} planned events ({batch["first_id"]} .. {batch["last_id"]})')
 
-        # Celery client for the same RabbitMQ that Airflow's executor uses. Broker and result backend have to match
-        # the Celery app of the worker (src/transform/celery_app_def.py). The task is called by name, so the
-        # `transform` package (and fastembed etc.) is not needed here.
-        client = Celery(
-            'airflow-client',
-            broker=os.environ['AIRFLOW__CELERY__BROKER_URL'],
-            backend=os.environ.get('CELERY_RESULT_BACKEND', 'rpc://'),
-        )
-        result = client.send_task(
-            TRANSFORM_TASK_NAME,
-            kwargs={'batch': events, 'index_name': batch['index_name'], 'reuse_embeddings': batch['reuse_embeddings']},
-        )
-        print(f'Sent Celery task {result.id}, waiting for the result')
+        # loading the embedding model takes time on every task (fresh process): log it to be able to tune the batch size
+        started = time.monotonic()
+        resources = TransformResources()
+        print(f'Transform resources ready after {time.monotonic() - started:.1f}s')
 
-        # re-raises the exception of the Celery task, if there was one
-        indexed: int = result.get(timeout=BATCH_TIMEOUT.total_seconds(), disable_sync_subtasks=False)
-        print(f'Celery task {result.id} finished, {indexed} documents indexed')
+        started = time.monotonic()
+        indexed = transform_batch_impl(resources, events, batch['index_name'], batch['reuse_embeddings'])
+        print(f'Transformed batch in {time.monotonic() - started:.1f}s, {indexed} documents indexed')
         return indexed
 
     @task
