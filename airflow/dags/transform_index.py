@@ -74,7 +74,7 @@ def transform_index() -> None:
         retry_delay=timedelta(minutes=1),
         execution_timeout=timedelta(hours=1),
     )
-    def run_batch(batch: dict) -> int:
+    def run_transform_batch(batch: dict) -> int:
         import logging
         import time
 
@@ -94,14 +94,45 @@ def transform_index() -> None:
 
         started = time.monotonic()
         indexed = transform_batch_impl(resources, events, batch['index_name'], batch['reuse_embeddings'])
+
         print(f'Transformed batch in {time.monotonic() - started:.1f}s, {indexed} documents indexed')
         return indexed
+
+    @task.external_python(
+        python=TRANSFORM_PYTHON,
+        expect_airflow=False,
+        expect_pendulum=False,
+        queue='filemeta',
+        retries=2,
+        retry_delay=timedelta(minutes=1),
+        execution_timeout=timedelta(hours=1),
+    )
+    def run_filemeta_batch(batch: dict) -> int:
+        import logging
+        import time
+        from transform.file_meta_core import TransformFilemetadata, transform_filemetadata_batch_impl
+        from planning.transform_planning import load_batch
+
+        # this process has no Airflow logging: send the logs of the transform code to the console (= task log)
+        logging.basicConfig(level=logging.INFO, format='%(levelname)s %(asctime)s %(name)s@%(lineno)d %(message)s')
+
+        events = load_batch(batch['harvest_run_id'], batch['first_id'], batch['last_id'])
+        print(f'Loaded {len(events)} of {batch["size"]} planned events ({batch["first_id"]} .. {batch["last_id"]})')
+
+        files = TransformFilemetadata()
+        started = time.monotonic()
+
+        file_meta = transform_filemetadata_batch_impl(files, events)
+        print(f'Transformed batch in {time.monotonic() - started:.1f}s, {file_meta} documents indexed')
+        return file_meta
 
     @task
     def summarize(indexed: list[int]) -> None:
         print(f'Indexed {sum(indexed)} documents in {len(indexed)} batches')
 
-    summarize(run_batch.expand(batch=plan_batches()))
+    planned_batches = plan_batches()
+    summarize(run_transform_batch.expand(batch=planned_batches))
+    summarize(run_filemeta_batch.expand(batch=planned_batches))
 
 
 transform_index()

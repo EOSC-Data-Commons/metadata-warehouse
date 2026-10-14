@@ -53,6 +53,7 @@ x-airflow-warehouse-env: &airflow-warehouse-env
     POSTGRES_USER: "${POSTGRES_ADMIN}"
     POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
     POSTGRES_DB: "${POSTGRES_DB}"
+    FILE_DB: "${FILE_DB}"
     POSTGRES_ADDRESS_DOCKER: "${POSTGRES_ADDRESS_DOCKER}"
     POSTGRES_PORT_DOCKER: "${POSTGRES_PORT_DOCKER}"
     OPENSEARCH_ADDRESS_DOCKER: "${OPENSEARCH_ADDRESS_DOCKER}"
@@ -490,6 +491,20 @@ services:
             - ./src:/opt/airflow/project/src
             - ./config:/opt/airflow/project/config
             - ./cache/fastembed:/opt/airflow/cache/fastembed
+
+    # Celery worker (Airflow executor) for the queue "filemeta": network-bound, so it can run several tasks at once.
+    airflow-worker-filemeta:
+        <<: *airflow-worker
+        command: celery worker --queues filemeta --concurrency 4
+        environment:
+            <<: [ *airflow-common-env, *airflow-warehouse-env ]
+            DUMB_INIT_SETSID: "0"
+        volumes:
+            - ./airflow/dags:/opt/airflow/dags
+            - ./airflow/plugins:/opt/airflow/plugins
+            - airflow-logs:/opt/airflow/logs
+            - ./src:/opt/airflow/project/src
+            - ./config:/opt/airflow/project/config
 
 volumes:
     postgres-data:
