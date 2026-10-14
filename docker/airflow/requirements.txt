@@ -1,6 +1,3 @@
 # Extra Python dependencies of the Airflow tasks (planning: read harvest events, check the OpenSearch index).
-# The heavy transform dependencies (fastembed, ...) are NOT needed here: they stay in the Celery worker image.
-# Keep in sync with the versions in pyproject.toml. Airflow itself is pinned in the Dockerfile,
-# so pip will fail the build instead of changing the Airflow version if there is a conflict.
 opensearch-py==3.1.0
 psycopg[binary]==3.3.3

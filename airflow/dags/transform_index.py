@@ -132,8 +132,8 @@ def transform_index() -> None:
         print(f'Indexed {sum(indexed)} documents in {len(indexed)} batches')
 
     planned_batches = plan_batches()
-    summarize(run_transform_batch.expand(batch=planned_batches))
-    summarize(run_filemeta_batch.expand(batch=planned_batches))
+    summarize.override(task_id='summarize_transform')(run_transform_batch.expand(batch=planned_batches))
+    summarize.override(task_id='summarize_filemeta')(run_filemeta_batch.expand(batch=planned_batches))
 
 
 transform_index()

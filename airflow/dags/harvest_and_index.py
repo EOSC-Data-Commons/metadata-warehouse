@@ -81,6 +81,7 @@ def harvest_and_index() -> None:
     )
     def harvest(url: str) -> bool:
         import logging
+        import os
 
         from harvester import HarvesterSettings, run_harvest
 

@@ -15,7 +15,6 @@ from app.api_classes import (
     HarvestRunCreateResponse,
     HarvestRunGetResponse,
     HealthGetResponse,
-    IndexGetResponse,
 )
 from app.db_methods import (
     close_harvest_run_in_db,
@@ -29,10 +28,6 @@ from logger.setup_logger import logger
 
 tags_metadata = [
     {'name': 'health', 'description': 'Health route'},
-    {
-        'name': 'index',
-        'description': 'Start transformation and indexing process for a given harvest run',
-    },
     {'name': 'config', 'description': 'Get available endpoints'},
     {'name': 'harvest_run', 'description': 'Manage harvest runs'},
     {'name': 'harvest_event', 'description': 'Register one or multiple harvest event'},

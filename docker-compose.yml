@@ -92,7 +92,6 @@ services:
         env_file: [ keys.env ]
         environment:
             PYTHONPATH: /code/src:/code
-            CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
             POSTGRES_DB: "${POSTGRES_DB}"
@@ -101,14 +100,11 @@ services:
             OPENSEARCH_ADDRESS_DOCKER: "${OPENSEARCH_ADDRESS_DOCKER}"
             OPENSEARCH_PORT_DOCKER: "${OPENSEARCH_PORT_DOCKER}"
             EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
-            CELERY_BATCH_SIZE: "${CELERY_BATCH_SIZE}"
             EMBED_API_URL: "${EMBED_API_URL}"
         depends_on:
             postgres:
                 condition: service_healthy
             opensearch:
-                condition: service_healthy
-            broker:
                 condition: service_healthy
 
     postgres:
@@ -276,7 +272,7 @@ services:
     # one-shot: migrates the airflow DB and creates the admin user, then exits
     airflow-init:
         <<: *airflow-common
-        user: "0:0"
+        #user: "0:0"
         entrypoint: /bin/bash
         command:
             - -c
