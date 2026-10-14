@@ -1,10 +1,9 @@
-from enum import Enum
+import logging
 import os
+from enum import Enum
+from typing import Any
 
 import psycopg
-import logging
-from config.postgres_config import PostgresConfig
-from utils.queue_utils import HarvestEventQueue
 from datahugger import (
     DabarXmlSrcDataset,
     Dataset,
@@ -15,8 +14,11 @@ from datahugger import (
     ZipEntry,
     resolve,
 )
-from typing import Any
 from psycopg.rows import dict_row
+
+from config.postgres_config import PostgresConfig
+from utils.queue_utils import HarvestEventQueue
+
 
 class ProviderCode(str, Enum):
     DANS = 'DANS'
@@ -25,10 +27,11 @@ class ProviderCode(str, Enum):
     DABAR = 'DABAR'
     SWISSUBASE = 'SWISS'
 
+
 logger = logging.getLogger(__name__)
 
-class TransformFilemetadata:
 
+class TransformFilemetadata:
     def __init__(self) -> None:
         # TODO: how to configure DB and not hard code?
         self.postgres_config = PostgresConfig(db=os.environ.get('FILE_DB'))
@@ -87,7 +90,8 @@ class TransformFilemetadata:
     def collect_files(self, harvest_event: HarvestEventQueue, dataset: Dataset) -> list[tuple[Any, ...]]:
         return [self.make_file_entry(harvest_event, file) for file in dataset.crawl_file()]
 
-def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: list[HarvestEventQueue] ) -> int:
+
+def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: list[HarvestEventQueue]) -> int:
     success = 0
 
     with psycopg.connect(**resources.postgres_config.connection_params, row_factory=dict_row) as conn:

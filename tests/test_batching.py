@@ -23,7 +23,10 @@ class TestChunkRanges(unittest.TestCase):
         self.assertEqual(chunk_ranges(['a', 'b'], 250), [BatchRange('a', 'b', 2)])
 
     def test_works_with_generators(self):
-        self.assertEqual(chunk_ranges((x for x in 'abc'), 1), [BatchRange('a', 'a', 1), BatchRange('b', 'b', 1), BatchRange('c', 'c', 1)])
+        self.assertEqual(
+            chunk_ranges((x for x in 'abc'), 1),
+            [BatchRange('a', 'a', 1), BatchRange('b', 'b', 1), BatchRange('c', 'c', 1)],
+        )
 
     def test_invalid_batch_size(self):
         with self.assertRaises(ValueError):

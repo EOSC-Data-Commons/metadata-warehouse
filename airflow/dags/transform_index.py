@@ -110,8 +110,9 @@ def transform_index() -> None:
     def run_filemeta_batch(batch: dict) -> int:
         import logging
         import time
-        from transform.file_meta_core import TransformFilemetadata, transform_filemetadata_batch_impl
+
         from planning.transform_planning import load_batch
+        from transform.file_meta_core import TransformFilemetadata, transform_filemetadata_batch_impl
 
         # this process has no Airflow logging: send the logs of the transform code to the console (= task log)
         logging.basicConfig(level=logging.INFO, format='%(levelname)s %(asctime)s %(name)s@%(lineno)d %(message)s')

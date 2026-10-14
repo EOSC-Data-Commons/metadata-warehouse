@@ -42,6 +42,7 @@ app = FastAPI(openapi_tags=tags_metadata)
 postgres_config: PostgresConfig = PostgresConfig()
 connection_params = postgres_config.connection_params
 
+
 @app.get('/health', tags=['health'], summary='Get health status')
 def get_health() -> HealthGetResponse:
     logger.info('health route called')
@@ -162,4 +163,3 @@ def close_harvest_run(harvest_run: HarvestRunCloseRequest) -> HarvestRunCloseRes
     except Exception as e:
         logger.exception(f'An error occurred when closing harvest event: {e}')
         raise HTTPException(status_code=500, detail=str(e))
-

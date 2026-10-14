@@ -471,4 +471,3 @@ JOIN repositories r ON e.repository_id = r.id
     except Exception as e:
         logger.exception(f'An error occurred when reading config: {e}')
         raise HTTPException(status_code=500, detail=str(e))
-

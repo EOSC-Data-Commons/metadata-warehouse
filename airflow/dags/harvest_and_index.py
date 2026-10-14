@@ -29,6 +29,7 @@ DEFAULT_BATCH_SIZE = int(os.environ.get('CELERY_BATCH_SIZE', '250'))
 
 HARVEST_PYTHON = '/opt/airflow/harvester-venv/bin/python'
 
+
 @dag(
     dag_id='harvest_and_index',
     schedule=os.environ.get('HARVEST_SCHEDULE') or None,
@@ -80,6 +81,7 @@ def harvest_and_index() -> None:
     )
     def harvest(url: str) -> bool:
         import logging
+
         from harvester import HarvesterSettings, run_harvest
 
         # this process has no Airflow logging: send the logs of the transform code to the console (= task log)

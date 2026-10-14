@@ -1,4 +1,5 @@
 from typing import Any
+
 from celery import Task
 
 from config.postgres_config import PostgresConfig
@@ -14,8 +15,6 @@ class FileMetadataTask(Task):  # type: ignore
         self.resources = TransformFilemetadata()
 
 
-
 @celery_app.task(bind=True, base=FileMetadataTask)
 def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
     return transform_filemetadata_batch_impl(self.resources, batch)
-
