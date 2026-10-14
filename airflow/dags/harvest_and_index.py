@@ -27,6 +27,7 @@ from airflow.sdk import Param, dag, get_current_context, task
 DEFAULT_INDEX_NAME = os.environ.get('INDEX_NAME', 'test_datacite')
 DEFAULT_BATCH_SIZE = int(os.environ.get('CELERY_BATCH_SIZE', '250'))
 
+HARVEST_PYTHON = '/opt/airflow/harvester-venv/bin/python'
 
 @dag(
     dag_id='harvest_and_index',
@@ -70,9 +71,19 @@ def harvest_and_index() -> None:
 
     # One endpoint at a time (like the old scheduler). No retries: a failed crawler leaves its run in a final state
     # ('failed'), a retry would open a new run for the same endpoint.
-    @task(retries=0, max_active_tis_per_dag=1)
+    @task.external_python(
+        python=HARVEST_PYTHON,
+        expect_airflow=False,
+        expect_pendulum=False,
+        retries=0,
+        max_active_tis_per_dag=1,
+    )
     def harvest(url: str) -> bool:
+        import logging
         from harvester import HarvesterSettings, run_harvest
+
+        # this process has no Airflow logging: send the logs of the transform code to the console (= task log)
+        logging.basicConfig(level=logging.INFO, format='%(levelname)s %(asctime)s %(name)s@%(lineno)d %(message)s')
 
         settings = HarvesterSettings(
             WAREHOUSE_API_URL=os.environ['WAREHOUSE_API_URL'],
