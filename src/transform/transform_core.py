@@ -246,6 +246,7 @@ def transform_batch_impl(
             raise e
 
         try:
+            success: int # for success case only
             success, failed = bulk(resources.client, preprocessed)
             if success < len(src_with_emb):
                 logger.error(

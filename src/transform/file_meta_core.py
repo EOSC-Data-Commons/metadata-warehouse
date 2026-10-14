@@ -140,7 +140,8 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
                 )
 
                 for zip_file in ds_swiss.crawl():
-                    files.append(resources.make_zip_entry(harvest_event, zip_file))
+                    if isinstance(zip_file, ZipEntry):
+                        files.append(resources.make_zip_entry(harvest_event, zip_file))
 
             if len(files) == 0:
                 logger.debug(f'no files for {harvest_event.record_identifier} in {harvest_event.code}')
