@@ -78,83 +78,6 @@ services:
             timeout: 5s
             retries: 3
 
-    flower:
-        image: mher/flower
-        #build:
-        #dockerfile: ./docker/transform/Dockerfile
-        #context: .
-        networks:
-            - warehouse-backend
-        depends_on:
-            broker:
-                condition: service_healthy
-            celery:
-                condition: service_healthy
-        volumes:
-            #- ./data/results:/var/celery/results
-            - flower-data:/data # persist flower db
-        environment:
-            CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
-        command:
-          [
-              "celery",
-              "flower",
-              "--address=0.0.0.0",
-              "--loglevel=info",
-              "--persistent=True",
-              "--db=flower_db"
-#              "--port=5555"
-            #"--without-heartbeat"
-          ]
-
-    celery:
-        build:
-            dockerfile: ./docker/transform/Dockerfile
-            context: .
-        volumes:
-            - ./src:/code/src
-            - ./config:/code/config
-            - ./cache/fastembed:/root/.cache/fastembed
-        networks:
-            - warehouse-backend
-        depends_on:
-            broker:
-                condition: service_healthy
-        command:
-          [
-              "celery",
-              "-A",
-              "transform.tasks",
-              "worker",
-            #"-Q",
-            #"batches",
-              "-E",
-              "--concurrency=1",
-              "--pool=prefork",
-              "--loglevel=INFO"
-          ]
-        #volumes:
-        #- ./data/results:/var/celery/results
-        env_file: [ keys.env ]
-        environment:
-            PYTHONPATH: /code/src:/code  # src for tasks.py, root for config/
-            CELERY_BROKER_URL: amqp://${RABBITMQ_ADMIN}:${RABBITMQ_PW}@broker:5672//
-            EMBEDDING_MODEL: "${EMBEDDING_MODEL}"
-            POSTGRES_USER: "${POSTGRES_ADMIN}"
-            POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-            POSTGRES_DB: "${POSTGRES_DB}"
-            FILE_DB: "${FILE_DB}"
-            POSTGRES_ADDRESS_DOCKER: "${POSTGRES_ADDRESS_DOCKER}"
-            POSTGRES_PORT_DOCKER: "${POSTGRES_PORT_DOCKER}"
-            OPENSEARCH_ADDRESS_DOCKER: "${OPENSEARCH_ADDRESS_DOCKER}"
-            OPENSEARCH_PORT_DOCKER: "${OPENSEARCH_PORT_DOCKER}"
-            EMBED_API_URL: "${EMBED_API_URL}"
-        healthcheck:
-            test: celery -A transform.tasks status
-            interval: 10s
-            timeout: 5s
-            retries: 3
-
     transform:
         build:
             dockerfile: ./docker/transform/Dockerfile
@@ -332,40 +255,6 @@ services:
         networks:
             - warehouse-backend
 
-    # https://github.com/EOSC-Data-Commons/metadata-crawlers/pkgs/container/metadata-crawlers
-    harvester:
-        image: ghcr.io/eosc-data-commons/metadata-crawlers:latest
-        profiles: ["manual"]
-        env_file:
-            - .env
-        volumes:
-            - harvester-logs:/app/logs
-        entrypoint: ["python", "-m", "harvester"]
-        networks:
-            - warehouse-backend
-
-    scheduler:
-      build:
-        dockerfile: ./docker/scheduler/Dockerfile
-        context: .
-      profiles: ["manual"]
-      command: ["python", "-m", "scheduler.run"]
-      env_file:
-        - .env
-      depends_on:
-        postgres:
-          condition: service_healthy
-        opensearch:
-          condition: service_healthy
-        transform:
-          condition: service_started
-      networks:
-        - warehouse-backend
-      volumes:
-        - /var/run/docker.sock:/var/run/docker.sock
-        - ./docker-compose.yml:/app/compose.yml
-        - ./.env:/app/.env
-
     # ---------------------------------------------------------------- Airflow
     airflow-postgres:
         image: postgres:16
@@ -512,10 +401,8 @@ volumes:
     opensearch-data:
     opensearch-dashboards-data:
     broker-data:
-    flower-data:
     search-api-data:
     frontend-data:
-    harvester-logs:
     airflow-postgres-data:
     airflow-logs:
 

@@ -99,42 +99,6 @@ class HarvestRunCloseResponse(BaseModel):
     id: str = Field(description='ID of the closed harvest run')
 
 
-class SchedulerRunsResponse(BaseModel):
-    """
-    Response returned by /scheduler/wait-for-completion endpoint.
-
-    Attributes
-    ----------
-    all_closed : bool
-        True when there are no harvest runs with status='open'.
-
-        Both 'closed' and 'failed' statuses are treated as completed runs,
-        meaning the scheduler can proceed to the next step of the workflow.
-    """
-
-    all_closed: bool
-
-
-class SchedulerClosedRunsResponse(BaseModel):
-    """
-    Response returned by /scheduler/closed-runs endpoint.
-
-    Attributes
-    ----------
-    harvest_run_ids : list[str]
-        IDs of harvest runs that finished in the last 6 days.
-
-        Includes runs with status:
-        - 'closed'  -> completed successfully
-        - 'failed'  -> completed with errors
-
-        Failed runs are included because they are no longer actively running
-        and should be processed further by Transfomer.
-    """
-
-    harvest_run_ids: list[str]
-
-
 class DependencyNotHarvestedError(Exception):
     """Raised when an endpoint depends on a master endpoint that has no completed harvest run yet."""
 

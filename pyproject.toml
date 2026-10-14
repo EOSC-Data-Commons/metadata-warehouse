@@ -14,7 +14,6 @@ dependencies = [
     "psycopg[binary]>=3.3.3",
     # "flower", # only needed when not using mher/flower
     "datahugger-ng>=0.6.3",
-    "docker>=7.1.0",
     "requests>=2.32.5",
     "lxml>=6.0.2",
     "alembic>=1.18.4",
@@ -43,7 +42,7 @@ build-backend = "hatchling.build"
 pythonpath = ["."]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src", "config", "scheduler"]
+packages = ["src", "config"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -56,7 +55,6 @@ namespace_packages = true
 
 files = [
     "src",
-    "scheduler",
     "config"
 ]
 

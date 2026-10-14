@@ -172,25 +172,6 @@ and the harvest run is then closed. Note that a transformation can only be perfo
   http://127.0.0.1:8080/health
   ```
 
-- To obtain a harvest run id and status for a given endpoint (https://dabar.srce.hr/oai):
-  ```sh
-  http://127.0.0.1:8080/harvest_run?harvest_url=https%3A%2F%2Fdabar.srce.hr%2Foai
-  ```
-
-- start transformation process:
-  ```sh
-  http://127.0.0.1:8080/index?harvest_run_id=xyz
-  ```
-- see transformation task results in flower:
-  ```sh
-  http://127.0.0.1:5555/tasks
-  ```
-
-After starting the stack with `docker compose up`, you can run the harvester for a given repository URL, e.g.:
-
-```sh
-docker compose run harvester https://lifesciences.datastations.nl/oai
-```
 ## Airflow
 
 Airflow orchestrates the harvesting/transformation workflow (it replaces the custom scheduler step by step).
@@ -242,28 +223,6 @@ Params: `harvest_urls` (harvest only these endpoints), `all_runs` (index all clo
 `reuse_embeddings`, `batch_size`. Schedule: set `HARVEST_SCHEDULE` (cron) in `.env`, otherwise the DAG only runs
 when triggered manually. The crawler version is set with `HARVESTER_REF` (branch/tag/commit, built into the image).
 
-## Scheduler
-
-The scheduler automates the full ingestion workflow: harvesting → transformation → indexing.
-It is designed to be executed periodically via CRON.
-
-### Dependent endpoints
-
-Some repositories are configured as dependent endpoints in the `endpoints` table by setting
-`depends_on_endpoint_id`. A dependent endpoint uses identifiers collected from its master
-endpoint, so the scheduler always triggers independent endpoints first and moves dependent
-endpoints to the end of the same harvesting batch. This ensures HAL is harvested before
-Zenodo when both endpoints are due for harvesting.
-
-The rest of the scheduler pipeline is unchanged: every selected endpoint is still crawled
-sequentially, the scheduler waits until harvest runs are closed, and then closed runs are
-sent to transformation/indexing.
-
-### Run scheduler
-
-```sh
-uv run python -m scheduler.run
-```
 #### Environment variables
 
 Optionally add the following env variables (not needed for local dev):
