@@ -172,47 +172,57 @@ and the harvest run is then closed. Note that a transformation can only be perfo
   http://127.0.0.1:8080/health
   ```
 
-- To obtain a harvest run id and status for a given endpoint (https://dabar.srce.hr/oai):
-  ```sh
-  http://127.0.0.1:8080/harvest_run?harvest_url=https%3A%2F%2Fdabar.srce.hr%2Foai
+## Airflow
+
+Airflow orchestrates the harvesting/transformation workflow (it replaces the custom scheduler step by step).
+It runs with the CeleryExecutor: RabbitMQ (`broker`) is the Celery broker, and a dedicated Postgres
+container (`airflow-postgres`) holds both Airflow's metadata and the Celery result backend.
+
+Services: `airflow-api-server` (UI/API), `airflow-scheduler`, `airflow-dag-processor`, `airflow-worker`
+(one-shot `airflow-init` migrates the DB and creates the admin user).
+
+Setup (after `cp env.template .env`, see the `# Airflow` block there):
+- set `AIRFLOW_FERNET_KEY`, `AIRFLOW_JWT_SECRET`, `AIRFLOW_API_SECRET_KEY` and change the default passwords
+- on Linux set `AIRFLOW_UID` to the output of `id -u`
+- ```sh
+  docker compose build airflow-init   # builds the shared Airflow image once
+  docker compose up -d
   ```
+- UI: http://127.0.0.1:8081 (port from `docker-compose.override.yml`), login as `AIRFLOW_ADMIN_USER`
+- DAG files live in `airflow/dags`. Unpause and trigger `hello_world` to smoke-test the setup
+  (scheduler -> RabbitMQ -> worker -> warehouse API).
 
-- start transformation process:
-  ```sh
-  http://127.0.0.1:8080/index?harvest_run_id=xyz
-  ```
-- see transformation task results in flower:
-  ```sh
-  http://127.0.0.1:5555/tasks
-  ```
+### DAG `transform_index`
 
-After starting the stack with `docker compose up`, you can run the harvester for a given repository URL, e.g.:
+Plans and runs the transformation of the harvest events of one closed harvest run (replaces `GET /index`).
+Trigger it from the UI ("Trigger DAG w/ config") with:
+- `harvest_run_id` (required), `index_name` (default `INDEX_NAME`), `reuse_embeddings`, `batch_size` (default `CELERY_BATCH_SIZE`)
 
-```sh
-docker compose run harvester https://lifesciences.datastations.nl/oai
-```
-## Scheduler
+`plan_batches` splits the run into batches; one mapped `run_batch` task per batch runs on `airflow-worker-transform`
+(queue `transform`, one task at a time) in the transform venv of the Airflow image (`/opt/airflow/transform-venv`,
+built from the repo's `uv.lock`). It loads the batch and runs `transform.transform_core.transform_batch_impl`,
+the same logic as the legacy Celery task. `summarize` prints the totals. The log of each batch shows how long
+loading the embedding model and the transformation took.
 
-The scheduler automates the full ingestion workflow: harvesting → transformation → indexing.
-It is designed to be executed periodically via CRON.
+The embedding model cache `./cache/fastembed` is mounted into `airflow-worker-transform`, which runs as `AIRFLOW_UID`
+(not root). If the model is not cached yet, make the directory writable first: `mkdir -p cache/fastembed && chmod -R a+rwX cache/fastembed`.
 
-### Dependent endpoints
+### DAG `harvest_and_index`
 
-Some repositories are configured as dependent endpoints in the `endpoints` table by setting
-`depends_on_endpoint_id`. A dependent endpoint uses identifiers collected from its master
-endpoint, so the scheduler always triggers independent endpoints first and moves dependent
-endpoints to the end of the same harvesting batch. This ensures HAL is harvested before
-Zenodo when both endpoints are due for harvesting.
+Replaces the custom scheduler: harvests the endpoints that are due and indexes the harvested runs.
 
-The rest of the scheduler pipeline is unchanged: every selected endpoint is still crawled
-sequentially, the scheduler waits until harvest runs are closed, and then closed runs are
-sent to transformation/indexing.
+1. `plan_endpoints` asks the API (`GET /harvest_run`) which endpoints are due (independent ones first, endpoints
+   that depend on another endpoint, e.g. Zenodo after HAL, last)
+2. `harvest_independent`, `harvest_dependent`: one mapped task per endpoint, one at a time. The crawler runs as a
+   Python module (`harvester.run_harvest`) inside the Airflow worker, its logs are part of the task log.
+   A failed endpoint fails only its own task, the others continue.
+3. `plan_indexing` collects the runs closed since the DAG run started, `index_run` triggers `transform_index` for
+   each of them (one after the other).
 
-### Run scheduler
+Params: `harvest_urls` (harvest only these endpoints), `all_runs` (index all closed runs), `index_name`,
+`reuse_embeddings`, `batch_size`. Schedule: set `HARVEST_SCHEDULE` (cron) in `.env`, otherwise the DAG only runs
+when triggered manually. The crawler version is set with `HARVESTER_REF` (branch/tag/commit, built into the image).
 
-```sh
-uv run python -m scheduler.run
-```
 #### Environment variables
 
 Optionally add the following env variables (not needed for local dev):
