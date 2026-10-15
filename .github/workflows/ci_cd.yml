@@ -49,6 +49,9 @@ jobs:
                     cp docker-compose.override.yml.template docker-compose.override.yml
                     cp env.template_e2e .env
                     cp keys.env.template keys.env 
+                    # the Airflow workers do not run as root: the embedding model cache has to be writable
+                    mkdir -p cache/fastembed
+                    chmod -R a+rwX cache/fastembed
 
             -   name: Docker Build
                 run: docker compose build
@@ -62,6 +65,8 @@ jobs:
                     timeout 60 bash -c 'until curl -f http://localhost:8080/health; do sleep 2; done'
                     echo "Waiting for database to be ready..."
                     timeout 60 bash -c 'until docker compose exec -T postgres pg_isready -U admin; do sleep 2; done'
+                    echo "Waiting for Airflow to be ready..."
+                    timeout 300 bash -c 'until curl -sf http://localhost:8081/api/v2/version; do sleep 5; done'
 
             -   name: Install uv
                 uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
@@ -71,5 +76,9 @@ jobs:
 
             -   name: Test with pytest
                 run: uv run pytest -s e2e
+
+            -   name: Show logs of the Airflow services
+                if: failure()
+                run: docker compose logs --no-color --tail=200 airflow-init airflow-api-server airflow-scheduler airflow-dag-processor airflow-worker airflow-worker-transform airflow-worker-filemeta
 
 

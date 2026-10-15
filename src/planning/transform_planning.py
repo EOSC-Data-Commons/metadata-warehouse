@@ -2,7 +2,7 @@
 
 This replaces `create_jobs_in_queue` of the FastAPI app: the run is first split into batch ranges
 (`plan_transform_batches`, tiny result). Each range is later loaded (`load_batch`) by its own Airflow task,
-which sends it to the Celery worker.
+which transforms it.
 """
 
 import logging

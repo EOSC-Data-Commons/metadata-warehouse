@@ -83,7 +83,7 @@ def transform_batch_impl(
 ) -> int:
     """Transforms a batch of harvest events and writes them to OpenSearch and PostgreSQL.
 
-    Independent of Celery/Airflow: called by the Airflow DAG `transform_index` (and by the legacy Celery task).
+    Independent of Airflow: called by the Airflow DAG `transform_index`.
 
     :return: number of documents successfully indexed in OpenSearch.
     """
