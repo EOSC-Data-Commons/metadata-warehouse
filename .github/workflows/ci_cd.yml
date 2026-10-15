@@ -78,7 +78,7 @@ jobs:
                 run: uv run pytest -s e2e
 
             -   name: Show logs of the Airflow services
-                if: failure()
+                #if: failure()
                 run: docker compose logs --no-color --tail=200 airflow-init airflow-api-server airflow-scheduler airflow-dag-processor airflow-worker airflow-worker-transform airflow-worker-filemeta
 
 
