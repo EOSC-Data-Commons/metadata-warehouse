@@ -33,7 +33,7 @@ def upgrade() -> None:
         VALUES (
             'CERN Open Data Portal',
             'CERN',
-            'CERN Open Data is a public repository providing access to research data, software, and documentation from CERN's particle physics experiments.',
+            'CERN Open Data is a public repository providing access to research data, software, and documentation from particle physics experiments conducted at CERN.',
             'https://opendata.cern.ch/',
             true
         )
