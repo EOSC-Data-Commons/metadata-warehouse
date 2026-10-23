@@ -119,10 +119,16 @@ In development, it may be more convenient to load pre-harvested static data:
 
 - the script defines the initial state of the database and should be stamped as the migration baseline.  
   **All further changes** to the database should be done as Alembic migrations.  
-  To stamp the baseline and upgrade to the latest version:  
+  To stamp the initial state as the baseline and then upgrade to the latest version:  
   ```sh
+  # Alembic migrations are executed at project root
+  cd ../..
+
   alembic stamp 0001_baseline  
   alembic upgrade head
+
+  # Return to scripts
+  cd scripts/postgres_data
   ```
 
 - load XML data from `scripts/postgres_data/data` (populates table `harvest_events`):
