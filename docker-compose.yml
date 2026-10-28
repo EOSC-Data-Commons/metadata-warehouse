@@ -384,12 +384,6 @@ services:
         environment:
             <<: [ *airflow-common-env, *airflow-warehouse-env ]
             DUMB_INIT_SETSID: "0"
-        volumes:
-            - ./airflow/dags:/opt/airflow/dags
-            - ./airflow/plugins:/opt/airflow/plugins
-            - airflow-logs:/opt/airflow/logs
-            - ./src:/opt/airflow/project/src
-            - ./config:/opt/airflow/project/config
 
 volumes:
     postgres-data:
