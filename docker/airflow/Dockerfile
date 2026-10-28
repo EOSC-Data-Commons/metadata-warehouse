@@ -9,11 +9,24 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 USER airflow
 
-COPY docker/airflow/requirements.txt /tmp/requirements.txt
+COPY docker/airflow/requirements.txt /tmp/requirements.in
 
-# 1. Dependencies of the Airflow tasks, installed into Airflow's own environment.
-# Airflow is pinned, so a conflict fails the build instead of changing the Airflow version.
-RUN uv pip install --no-cache "apache-airflow==${AIRFLOW_VERSION}" -r /tmp/requirements.txt
+# Resolve all dependencies together.
+# Pin the Airflow version to prevent accidental upgrades.
+
+RUN printf 'apache-airflow==%s\n' "$AIRFLOW_VERSION" \
+        > /tmp/airflow.in \
+        && cat /tmp/requirements.in >> /tmp/airflow.in \
+    && uv pip compile /tmp/airflow.in \
+        --constraint "${HOME}/constraints.txt" \
+        --exclude-newer "3 days" \
+        -o /tmp/requirements.txt \
+    && pip install --no-cache-dir \
+        "apache-airflow==${AIRFLOW_VERSION}" \
+        -r /tmp/requirements.txt \
+        --constraint "${HOME}/constraints.txt" \
+    && pip check
+
 
 # 2. The harvester in its own isolated venv (used by @task.external_python),
 # with exactly the versions from its uv.lock.
