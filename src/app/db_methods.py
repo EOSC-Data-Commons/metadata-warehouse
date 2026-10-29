@@ -4,7 +4,6 @@ from typing import Any, Optional
 
 import psycopg
 from fastapi import HTTPException
-from opensearchpy import OpenSearch
 from psycopg.rows import dict_row
 
 from app.api_classes import (
@@ -19,11 +18,8 @@ from app.api_classes import (
     HarvestRunCreateResponse,
     HarvestRunGetResponse,
 )
-from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
 from logger.setup_logger import logger
-from transform.tasks import add_file_metadata, transform_batch
-from utils.queue_utils import HarvestEventQueue, detect_identifier_type
 
 postgres_config: PostgresConfig = PostgresConfig()
 connection_params = postgres_config.connection_params
@@ -475,157 +471,3 @@ JOIN repositories r ON e.repository_id = r.id
     except Exception as e:
         logger.exception(f'An error occurred when reading config: {e}')
         raise HTTPException(status_code=500, detail=str(e))
-
-
-def create_jobs_in_queue(harvest_run_id: str, index_name: str, reuse_embeddings: bool) -> int:
-    """
-    Creates and enqueues transformation jobs from harvest_events table.
-
-    :param harvest_run_id: ID of the harvest run the harvest events belong to.
-    :param index_name: Name of the OpenSearch index to use.
-    :param reuse_embeddings: Reuse existing embeddings instead of recalculation.
-    :return: Number of batches scheduled for processing.
-    """
-
-    # check if target index exists
-    opensearch_config = OpenSearchConfig()
-    client = OpenSearch(
-        hosts=[{'host': opensearch_config.host, 'port': opensearch_config.port}],
-        http_auth=None,
-        use_ssl=False,
-        logger=logger,
-    )
-
-    try:
-        if not client.indices.exists(index=index_name):
-            raise HTTPException(status_code=400, detail=f'Index {index_name} does not exist.')
-    finally:
-        client.close()
-
-    batch: list[HarvestEventQueue] = []
-    tasks = 0
-
-    logger.info(f'Preparing jobs for index: {index_name}')
-
-    with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
-        # named (server-side) cursor streams rows instead of paging via OFFSET,
-        # which re-scans and discards prior rows on every iteration and gets
-        # very slow at large offsets
-        with conn.cursor(name='harvest_events_stream', row_factory=dict_row) as cur:
-            # https://www.psycopg.org/psycopg3/docs/api/cursors.html#psycopg.ServerCursor.itersize
-            cur.itersize = BATCH_SIZE
-            cur.execute(
-                """
-            SELECT he.id, 
-            he.repository_id,
-            r.code, 
-            he.endpoint_id, 
-            e.harvest_url,
-            he.record_identifier, 
-            (
-                xpath('/oai:record', he.raw_metadata, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}')
-            )[1] AS record,
-            he.additional_metadata,
-            he.is_deleted,
-            he.datestamp,
-            e.harvest_params
-        FROM harvest_events he
-        JOIN harvest_runs hr ON he.harvest_run_id = hr.id 
-        JOIN endpoints e ON he.endpoint_id = e.id
-        JOIN repositories r ON he.repository_id = r.id
-            WHERE harvest_run_id = %s and hr.status = 'closed' 
-            ORDER BY he.id
-            """,
-                (harvest_run_id,),
-            )
-
-            for doc in cur:
-                # https://www.psycopg.org/psycopg3/docs/basic/adapt.html#uuid-adaptation
-                # https://docs.python.org/3/library/uuid.html#uuid.UUID
-                # str(uuid) returns a string in the form 12345678-1234-5678-1234-567812345678 where the 32 hexadecimal digits represent the UUID.
-
-                additional_metadata_API = (
-                    doc.get('harvest_params', {}).get('additional_metadata_params', {}).get('endpoint')
-                )
-
-                additional_metadata_protocol = (
-                    doc.get('harvest_params', {}).get('additional_metadata_params', {}).get('protocol')
-                )
-
-                batch.append(
-                    HarvestEventQueue(
-                        id=str(doc['id']),
-                        xml=doc['record'],
-                        repository_id=str(doc['repository_id']),
-                        endpoint_id=str(doc['endpoint_id']),
-                        record_identifier=doc['record_identifier'],
-                        identifier_type=detect_identifier_type(doc['record_identifier']),
-                        code=doc['code'],
-                        harvest_url=doc['harvest_url'],
-                        additional_metadata=doc['additional_metadata'],
-                        additional_metadata_API=additional_metadata_API,
-                        additional_metadata_protocol=additional_metadata_protocol,
-                        is_deleted=doc['is_deleted'],
-                        datestamp=doc['datestamp'].strftime('%Y-%m-%d %H:%M:%S.%f%z'),
-                    )
-                )
-
-                if len(batch) == BATCH_SIZE:
-                    # https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html#keeping-results
-                    logger.info(f'Putting batch {tasks} of {len(batch)} in queue')
-                    transform_batch.delay(batch, index_name, reuse_embeddings)
-                    add_file_metadata.delay(batch)
-                    tasks += 1
-                    batch = []
-
-            if batch:
-                logger.info(f'Putting final batch {tasks} of {len(batch)} in queue')
-                transform_batch.delay(batch, index_name, reuse_embeddings)
-                add_file_metadata.delay(batch)
-                tasks += 1
-
-    return tasks
-
-
-def are_all_runs_closed_in_db() -> bool:
-    """
-    Check whether all harvest runs have finished processing.
-
-    A run is considered finished when its status is:
-    - 'closed'
-    - 'failed'
-
-    The scheduler should wait only for runs that are still actively executing,
-    which are represented by status='open'.
-
-    Returns
-    -------
-    bool
-        True if there are no runs with status='open'.
-        False if at least one run is still open.
-
-    Notes
-    -----
-    Expected status values in harvest_runs table:
-        ('open', 'closed', 'failed')
-
-    Logic:
-        EXISTS(status='open') -> scheduler must wait
-        no open runs -> scheduler may continue
-    """
-    with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
-        cur = conn.cursor()
-
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT 1
-                FROM harvest_runs
-                WHERE status = 'open'
-            ) AS has_open_runs
-        """)
-
-        result = cur.fetchone()
-        if result is None:
-            raise RuntimeError('Query returned no result')
-
-        return not result['has_open_runs']
