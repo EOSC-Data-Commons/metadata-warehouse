@@ -400,7 +400,9 @@ def test_create_and_close_harvest_run(
     assert res_close.status_code == 200
 
     # run the transformation (DAG warehouse_transform_index) and wait for it (indexing + file metadata)
-    run_dag(airflow_client, 'warehouse_transform_index', {'harvest_run_id': create_response['id'], 'index_name': TEST_INDEX})
+    run_dag(
+        airflow_client, 'warehouse_transform_index', {'harvest_run_id': create_response['id'], 'index_name': TEST_INDEX}
+    )
 
     # the record of the harvest event is in the database
     cur = postgres_client.cursor()
@@ -503,7 +505,9 @@ def _create_and_close_harvest_run(
 
     _close_harvest_run(api_client, create_response['id'])
 
-    run_dag(airflow_client, 'warehouse_transform_index', {'harvest_run_id': create_response['id'], 'index_name': index_name})
+    run_dag(
+        airflow_client, 'warehouse_transform_index', {'harvest_run_id': create_response['id'], 'index_name': index_name}
+    )
 
     return {'run_id': create_response['id']}
 
