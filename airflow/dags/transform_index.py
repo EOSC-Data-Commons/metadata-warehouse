@@ -102,7 +102,6 @@ def transform_index() -> None:
         python=TRANSFORM_PYTHON,
         expect_airflow=False,
         expect_pendulum=False,
-        queue='filemeta',
         retries=2,
         retry_delay=timedelta(minutes=1),
         execution_timeout=timedelta(hours=1),
