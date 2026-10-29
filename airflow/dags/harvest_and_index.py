@@ -31,7 +31,7 @@ HARVEST_PYTHON = '/opt/airflow/harvester-venv/bin/python'
 
 
 @dag(
-    dag_id='harvest_and_index',
+    dag_id='warehouse_harvest_and_index',
     schedule=os.environ.get('HARVEST_SCHEDULE') or None,
     catchup=False,
     max_active_runs=1,
@@ -137,7 +137,7 @@ def harvest_and_index() -> None:
     # The DAG transform_index (max_active_runs=1) indexes one run; wait for it, then continue with the next run.
     TriggerDagRunOperator.partial(
         task_id='index_run',
-        trigger_dag_id='transform_index',
+        trigger_dag_id='warehouse_transform_index',
         wait_for_completion=True,
         poke_interval=60,
         max_active_tis_per_dag=1,

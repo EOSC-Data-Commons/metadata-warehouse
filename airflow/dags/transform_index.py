@@ -25,7 +25,7 @@ TRANSFORM_PYTHON = '/opt/airflow/transform-venv/bin/python'
 
 
 @dag(
-    dag_id='transform_index',
+    dag_id='warehouse_transform_index',
     schedule=None,
     catchup=False,
     max_active_runs=1,

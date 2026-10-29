@@ -399,8 +399,8 @@ def test_create_and_close_harvest_run(
 
     assert res_close.status_code == 200
 
-    # run the transformation (DAG transform_index) and wait for it (indexing + file metadata)
-    run_dag(airflow_client, 'transform_index', {'harvest_run_id': create_response['id'], 'index_name': TEST_INDEX})
+    # run the transformation (DAG warehouse_transform_index) and wait for it (indexing + file metadata)
+    run_dag(airflow_client, 'warehouse_transform_index', {'harvest_run_id': create_response['id'], 'index_name': TEST_INDEX})
 
     # the record of the harvest event is in the database
     cur = postgres_client.cursor()
@@ -503,7 +503,7 @@ def _create_and_close_harvest_run(
 
     _close_harvest_run(api_client, create_response['id'])
 
-    run_dag(airflow_client, 'transform_index', {'harvest_run_id': create_response['id'], 'index_name': index_name})
+    run_dag(airflow_client, 'warehouse_transform_index', {'harvest_run_id': create_response['id'], 'index_name': index_name})
 
     return {'run_id': create_response['id']}
 
@@ -639,7 +639,7 @@ def test_deduplication(api_client, airflow_client, run_dag, reset_dataset_db, re
     assert len(rows_before) == 2
 
     # --- run deduplication (DAG deduplicate) ---
-    run_dag(airflow_client, 'deduplicate')
+    run_dag(airflow_client, 'warehouse_deduplicate')
 
     # --- verify only one record remains ---
     cur.execute('SELECT id, endpoint_id FROM records WHERE url = %s', (expected_url,))

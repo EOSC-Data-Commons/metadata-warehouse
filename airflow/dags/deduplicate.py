@@ -15,7 +15,7 @@ TRANSFORM_PYTHON = '/opt/airflow/transform-venv/bin/python'
 
 
 @dag(
-    dag_id='deduplicate',
+    dag_id='warehouse_deduplicate',
     schedule=None,
     catchup=False,
     max_active_runs=1,
