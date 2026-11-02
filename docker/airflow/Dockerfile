@@ -9,9 +9,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 USER airflow
 
-COPY --chown=airflow:root airflow/dags    /opt/airflow/dags
-COPY --chown=airflow:root src             /opt/airflow/project/src
-COPY --chown=airflow:root config          /opt/airflow/project/config
 
 COPY docker/airflow/requirements.txt /tmp/requirements.in
 
@@ -42,6 +39,7 @@ RUN umask 0002 \
     && UV_PROJECT_ENVIRONMENT=/opt/airflow/harvester-venv UV_PYTHON_DOWNLOADS=never \
        uv sync --project /tmp/metadata-crawlers --frozen --no-dev --no-editable --no-cache \
     && rm -rf /tmp/metadata-crawlers
+LABEL org.eosc.harvester-ref="${HARVESTER_REF}"
 
 # 3. The dependencies of the transform code in an isolated venv (used by @task.external_python),
 # with exactly the versions from the uv.lock of this repo (the same set as in the transform image).
@@ -53,3 +51,7 @@ RUN umask 0002 \
     && UV_PROJECT_ENVIRONMENT=/opt/airflow/transform-venv UV_PYTHON_DOWNLOADS=never \
        uv sync --project /tmp/transform-project --frozen --no-dev --no-install-project --no-cache \
     && rm -rf /tmp/transform-project
+
+COPY --chown=airflow:root airflow/dags    /opt/airflow/dags
+COPY --chown=airflow:root src             /opt/airflow/project/src
+COPY --chown=airflow:root config          /opt/airflow/project/config
