@@ -32,7 +32,7 @@ RUN printf 'apache-airflow==%s\n' "$AIRFLOW_VERSION" \
 # 2. The harvester in its own isolated venv (used by @task.external_python),
 # with exactly the versions from its uv.lock.
 # Branch, tag or commit of metadata-crawlers (pin a tag/commit in production):
-ARG HARVESTER_REF=master
+ARG HARVESTER_REF=9c120f5dc207cf46421211357cfea2419ddb8e8a
 RUN umask 0002 \
     && git clone https://github.com/EOSC-Data-Commons/metadata-crawlers.git /tmp/metadata-crawlers \
     && git -C /tmp/metadata-crawlers checkout "${HARVESTER_REF}" \
