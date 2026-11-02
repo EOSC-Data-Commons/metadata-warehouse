@@ -79,6 +79,6 @@ jobs:
 
             -   name: Show logs of the Airflow services
                 if: failure()
-                run: docker compose logs --no-color --tail=200 airflow-init airflow-api-server airflow-scheduler airflow-dag-processor airflow-worker airflow-worker-transform airflow-worker-filemeta
+                run: docker compose logs --no-color --tail=200 airflow-init airflow-api-server airflow-scheduler airflow-dag-processor airflow-worker airflow-worker-transform
 
 
