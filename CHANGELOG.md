@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.9.0...v1.10.0) (2026-11-02)
+
+
+### Features
+
+* **add airflow:** rework Celery tasks to DAGs ([#192](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/192)) ([eb4701a](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/eb4701afd9758d1d3f09398efd781c2b6d0ef505))
+
 ## [1.9.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.8.0...v1.9.0) (2026-10-08)
 
 
