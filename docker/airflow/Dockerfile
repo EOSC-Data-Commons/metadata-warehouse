@@ -9,6 +9,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 USER airflow
 
+COPY --chown=airflow:root airflow/dags    /opt/airflow/dags
+COPY --chown=airflow:root src             /opt/airflow/project/src
+COPY --chown=airflow:root config          /opt/airflow/project/config
+
 COPY docker/airflow/requirements.txt /tmp/requirements.in
 
 # Resolve all dependencies together.

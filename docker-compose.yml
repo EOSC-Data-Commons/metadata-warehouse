@@ -36,12 +36,33 @@ x-airflow-common: &airflow-common
         CELERY_BATCH_SIZE: "${CELERY_BATCH_SIZE}"
         # cron expression of the DAG harvest_and_index; empty: only manual runs
         HARVEST_SCHEDULE: "${HARVEST_SCHEDULE:-}"
+        TOOLMETA_HARVESTER_DATABASE__USER: ${TOOLMETA_HARVESTER_DATABASE__USER}
+        TOOLMETA_HARVESTER_DATABASE__PASSWORD: ${TOOLMETA_HARVESTER_DATABASE__PASSWORD}
+        TOOLMETA_HARVESTER_DATABASE__HOST: ${TOOLMETA_HARVESTER_DATABASE__HOST}
+        TOOLMETA_HARVESTER_DATABASE__PORT: ${TOOLMETA_HARVESTER_DATABASE__PORT}
+        TOOLMETA_HARVESTER_DATABASE__NAME: ${TOOLMETA_HARVESTER_DATABASE__NAME}
+        TOOLMETA_HARVESTER_EGI__LLM_API_KEY: ${TOOLMETA_HARVESTER_EGI__LLM_API_KEY}
+        TOOLMETA_HARVESTER_EGI__EMBEDDING_API: ${TOOLMETA_HARVESTER_EGI__EMBEDDING_API}
+        AIRFLOW__DAG_PROCESSOR__DAG_BUNDLE_CONFIG_LIST: >-
+            [
+              {
+                "name": "dags-folder",
+                "classpath": "airflow.dag_processing.bundles.local.LocalDagBundle",
+                "kwargs": {}
+              },
+              {
+                "name": "toolmeta",
+                "classpath": "airflow.providers.git.bundles.git.GitDagBundle",
+                "kwargs": {
+                  "repo_url": "${TOOLMETA_REPO}",
+                  "tracking_ref": "${TOOLMETA_REF}",
+                  "subdir": "airflow_dags",
+                  "refresh_interval": 60
+                }
+              }
+            ]
     volumes:
-        - ./airflow/dags:/opt/airflow/dags
-        - ./airflow/plugins:/opt/airflow/plugins
         - airflow-logs:/opt/airflow/logs
-        - ./src:/opt/airflow/project/src
-        - ./config:/opt/airflow/project/config
     depends_on: &airflow-common-depends-on
         broker:
             condition: service_healthy
@@ -370,13 +391,8 @@ services:
             EMBED_API_URL: "${EMBED_API_URL}"
             FASTEMBED_CACHE_DIR: /opt/airflow/cache/fastembed
         volumes:
-            - ./airflow/dags:/opt/airflow/dags
-            - ./airflow/plugins:/opt/airflow/plugins
             - airflow-logs:/opt/airflow/logs
-            - ./src:/opt/airflow/project/src
-            - ./config:/opt/airflow/project/config
             - ./cache/fastembed:/opt/airflow/cache/fastembed
-
 
 volumes:
     postgres-data:

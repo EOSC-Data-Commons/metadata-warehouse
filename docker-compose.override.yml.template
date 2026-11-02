@@ -1,3 +1,10 @@
+# uncomment for dev
+#x-dev-mounts: &dev-mounts
+#    volumes:
+#        - ./airflow/dags:/opt/airflow/dags
+#        - ./src:/opt/airflow/project/src
+#        - ./config:/opt/airflow/project/config
+
 services:
     transform:
         ports:
@@ -6,8 +13,15 @@ services:
         # command: [ "fastapi", "dev", "--host", "0.0.0.0", "app/routes.py", "--port", "80" ]
 
     airflow-api-server:
+        #<<: *dev-mounts
         ports:
             - "127.0.0.1:8081:8080"
+
+    # uncomment for dev
+    #airflow-scheduler: { <<: *dev-mounts }
+    #airflow-dag-processor: { <<: *dev-mounts }
+    #airflow-worker: { <<: *dev-mounts }
+    #airflow-worker-transform: { <<: *dev-mounts }
 
     postgres:
         ports:
