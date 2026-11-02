@@ -1,10 +1,8 @@
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Optional
 
-import psycopg
 from fastapi import FastAPI, HTTPException, Query
 from psycopg import errors as psycopg_errors
-from psycopg.rows import dict_row
 
 from app.api_classes import (
     Config,
@@ -17,29 +15,19 @@ from app.api_classes import (
     HarvestRunCreateResponse,
     HarvestRunGetResponse,
     HealthGetResponse,
-    IndexGetResponse,
-    SchedulerClosedRunsResponse,
-    SchedulerRunsResponse,
 )
 from app.db_methods import (
-    are_all_runs_closed_in_db,
     close_harvest_run_in_db,
     create_harvest_events_bulk_in_db,
     create_harvest_run_in_db,
-    create_jobs_in_queue,
     get_config_from_db,
     get_latest_harvest_run_in_db,
 )
 from config.postgres_config import PostgresConfig
 from logger.setup_logger import logger
-from transform.tasks import find_duplicates
 
 tags_metadata = [
     {'name': 'health', 'description': 'Health route'},
-    {
-        'name': 'index',
-        'description': 'Start transformation and indexing process for a given harvest run',
-    },
     {'name': 'config', 'description': 'Get available endpoints'},
     {'name': 'harvest_run', 'description': 'Manage harvest runs'},
     {'name': 'harvest_event', 'description': 'Register one or multiple harvest event'},
@@ -48,32 +36,6 @@ tags_metadata = [
 app = FastAPI(openapi_tags=tags_metadata)
 postgres_config: PostgresConfig = PostgresConfig()
 connection_params = postgres_config.connection_params
-
-
-@app.get('/index', tags=['index'])
-def init_index(
-    harvest_run_id: str = Query(default=None, description='Id of the harvest run to be indexed'),
-    index_name: str = Query(default=None, description='Name of the OpenSearch index to use for indexing'),
-    reuse_embeddings: bool = Query(default=False, description='Whether to reuse embeddings or not'),
-) -> IndexGetResponse:
-    # this long-running method is synchronous and runs in an external threadpool, see https://fastapi.tiangolo.com/async/#path-operation-functions
-    # this way, it does not block the server
-    try:
-        results = create_jobs_in_queue(harvest_run_id, index_name, reuse_embeddings)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception('Indexing failed')
-        raise HTTPException(status_code=500, detail=str(e))
-
-    logger.info(f'Got results: {results}')
-    return IndexGetResponse(number_of_batches=results)
-
-
-@app.post('/deduplicate', tags=['index'], summary='Deduplicate records')
-def trigger_deduplication() -> Any:
-    task = find_duplicates.delay()
-    return {'task_id': task.id}
 
 
 @app.get('/health', tags=['health'], summary='Get health status')
@@ -195,108 +157,4 @@ def close_harvest_run(harvest_run: HarvestRunCloseRequest) -> HarvestRunCloseRes
         return close_harvest_run_in_db(harvest_run)
     except Exception as e:
         logger.exception(f'An error occurred when closing harvest event: {e}')
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post(
-    '/scheduler/wait-for-completion',
-    tags=['scheduler'],
-    summary='Check if all harvest runs are closed',
-)
-def scheduler_wait_for_completion() -> SchedulerRunsResponse:
-    """
-    Determine whether Crawler has finished its work
-    and Scheduler can trigger Transfomer.
-
-    The scheduler periodically checks whether all harvest runs
-    have finished execution.
-
-    A run is considered finished when its status is:
-    - 'closed'  -> completed successfully
-    - 'failed'  -> completed with errors but no longer running
-
-    Only runs with status='open' block the scheduler.
-
-    Returns
-    -------
-    SchedulerRunsResponse
-        Object containing boolean flag:
-
-        all_closed=True
-            no open runs exist → scheduler may proceed
-
-        all_closed=False
-            at least one run is still open → scheduler should wait
-    """
-    try:
-        all_closed = are_all_runs_closed_in_db()
-
-        return SchedulerRunsResponse(all_closed=all_closed)
-
-    except Exception as e:
-        logger.exception('Scheduler completion check failed')
-
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get(
-    '/scheduler/closed-runs',
-    tags=['scheduler'],
-    summary='Return closed or failed harvest runs completed in the last 6 days',
-)
-def get_closed_runs(
-    all_runs: bool = Query(False, description='If true, return runs from any time, not just the last 6 days'),
-) -> SchedulerClosedRunsResponse:
-    """
-    Retrieve IDs of recently finished harvest runs.
-
-    This endpoint returns harvest runs that are no longer active,
-    meaning their status is:
-    - 'closed'
-    - 'failed'
-
-    By default, results are limited to runs completed within the last 6 days
-    to avoid reprocessing older runs and to keep Transformer payloads small.
-
-    Parameters
-    ----------
-    all_runs : bool, optional
-        If True, the 6-day recency filter is disabled and all matching runs
-        are returned regardless of age. Defaults to False.
-
-    Returns
-    -------
-    SchedulerClosedRunsResponse
-        harvest_run_ids : list[str]
-            IDs of runs eligible for further processing.
-
-    Notes
-    -----
-    Expected status values in harvest_runs table:
-        ('open', 'closed', 'failed')
-
-    Filtering logic:
-        status IN ('closed', 'failed')
-        AND (all_runs=True OR until_date >= NOW() - INTERVAL '6 days')
-    """
-    try:
-        with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
-            cur = conn.cursor()
-
-            cur.execute(
-                """
-                SELECT id
-                FROM harvest_runs
-                WHERE status IN ('closed', 'failed')
-                AND (%(all_runs)s OR until_date >= NOW() - INTERVAL '6 days')
-            """,
-                {'all_runs': all_runs},
-            )
-
-            ids = [str(row['id']) for row in cur.fetchall()]
-
-        return SchedulerClosedRunsResponse(harvest_run_ids=ids)
-
-    except Exception as e:
-        logger.exception('Failed to fetch closed runs')
         raise HTTPException(status_code=500, detail=str(e))

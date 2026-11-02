@@ -1,0 +1,3 @@
+# Extra Python dependencies of the Airflow tasks (planning: read harvest events, check the OpenSearch index).
+psycopg[binary]>=3.3.3
+toolmeta_harvester @ git+https://github.com/EOSC-Data-Commons/toolmeta-harvester.git@main

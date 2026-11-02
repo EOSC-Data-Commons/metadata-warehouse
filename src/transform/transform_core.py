@@ -1,11 +1,12 @@
 import datetime
 import json
+import logging
 import os
+from pathlib import Path
 from typing import Any
 
 import psycopg
 import xmltodict
-from celery import Task
 from fastembed import TextEmbedding
 from jsonschema.validators import validate
 from lxml import etree as ET
@@ -15,7 +16,6 @@ from psycopg.rows import dict_row
 
 from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
-from transform.celery_app_def import celery_app, logger
 from utils import handle_xml, normalize_datacite_json
 from utils.embedding_utils import (
     OpenSearchSourceWithEmbedding,
@@ -30,26 +30,39 @@ from utils.queue_utils import HarvestEventQueue
 OAI_RECORD = f'{handle_xml.OAI}:record'
 OAI_METADATA = f'{handle_xml.OAI}:metadata'
 
-EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL')
-if not EMBEDDING_MODEL:
-    raise ValueError('Missing EMBEDDING_MODEL environment variable')
+# Read from the environment when the module is imported; a missing value is reported when TransformResources is
+# created, so importing this module does not fail in processes that do not transform anything.
+EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL', '')
 
-FASTEMBED_CACHE_DIR = os.environ.get('FASTEMBED_CACHE_DIR', '/root/.cache/fastembed')
+# <root>/src/transform/transform_core.py -> <root>/config/schema.json (independent of the working directory)
+SCHEMA_PATH = Path(__file__).resolve().parents[2] / 'config' / 'schema.json'
+
+# default: ~/.cache/fastembed (/root/.cache/fastembed in the transform image, the airflow user's home in the Airflow image)
+FASTEMBED_CACHE_DIR = os.environ.get('FASTEMBED_CACHE_DIR', str(Path.home() / '.cache' / 'fastembed'))
 
 EMBED_API_KEY = os.environ.get('EMBED_API_KEY')
 EMBED_API_URL = os.environ.get('EMBED_API_URL')
 
+logger = logging.getLogger(__name__)
 
-class TransformTask(Task):  # type: ignore
+
+class TransformResources:
+    """Everything a transform needs: embedding model, OpenSearch client, schema, DB config.
+
+    Expensive to create (loads the embedding model): create it once per worker process or per task.
+    """
+
     embedding_transformer: TextEmbedding
     client: OpenSearch
     schema: dict[Any, Any]
     postgres_config: PostgresConfig
 
     def __init__(self) -> None:
-        if EMBEDDING_MODEL:
-            self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL, cache_dir=FASTEMBED_CACHE_DIR)
-            logger.info(f'Setting up embedding transformer with model {EMBEDDING_MODEL}')
+        if not EMBEDDING_MODEL:
+            raise ValueError('Missing EMBEDDING_MODEL environment variable')
+
+        self.embedding_transformer = TextEmbedding(model_name=EMBEDDING_MODEL, cache_dir=FASTEMBED_CACHE_DIR)
+        logger.info(f'Setting up embedding transformer with model {EMBEDDING_MODEL}')
 
         opensearch_config = OpenSearchConfig()
         self.client = OpenSearch(
@@ -61,13 +74,20 @@ class TransformTask(Task):  # type: ignore
 
         self.postgres_config = PostgresConfig()
 
-        with open('../config/schema.json') as f:
+        with open(SCHEMA_PATH) as f:
             self.schema = json.load(f)
 
 
-@celery_app.task(base=TransformTask, bind=True, ignore_result=True)
-def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, reuse_embeddings: bool) -> Any:
-    if not self.client.indices.exists(index=index_name):
+def transform_batch_impl(
+    resources: TransformResources, batch: list[HarvestEventQueue], index_name: str, reuse_embeddings: bool
+) -> int:
+    """Transforms a batch of harvest events and writes them to OpenSearch and PostgreSQL.
+
+    Independent of Airflow: called by the Airflow DAG `transform_index`.
+
+    :return: number of documents successfully indexed in OpenSearch.
+    """
+    if not resources.client.indices.exists(index=index_name):
         raise ValueError(f'Index {index_name} does not exist in OpenSearch')
 
     # transform to JSON and normalize
@@ -77,7 +97,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
     # "Thankfully, if you use the connection context, Psycopg will commit the connection at the end of the block
     # (or roll it back if the block is exited with an exception)"
     # However, this is not true for OpenSearch since we use a different client to write or delete data in OpenSearch and this actions will take immediate effect.
-    with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
+    with psycopg.connect(**resources.postgres_config.connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
         normalized: list[SourceWithEmbeddingText] = []
@@ -104,7 +124,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
 
                     try:
                         # delete document from OpenSearch
-                        self.client.delete(
+                        resources.client.delete(
                             index=index_name,
                             id=opensearch_id,
                             ignore=404,
@@ -156,7 +176,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 normalized_record = normalize_datacite_json.normalize_datacite_json(
                     resource, metadata_namespace_for_access
                 )
-                validate(instance=normalized_record, schema=self.schema)
+                validate(instance=normalized_record, schema=resources.schema)
                 normalized.append(
                     SourceWithEmbeddingText(
                         src=normalized_record,
@@ -214,7 +234,7 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
                 src_with_emb = add_embeddings_to_source(
                     batch=normalized,
                     logger=logger,
-                    embedding_model=self.embedding_transformer,
+                    embedding_model=resources.embedding_transformer,
                     api_key=EMBED_API_KEY,
                     base_url=EMBED_API_URL,
                     model_name=EMBEDDING_MODEL,
@@ -226,7 +246,8 @@ def transform_batch(self: Any, batch: list[HarvestEventQueue], index_name: str, 
             raise e
 
         try:
-            success, failed = bulk(self.client, preprocessed)
+            success: int  # for success case only
+            success, failed = bulk(resources.client, preprocessed)
             if success < len(src_with_emb):
                 logger.error(
                     f'Normalized doc size was {len(src_with_emb)} but only {success} were imported into OpenSearch.'
