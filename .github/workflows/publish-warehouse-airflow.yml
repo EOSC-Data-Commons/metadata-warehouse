@@ -1,0 +1,94 @@
+name: publish-airflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag to use (e.g. 1.1.0)'
+        required: false
+        default: 'manual'
+      harvester_ref:
+        description: 'Override the metadata-crawlers ref (default: the pin in the Dockerfile)'
+        required: false
+  push:
+    tags: [ "v*.*.*" ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/eosc-data-commons/metadata-warehouse-airflow
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=long
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=${{ inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+
+      # 1. amd64 only, loaded into the runner so it can be tested before anything is pushed.
+      - name: Build (amd64, load for tests)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/airflow/Dockerfile
+          platforms: linux/amd64
+          load: true
+          pull: true
+          tags: airflow-test:ci
+          # empty on tag pushes and when the input is blank -> the Dockerfile default applies
+          build-args: ${{ inputs.harvester_ref && format('HARVESTER_REF={0}', inputs.harvester_ref) || '' }}
+          cache-from: type=gha,scope=amd64
+          cache-to: type=gha,mode=max,scope=amd64
+
+      # 2. Smoke test (amd64 only; the arm64 image is not executed in CI).
+      - name: Smoke test
+        run: |
+          docker run --rm --entrypoint bash airflow-test:ci -c '
+            set -e
+            pip check
+            python -c "import toolmeta_harvester"
+            /opt/airflow/harvester-venv/bin/python -c "import harvester"
+            /opt/airflow/transform-venv/bin/python -c "import fastembed"
+            ls /opt/airflow/dags /opt/airflow/project/src /opt/airflow/project/config
+          '
+
+      # 3. Multi-platform build and push. The amd64 layers come from the cache of step 1.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/airflow/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+          push: true
+          provenance: mode=max
+          sbom: true
+          build-args: ${{ inputs.harvester_ref && format('HARVESTER_REF={0}', inputs.harvester_ref) || '' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: |
+            type=gha,scope=amd64
+            type=gha,scope=multi
+          cache-to: type=gha,mode=max,scope=multi

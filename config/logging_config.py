@@ -23,7 +23,6 @@ LOGGING_CONFIG = {
     },
     'loggers': {
         '': {'handlers': ['default'], 'level': 'INFO'},
-        'celery.task': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
         'opensearch': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
         'watchfiles.main': {
             'handlers': ['default'],
@@ -32,6 +31,5 @@ LOGGING_CONFIG = {
         },
         'urllib3': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
         'requests': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
-        'transform.celery_app_def': {'handlers': ['default'], 'level': 'INFO', 'propagate': False},
     },
 }
