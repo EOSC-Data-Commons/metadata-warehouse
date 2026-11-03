@@ -26,9 +26,14 @@ TEST_INDEX = 'test_index'
 EMBEDDING_DIMS = os.environ.get('EMBEDDING_DIMS')
 
 API_BASE_URL = 'http://localhost:8080'
-FLOWER_BASE_URL = 'http://localhost:5555'
+AIRFLOW_BASE_URL = os.environ.get('AIRFLOW_BASE_URL') or 'http://localhost:8081'
+AIRFLOW_USER = os.environ.get('AIRFLOW_ADMIN_USER') or 'airflow'
+AIRFLOW_PASSWORD = os.environ.get('AIRFLOW_ADMIN_PASSWORD') or 'airflow'
 TIMEOUT = 120
-MAX_TASK_AGE = 10
+# a DAG run may have to wait for the embedding model to be downloaded and loaded
+DAG_RUN_TIMEOUT = 900
+# right after startup the DAG files may not be parsed yet
+DAG_PARSE_TIMEOUT = 180
 
 
 @pytest.fixture
@@ -53,8 +58,12 @@ def postgres_client():
 
 
 @pytest.fixture
-def flower_client():
-    with httpx.Client(base_url=FLOWER_BASE_URL, timeout=TIMEOUT) as client:
+def airflow_client():
+    """HTTP client for the Airflow REST API, authenticated with a JWT token."""
+    with httpx.Client(base_url=AIRFLOW_BASE_URL, timeout=TIMEOUT) as client:
+        res_token = client.post('/auth/token', json={'username': AIRFLOW_USER, 'password': AIRFLOW_PASSWORD})
+        assert res_token.status_code in (200, 201), f'Airflow login failed: {res_token.status_code} {res_token.text}'
+        client.headers['Authorization'] = f'Bearer {res_token.json()["access_token"]}'
         yield client
 
 
@@ -163,63 +172,54 @@ def reset_index():
     yield client
 
 
+def _unpause_dag(airflow_client, dag_id):
+    """DAGs are created paused, and a run of a paused DAG stays queued. The DAG may not be parsed yet after startup."""
+    start_time = time.time()
+    while True:
+        res = airflow_client.patch(f'/api/v2/dags/{dag_id}', json={'is_paused': False})
+        if res.status_code == 200:
+            return
+        if res.status_code != 404 or time.time() - start_time > DAG_PARSE_TIMEOUT:
+            pytest.fail(f'Could not unpause DAG {dag_id}: {res.status_code} {res.text}')
+        time.sleep(2)
+
+
+def _tasks_not_successful(airflow_client, dag_id, dag_run_id):
+    """Summary of the task instances of a DAG run that did not succeed, for the failure message."""
+    res = airflow_client.get(f'/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances', params={'limit': 1000})
+    if res.status_code != 200:
+        return f'(task instances not available: {res.status_code})'
+    return ', '.join(
+        f'{ti["task_id"]}[{ti.get("map_index", -1)}]={ti["state"]}'
+        for ti in res.json().get('task_instances', [])
+        if ti['state'] != 'success'
+    )
+
+
 @pytest.fixture
-def wait_for_task():
-    def _wait_for_task(
-        flower_client,
-        task_name,
-        expected_args: str | None = None,
-        parent_id: str | None = None,
-        timeout=TIMEOUT,
-        max_task_age=MAX_TASK_AGE,
-    ):
-        """Wait for a task to complete successfully.
+def run_dag():
+    def _run_dag(airflow_client, dag_id, conf=None, timeout=DAG_RUN_TIMEOUT):
+        """Trigger a DAG and wait until its run has finished successfully. Returns the dag_run_id."""
+        _unpause_dag(airflow_client, dag_id)
 
-        If parent_id is provided, waits specifically for a task matching
-        task_name whose parent_id matches — needed when multiple invocations
-        of the same task type may be in flight or already recorded, and you
-        only know the id of the task that dispatched it.
-        """
+        res = airflow_client.post(f'/api/v2/dags/{dag_id}/dagRuns', json={'logical_date': None, 'conf': conf or {}})
+        assert res.status_code == 200, f'Could not trigger DAG {dag_id}: {res.status_code} {res.text}'
+        dag_run_id = res.json()['dag_run_id']
+
+        state = res.json()['state']
         start_time = time.time()
+        while state not in ('success', 'failed') and time.time() - start_time < timeout:
+            time.sleep(2)
+            state = airflow_client.get(f'/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}').json()['state']
 
-        while time.time() - start_time < timeout:
-            try:
-                response = flower_client.get('/api/tasks', params={'taskname': task_name})
-                tasks = response.json()
+        if state != 'success':
+            pytest.fail(
+                f'DAG run {dag_id}/{dag_run_id} ended in state {state!r}, '
+                f'tasks not successful: {_tasks_not_successful(airflow_client, dag_id, dag_run_id)}'
+            )
+        return dag_run_id
 
-                if tasks:
-                    if parent_id is not None:
-                        for task in tasks.values():
-                            succeeded = task.get('succeeded')
-                            if (
-                                succeeded
-                                and task.get('parent_id') == parent_id
-                                and task.get('state') == 'SUCCESS'
-                                and abs(succeeded - start_time) <= max_task_age
-                            ):
-                                return task
-                    else:
-                        first_task = next(iter(tasks.values()))
-                        succeeded = first_task.get('succeeded')
-                        if (
-                            succeeded
-                            and first_task.get('state') == 'SUCCESS'
-                            and abs(succeeded - start_time) <= max_task_age
-                        ):
-                            if expected_args is not None:
-                                args = first_task.get('args')
-                                if args and expected_args in args:
-                                    return first_task
-                            else:
-                                return first_task
-            except Exception:
-                pass
-
-            time.sleep(1)
-
-        return None
-
-    return _wait_for_task
+    return _run_dag
 
 
 def test_health(api_client, reset_dataset_db, reset_file_db):
@@ -235,7 +235,7 @@ def test_get_config(api_client, reset_dataset_db, reset_file_db):
     assert len(response.json()['endpoints_configs']) == 31
 
 
-def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, reset_dataset_db, reset_index):
+def test_get_latest_harvest_run_with_harvest_url(api_client, reset_dataset_db, reset_index):
     res_get = api_client.get('/harvest_run', params={'harvest_url': 'https://demo.onedata.org/oai_pmh'})
 
     assert res_get.status_code == 200
@@ -277,7 +277,7 @@ def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, rese
     assert res_get3_response['harvest_runs'][0]['status'] == 'closed'
 
 
-def test_get_latest_harvest_run_without_harvest_url(api_client, flower_client, reset_dataset_db, reset_index):
+def test_get_latest_harvest_run_without_harvest_url(api_client, reset_dataset_db, reset_index):
     res_get = api_client.get('/harvest_run')
 
     assert res_get.status_code == 200
@@ -353,7 +353,7 @@ def test_should_be_harvested_flag(api_client, reset_dataset_db, reset_index):
 
 
 def test_create_and_close_harvest_run(
-    api_client, flower_client, reset_dataset_db, reset_file_db, reset_index, wait_for_task
+    api_client, airflow_client, run_dag, reset_dataset_db, reset_file_db, reset_index, postgres_client
 ):
     # create a new harvest run
     res_create = api_client.post('/harvest_run', json={'harvest_url': 'https://demo.onedata.org/oai_pmh'})
@@ -399,26 +399,15 @@ def test_create_and_close_harvest_run(
 
     assert res_close.status_code == 200
 
-    # run a transformation
-    res_index = api_client.get(
-        '/index',
-        params={
-            'harvest_run_id': create_response['id'],
-            'index_name': TEST_INDEX,
-        },
+    # run the transformation (DAG warehouse_transform_index) and wait for it (indexing + file metadata)
+    run_dag(
+        airflow_client, 'warehouse_transform_index', {'harvest_run_id': create_response['id'], 'index_name': TEST_INDEX}
     )
 
-    # note this does not check for a successful transformation
-    assert res_index.status_code == 200
-
-    transform_task = wait_for_task(flower_client, 'transform.transform_task.transform_batch', '10.17026/AR/0AKDPK')
-    filemeta_task = wait_for_task(flower_client, 'transform.file_meta_task.add_file_metadata', '10.17026/AR/0AKDPK')
-
-    assert transform_task and transform_task['state'] == 'SUCCESS'
-    assert '10.17026/AR/0AKDPK' in transform_task['args']
-
-    assert filemeta_task and filemeta_task['state'] == 'SUCCESS'
-    assert '10.17026/AR/0AKDPK' in filemeta_task['args']
+    # the record of the harvest event is in the database
+    cur = postgres_client.cursor()
+    cur.execute('SELECT id FROM records WHERE url = %s', ('https://doi.org/10.17026/AR/0AKDPK',))
+    assert len(cur.fetchall()) == 1
 
     response_config = api_client.get('/config')
 
@@ -488,15 +477,14 @@ def _post_harvest_event(
 
 def _create_and_close_harvest_run(
     api_client,
-    flower_client,
-    wait_for_task,
+    airflow_client,
+    run_dag,
     *,
     harvest_run_url,
     repo_code,
     record_identifier,
     raw_metadata,
     additional_metadata=None,
-    expected_doi,
     index_name=TEST_INDEX,
 ):
     res_create = api_client.post('/harvest_run', json={'harvest_url': harvest_run_url})
@@ -517,22 +505,11 @@ def _create_and_close_harvest_run(
 
     _close_harvest_run(api_client, create_response['id'])
 
-    res_index = api_client.get(
-        '/index',
-        params={'harvest_run_id': create_response['id'], 'index_name': index_name},
+    run_dag(
+        airflow_client, 'warehouse_transform_index', {'harvest_run_id': create_response['id'], 'index_name': index_name}
     )
-    assert res_index.status_code == 200
 
-    transform_task = wait_for_task(flower_client, 'transform.transform_task.transform_batch', expected_doi)
-    filemeta_task = wait_for_task(flower_client, 'transform.file_meta_task.add_file_metadata', expected_doi)
-
-    assert transform_task and transform_task['state'] == 'SUCCESS'
-    assert expected_doi in transform_task['args']
-
-    assert filemeta_task and filemeta_task['state'] == 'SUCCESS'
-    assert expected_doi in filemeta_task['args']
-
-    return {'run_id': create_response['id'], 'transform_task': transform_task, 'filemeta_task': filemeta_task}
+    return {'run_id': create_response['id']}
 
 
 def test_zenodo_dependency_without_hal(api_client, reset_dataset_db, reset_file_db, reset_index):
@@ -624,7 +601,7 @@ def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, 
     assert '10.5281/zenodo.111' not in identifiers_2
 
 
-def test_deduplication(api_client, flower_client, reset_dataset_db, reset_file_db, wait_for_task, postgres_client):
+def test_deduplication(api_client, airflow_client, run_dag, reset_dataset_db, reset_file_db, postgres_client):
     with open('e2e/test_data/dans.xml') as f:
         xml = f.read()
     with open('e2e/test_data/dans_additional.json') as f:
@@ -632,14 +609,13 @@ def test_deduplication(api_client, flower_client, reset_dataset_db, reset_file_d
 
     _create_and_close_harvest_run(
         api_client,
-        flower_client,
-        wait_for_task,
+        airflow_client,
+        run_dag,
         harvest_run_url='https://archaeology.datastations.nl/oai',
         repo_code='DANS',
         record_identifier='10.34894/G8PZKV',
         raw_metadata=xml,
         additional_metadata=additional_meta,
-        expected_doi='10.17026/AR/0AKDPK',
     )
 
     with open('e2e/test_data/dans.xml') as f:
@@ -649,21 +625,16 @@ def test_deduplication(api_client, flower_client, reset_dataset_db, reset_file_d
 
     _create_and_close_harvest_run(
         api_client,
-        flower_client,
-        wait_for_task,
+        airflow_client,
+        run_dag,
         harvest_run_url='https://phys-techsciences.datastations.nl/oai',
         repo_code='DANS',
         record_identifier='10.34894/G8PZKV',
         raw_metadata=xml,
         additional_metadata=additional_meta,
-        expected_doi='10.17026/AR/0AKDPK',
     )
 
-    # TODO: fix this properly: currently, wait_for_task has to no way to distinguish between the first and second call of _create_and_close_harvest_run
-    # so the second call might not have been completed, but we get a positive result from the first run
-    time.sleep(5)
-
-    # --- verify the duplicate exists ---
+    # --- verify the duplicate exists (run_dag waits for every run, so both records are in the database) ---
     expected_url = 'https://doi.org/10.17026/AR/0AKDPK'
 
     cur = postgres_client.cursor()
@@ -671,13 +642,8 @@ def test_deduplication(api_client, flower_client, reset_dataset_db, reset_file_d
     rows_before = cur.fetchall()
     assert len(rows_before) == 2
 
-    # --- run deduplication ---
-    res_dedup = api_client.post('/deduplicate')
-    assert res_dedup.status_code == 200
-    dedup_task_id = res_dedup.json()['task_id']
-
-    dedup_task = wait_for_task(flower_client, 'transform.deduplication_task.remove_duplicates', parent_id=dedup_task_id)
-    assert dedup_task and dedup_task['state'] == 'SUCCESS'
+    # --- run deduplication (DAG deduplicate) ---
+    run_dag(airflow_client, 'warehouse_deduplicate')
 
     # --- verify only one record remains ---
     cur.execute('SELECT id, endpoint_id FROM records WHERE url = %s', (expected_url,))

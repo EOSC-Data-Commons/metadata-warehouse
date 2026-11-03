@@ -1,9 +1,9 @@
+import logging
 import os
 from enum import Enum
 from typing import Any
 
 import psycopg
-from celery import Task
 from datahugger import (
     DabarXmlSrcDataset,
     Dataset,
@@ -17,7 +17,6 @@ from datahugger import (
 from psycopg.rows import dict_row
 
 from config.postgres_config import PostgresConfig
-from transform.celery_app_def import celery_app, logger
 from utils.queue_utils import HarvestEventQueue
 
 
@@ -29,9 +28,10 @@ class ProviderCode(str, Enum):
     SWISSUBASE = 'SWISS'
 
 
-class FileMetadataTask(Task):  # type: ignore
-    postgres_config: PostgresConfig
+logger = logging.getLogger(__name__)
 
+
+class TransformFilemetadata:
     def __init__(self) -> None:
         # TODO: how to configure DB and not hard code?
         self.postgres_config = PostgresConfig(db=os.environ.get('FILE_DB'))
@@ -91,12 +91,10 @@ class FileMetadataTask(Task):  # type: ignore
         return [self.make_file_entry(harvest_event, file) for file in dataset.crawl_file()]
 
 
-@celery_app.task(bind=True, base=FileMetadataTask, ignore_result=True)
-def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
-
+def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: list[HarvestEventQueue]) -> int:
     success = 0
 
-    with psycopg.connect(**self.postgres_config.connection_params, row_factory=dict_row) as conn:
+    with psycopg.connect(**resources.postgres_config.connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
         for ele in batch:
@@ -117,7 +115,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
 
                 ds_dv = DataverseJsonSrcDataset(url, harvest_event.additional_metadata)
 
-                files.extend(self.collect_files(harvest_event, ds_dv))
+                files.extend(resources.collect_files(harvest_event, ds_dv))
 
             elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.ZENODO:
                 # get id from DOI: 10.5281/zenodo.570959 -> 570959
@@ -125,7 +123,7 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                     harvest_event.record_identifier.split('.')[-1], harvest_event.additional_metadata
                 )
 
-                files.extend(self.collect_files(harvest_event, ds_z))
+                files.extend(resources.collect_files(harvest_event, ds_z))
 
             elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.HAL:
                 # HAL IDs contain a version suffix, needs to be removed
@@ -133,12 +131,12 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                     harvest_event.record_identifier.split('v')[0], harvest_event.additional_metadata
                 )
 
-                files.extend(self.collect_files(harvest_event, ds_hal))
+                files.extend(resources.collect_files(harvest_event, ds_hal))
 
             elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.DABAR:
                 ds_dabar = DabarXmlSrcDataset('', harvest_event.additional_metadata)
 
-                files.extend(self.collect_files(harvest_event, ds_dabar))
+                files.extend(resources.collect_files(harvest_event, ds_dabar))
 
             elif harvest_event.code == ProviderCode.SWISSUBASE:
                 ds_swiss = resolve(
@@ -146,7 +144,8 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
                 )
 
                 for zip_file in ds_swiss.crawl():
-                    files.append(self.make_zip_entry(harvest_event, zip_file))
+                    if isinstance(zip_file, ZipEntry):
+                        files.append(resources.make_zip_entry(harvest_event, zip_file))
 
             if len(files) == 0:
                 logger.debug(f'no files for {harvest_event.record_identifier} in {harvest_event.code}')
@@ -164,33 +163,33 @@ def add_file_metadata(self: Any, batch: list[HarvestEventQueue]) -> int:
             )
 
             sql = """
-                    INSERT INTO record_files (
-                        harvest_url,
-                        record_identifier,
-                        file_identifier,
-                        file_name,
-                        file_information_method,
-                        identifier_type,
-                        identifier_granularity,
-                        file_type,
-                        file_size,
-                        checksum_type,
-                        checksum_value,
-                        file_version,
-                        download_url,
-                        file_created_at,
-                        file_last_modified_at
-                    ) VALUES (
-                        %s, %s, %s, %s, %s,
-                        %s::file_identifier_type,
-                        %s::identifier_granularity_level,
-                        %s, %s,
-                        %s::checksum_algorithm,
-                        %s, %s, %s,
-                        %s::timestamp with time zone,
-                        %s::timestamp with time zone
-                    )
-                """
+                        INSERT INTO record_files (
+                            harvest_url,
+                            record_identifier,
+                            file_identifier,
+                            file_name,
+                            file_information_method,
+                            identifier_type,
+                            identifier_granularity,
+                            file_type,
+                            file_size,
+                            checksum_type,
+                            checksum_value,
+                            file_version,
+                            download_url,
+                            file_created_at,
+                            file_last_modified_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s,
+                            %s::file_identifier_type,
+                            %s::identifier_granularity_level,
+                            %s, %s,
+                            %s::checksum_algorithm,
+                            %s, %s, %s,
+                            %s::timestamp with time zone,
+                            %s::timestamp with time zone
+                        )
+                    """
 
             cur.executemany(sql, files)
 
