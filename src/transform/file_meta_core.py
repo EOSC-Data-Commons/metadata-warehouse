@@ -112,7 +112,7 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
                         files.append(resources.make_zip_entry(harvest_event, zip_file))
 
             elif not harvest_event.additional_metadata:
-                logger.debug(f'no files for {harvest_event.record_identifier} in {harvest_event.code}')
+                logger.debug(f'no file metadata for {harvest_event.record_identifier} in {harvest_event.code}')
                 continue
 
             elif (
