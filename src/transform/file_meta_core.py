@@ -6,12 +6,12 @@ from typing import Any
 import psycopg
 from datahugger import (
     DabarXmlSrcDataset,
+    DaschJsonSrcDataset,
     Dataset,
     DataverseJsonSrcDataset,
     FileEntry,
     HalJsonSrcDataset,
     ZenodoJsonSrcDataset,
-    DaschJsonSrcDataset,
     ZipEntry,
     resolve,
 )
