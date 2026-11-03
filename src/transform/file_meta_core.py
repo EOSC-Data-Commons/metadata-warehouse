@@ -11,6 +11,7 @@ from datahugger import (
     FileEntry,
     HalJsonSrcDataset,
     ZenodoJsonSrcDataset,
+    DaschJsonSrcDataset,
     ZipEntry,
     resolve,
 )
@@ -26,6 +27,7 @@ class ProviderCode(str, Enum):
     HAL = 'HAL'
     DABAR = 'DABAR'
     SWISSUBASE = 'SWISS'
+    DASCH = 'DASCH'
 
 
 logger = logging.getLogger(__name__)
@@ -40,7 +42,7 @@ class TransformFilemetadata:
         if not file.checksum:
             return None, None
 
-        algo = file.checksum[0][0].replace('sha1', 'sha-1').upper()
+        algo = file.checksum[0][0].upper().replace('SHA1', 'SHA-1').replace('SHA256', 'SHA-256')
         value = file.checksum[0][1]
         return algo, value
 
@@ -146,6 +148,10 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
                 for zip_file in ds_swiss.crawl():
                     if isinstance(zip_file, ZipEntry):
                         files.append(resources.make_zip_entry(harvest_event, zip_file))
+
+            elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.DASCH:
+                ds_dasch = DaschJsonSrcDataset(harvest_event.record_identifier, harvest_event.additional_metadata)
+                files.extend(resources.collect_files(harvest_event, ds_dasch))
 
             if len(files) == 0:
                 logger.debug(f'no files for {harvest_event.record_identifier} in {harvest_event.code}')
