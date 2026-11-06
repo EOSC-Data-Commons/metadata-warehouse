@@ -132,8 +132,8 @@ services:
         build:
             dockerfile: ./docker/postgres/Dockerfile
             context: .
-        # pg_textsearch (BM25) only works preloaded
-        command: [ "postgres", "-c", "shared_preload_libraries=pg_textsearch" ]
+        # pg_textsearch (BM25) and vchord (vector index) only works preloaded
+        command: [ "postgres", "-c", "shared_preload_libraries=pg_textsearch,vchord" ]
         environment:
             POSTGRES_USER: "${POSTGRES_ADMIN}"
             POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
