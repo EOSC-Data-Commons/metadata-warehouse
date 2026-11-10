@@ -167,4 +167,5 @@ def transform_index() -> None:
     summarize.override(task_id='summarize_transform')(transform_results)
     summarize.override(task_id='summarize_filemeta')(filemeta_results)
 
+
 transform_index()
