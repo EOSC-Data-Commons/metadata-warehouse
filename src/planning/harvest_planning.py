@@ -30,6 +30,11 @@ def db_now_iso() -> str:
         assert row is not None
         return row[0].isoformat()  # type: ignore[no-any-return]
 
+def endpoint_exists(harvest_url: str) -> bool:
+    """True if an endpoint with this harvest url is defined."""
+    with psycopg.connect(**PostgresConfig().connection_params) as conn:
+        row = conn.execute('SELECT 1 FROM endpoints WHERE harvest_url = %s', (harvest_url,)).fetchone()
+    return row is not None
 
 def find_closed_runs(harvest_urls: list[str] | None, completed_since: str | None) -> list[dict[str, str]]:
     """Closed harvest runs, oldest first.

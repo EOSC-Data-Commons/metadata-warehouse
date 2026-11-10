@@ -23,6 +23,10 @@ DEFAULT_BATCH_SIZE = int(os.environ.get('CELERY_BATCH_SIZE', '250'))
 
 TRANSFORM_PYTHON = '/opt/airflow/transform-venv/bin/python'
 
+# transform: transform the records and index them in OpenSearch (run_transform_batch)
+# filemeta: extract the file metadata and store it in the file DB (run_filemeta_batch)
+INDEX_TYPES = ['transform', 'filemeta']
+
 
 @dag(
     dag_id='warehouse_transform_index',
@@ -32,6 +36,15 @@ TRANSFORM_PYTHON = '/opt/airflow/transform-venv/bin/python'
     tags=['warehouse'],
     params={
         'harvest_run_id': Param(type='string', minLength=36, maxLength=36, description='ID of a closed harvest run'),
+        'index_types': Param(
+            INDEX_TYPES,
+            type='array',
+            items={'type': 'string', 'enum': INDEX_TYPES},
+            minItems=1,
+            uniqueItems=True,
+            examples=INDEX_TYPES,
+            description='Which indexing to run: transform (OpenSearch), filemeta (file DB) or both',
+        ),
         'index_name': Param(DEFAULT_INDEX_NAME, type='string', description='Target OpenSearch index'),
         'reuse_embeddings': Param(False, type='boolean', description='Reuse embeddings stored in the DB'),
         'batch_size': Param(DEFAULT_BATCH_SIZE, type='integer', minimum=1, description='Harvest events per batch'),
@@ -46,6 +59,9 @@ def transform_index() -> None:
         harvest_run_id = params['harvest_run_id']
 
         ensure_index_exists(params['index_name'])
+        # the OpenSearch index is only needed by the transform
+        if 'transform' in params['index_types']:
+            ensure_index_exists(params['index_name'])
         ranges = plan_transform_batches(harvest_run_id, params['batch_size'])
         print(f'Harvest run {harvest_run_id}: {sum(r.size for r in ranges)} events in {len(ranges)} batches')
 
@@ -130,9 +146,25 @@ def transform_index() -> None:
     def summarize(indexed: list[int]) -> None:
         print(f'Indexed {sum(indexed)} documents in {len(indexed)} batches')
 
-    planned_batches = plan_batches()
-    summarize.override(task_id='summarize_transform')(run_transform_batch.expand(batch=planned_batches))
-    summarize.override(task_id='summarize_filemeta')(run_filemeta_batch.expand(batch=planned_batches))
+    # Gate of one indexing type: if the type is not selected, it skips everything downstream of it (the mapped batch
+    # tasks and the summary of this type only; the other type is not affected, it is a separate branch).
+    @task.short_circuit(retries=0)
+    def is_selected(index_type: str) -> bool:
+        selected = get_current_context()['params']['index_types']
+        print(f'Selected index types: {selected}, this branch: {index_type}')
+        return index_type in selected
 
+    planned_batches = plan_batches()
+
+    transform_selected = is_selected.override(task_id='transform_selected')('transform')
+    filemeta_selected = is_selected.override(task_id='filemeta_selected')('filemeta')
+
+    transform_results = run_transform_batch.expand(batch=planned_batches)
+    filemeta_results = run_filemeta_batch.expand(batch=planned_batches)
+    transform_selected >> transform_results
+    filemeta_selected >> filemeta_results
+
+    summarize.override(task_id='summarize_transform')(transform_results)
+    summarize.override(task_id='summarize_filemeta')(filemeta_results)
 
 transform_index()
