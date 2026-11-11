@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from enum import Enum
@@ -28,6 +29,7 @@ class ProviderCode(str, Enum):
     DABAR = 'DABAR'
     SWISSUBASE = 'SWISS'
     DASCH = 'DASCH'
+    FINBIF = 'FINBIF'
 
 
 logger = logging.getLogger(__name__)
@@ -156,6 +158,32 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
                     ds_dasch = DaschJsonSrcDataset(harvest_event.record_identifier, harvest_event.additional_metadata)
 
                     files.extend(resources.collect_files(harvest_event, ds_dasch))
+
+                elif harvest_event.code == ProviderCode.FINBIF:
+                    # just add download url
+                    download_id = json.loads(harvest_event.additional_metadata)['id']
+                    download_url = f'https://gbif.laji.fi/archives/{download_id}'
+
+                    files.append(
+                        (
+                            harvest_event.harvest_url,
+                            harvest_event.record_identifier,
+                            download_id,
+                            download_id,
+                            'datahugger',
+                            harvest_event.identifier_type,
+                            'Dataset',
+                            'application/zip', # Darwin Core Archive
+                            None,
+                            None,
+                            None,
+                            None,
+                            download_url,
+                            None,
+                            None,
+                        )
+                    )
+
 
                 else:
                     logger.debug(f'Unsupported provider {harvest_event.code} for {harvest_event.record_identifier}')
