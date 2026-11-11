@@ -53,7 +53,7 @@ INDEX_TYPES = ['transform', 'filemeta']
 def transform_index() -> None:
     @task(retries=0)
     def plan_batches() -> list[dict[str, Any]]:
-        from planning.transform_planning import ensure_index_exists, plan_transform_batches
+        from planning.transform_planning import ensure_index_exists, plan_batches
 
         params = get_current_context()['params']
         harvest_run_id = params['harvest_run_id']
@@ -61,7 +61,7 @@ def transform_index() -> None:
         # the OpenSearch index is only needed by the transform
         if 'transform' in params['index_types']:
             ensure_index_exists(params['index_name'])
-        ranges = plan_transform_batches(harvest_run_id, params['batch_size'])
+        ranges = plan_batches(harvest_run_id, params['batch_size'])
         print(f'Harvest run {harvest_run_id}: {sum(r.size for r in ranges)} events in {len(ranges)} batches')
 
         return [
