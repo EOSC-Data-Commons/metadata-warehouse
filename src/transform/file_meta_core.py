@@ -157,6 +157,9 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
 
                     files.extend(resources.collect_files(harvest_event, ds_dasch))
 
+                else:
+                    logger.debug(f'Unsupported provider {harvest_event.code} for {harvest_event.record_identifier}')
+
             except Exception:
                 logger.exception(
                     f'failed to collect files for {harvest_event.record_identifier} in {harvest_event.code}'
