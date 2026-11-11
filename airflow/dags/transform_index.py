@@ -58,7 +58,6 @@ def transform_index() -> None:
         params = get_current_context()['params']
         harvest_run_id = params['harvest_run_id']
 
-        ensure_index_exists(params['index_name'])
         # the OpenSearch index is only needed by the transform
         if 'transform' in params['index_types']:
             ensure_index_exists(params['index_name'])
