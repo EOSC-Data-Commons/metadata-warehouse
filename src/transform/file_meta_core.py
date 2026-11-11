@@ -173,7 +173,7 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
                             'datahugger',
                             harvest_event.identifier_type,
                             'Dataset',
-                            'application/zip', # Darwin Core Archive
+                            'application/zip',  # Darwin Core Archive
                             None,
                             None,
                             None,
@@ -183,7 +183,6 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
                             None,
                         )
                     )
-
 
                 else:
                     logger.debug(f'Unsupported provider {harvest_event.code} for {harvest_event.record_identifier}')
