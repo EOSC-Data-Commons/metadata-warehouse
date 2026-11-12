@@ -5,7 +5,7 @@ x-airflow-common: &airflow-common
         context: .
         args:
             # branch/tag/commit of metadata-crawlers that is installed in the image
-            HARVESTER_REF: "${HARVESTER_REF:-master}"
+            HARVESTER_REF: "${HARVESTER_REF:-v1.3.0}"
     image: metadata-warehouse-airflow:3.3.2
     user: "${AIRFLOW_UID:-50000}:0"
     networks:
