@@ -82,6 +82,9 @@ def reindex_provider() -> None:
         wait_for_completion=True,
         poke_interval=60,
         max_active_tis_per_dag=1,
+        allowed_states=["success"],
+        failed_states=["failed"],
+        retries=0,
         execution_timeout=timedelta(days=1),
     ).expand(conf=runs_to_index)
 
