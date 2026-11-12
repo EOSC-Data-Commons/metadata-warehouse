@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from enum import Enum
@@ -28,6 +29,7 @@ class ProviderCode(str, Enum):
     DABAR = 'DABAR'
     SWISSUBASE = 'SWISS'
     DASCH = 'DASCH'
+    FINBIF = 'FINBIF'
 
 
 logger = logging.getLogger(__name__)
@@ -156,6 +158,39 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
                     ds_dasch = DaschJsonSrcDataset(harvest_event.record_identifier, harvest_event.additional_metadata)
 
                     files.extend(resources.collect_files(harvest_event, ds_dasch))
+
+                elif harvest_event.code == ProviderCode.FINBIF:
+                    # just add download url
+                    add_metadata = json.loads(harvest_event.additional_metadata)
+                    dwa = list(filter(lambda e: e.get('type') == 'DWC_ARCHIVE', add_metadata['dataset']['endpoints']))[
+                        0
+                    ]
+
+                    archive_id = add_metadata['id']
+                    download_url = dwa['url']
+                    created = dwa['created']
+                    modified = dwa['modified']
+                    key = dwa['key']
+
+                    files.append(
+                        (
+                            harvest_event.harvest_url,
+                            harvest_event.record_identifier,
+                            key,
+                            archive_id,
+                            'datahugger',
+                            harvest_event.identifier_type,
+                            'Dataset',
+                            'application/zip',  # Darwin Core Archive
+                            None,
+                            None,
+                            None,
+                            None,
+                            download_url,
+                            created,
+                            modified,
+                        )
+                    )
 
                 else:
                     logger.debug(f'Unsupported provider {harvest_event.code} for {harvest_event.record_identifier}')
