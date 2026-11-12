@@ -30,6 +30,7 @@ class ProviderCode(str, Enum):
     SWISSUBASE = 'SWISS'
     DASCH = 'DASCH'
     FINBIF = 'FINBIF'
+    MDDB = 'MDDB'
 
 
 logger = logging.getLogger(__name__)
@@ -158,6 +159,11 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
                     ds_dasch = DaschJsonSrcDataset(harvest_event.record_identifier, harvest_event.additional_metadata)
 
                     files.extend(resources.collect_files(harvest_event, ds_dasch))
+
+                elif harvest_event.code == ProviderCode.MDDB:
+                    ds_mddb = resolve(f'{harvest_event.record_identifier.replace('browse', 'id')}/overview')
+
+                    files.extend(resources.collect_files(harvest_event, ds_mddb))
 
                 elif harvest_event.code == ProviderCode.FINBIF:
                     # just add download url
