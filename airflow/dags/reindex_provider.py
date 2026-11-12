@@ -1,28 +1,89 @@
-"""Reindex all closed harvest runs of one provider (endpoint), oldest first.
+"""Reindex all closed harvest runs of one provider (endpoint), strictly one after the other, oldest first.
 
 Like `warehouse_harvest_and_index` with `all_runs=true`, but for one endpoint and without harvesting:
 
-    plan_reindex  ->  index_run (triggers the DAG `warehouse_transform_index` for each run, one at a time)
+    plan_reindex  ->  index_runs
 
-* The endpoint is identified by its harvest url. An unknown harvest url fails the DAG run.
-* The runs are indexed sequentially, oldest first, so that the DB and the index end up in the state of the most
-  recent run (later runs can update or delete what earlier runs harvested).
+* `plan_reindex` checks the endpoint (unknown harvest url: the DAG run fails) and lists its closed runs, oldest first.
+* `index_runs` is one task with a plain loop: for every run it triggers the DAG `warehouse_transform_index` through the
+  Airflow REST API and waits until that run has finished, then it continues with the next run. If a run fails (or
+  does not finish in time) the task fails and the later runs are NOT indexed, so a later run is never applied before
+  an earlier one. The task has no retries (a retry would trigger a run that may already exist again): to continue
+  after a failure trigger this DAG again, it starts from the oldest run (everything is idempotent).
+* Why not TriggerDagRunOperator: in Airflow 3 its `execute()` cannot be called inside a task (the task runner does the
+  triggering after the task function has ended), and mapped tasks do not guarantee order or stop at a failure.
 * `index_types` selects what is run for every harvest run: the transform (OpenSearch), the file metadata or both.
-* If an `index_run` fails, the later runs are still indexed (mapped tasks are independent). Everything is idempotent:
-  trigger this DAG again to index all runs from the oldest one again and to end up in the correct final state.
+
+Needs these environment variables in the worker (see x-airflow-warehouse-env in docker-compose.yml):
+AIRFLOW_ADMIN_USER, AIRFLOW_ADMIN_PASSWORD and optionally AIRFLOW_API_URL (default: http://airflow-api-server:8080).
 """
 
 import os
+import time
 from datetime import timedelta
 from typing import Any
 
-from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.sdk import Param, dag, get_current_context, task
 
 DEFAULT_INDEX_NAME = os.environ.get('INDEX_NAME', 'test_datacite')
 DEFAULT_BATCH_SIZE = int(os.environ.get('CELERY_BATCH_SIZE', '250'))
 
 INDEX_TYPES = ['transform', 'filemeta']
+
+TRANSFORM_DAG_ID = 'warehouse_transform_index'
+POLL_INTERVAL_SECONDS = 30
+# maximum time to wait for one run of warehouse_transform_index
+RUN_TIMEOUT_SECONDS = 24 * 60 * 60
+# consecutive failed status requests that are tolerated while waiting for a run (e.g. API server restart)
+MAX_POLL_ERRORS = 5
+
+
+def _api(method: str, path: str, **kwargs: Any) -> dict[str, Any]:
+    """Call the Airflow REST API (v2). A new token is requested for every call, so long chains cannot expire."""
+    import requests
+
+    base_url = os.environ.get('AIRFLOW_API_URL', 'http://airflow-api-server:8080')
+    try:
+        credentials = {'username': os.environ['AIRFLOW_ADMIN_USER'], 'password': os.environ['AIRFLOW_ADMIN_PASSWORD']}
+    except KeyError as e:
+        raise RuntimeError(f'Environment variable {e} is not set in the worker') from e
+
+    token = requests.post(f'{base_url}/auth/token', json=credentials, timeout=30)
+    token.raise_for_status()
+
+    response = requests.request(
+        method,
+        f'{base_url}/api/v2{path}',
+        headers={'Authorization': f'Bearer {token.json()["access_token"]}'},
+        timeout=60,
+        **kwargs,
+    )
+    response.raise_for_status()
+    return response.json()  # type: ignore[no-any-return]
+
+
+def _wait_for_run(dag_run_id: str) -> str:
+    """Wait until the run has finished, returns its final state ('success' or 'failed')."""
+    import requests
+
+    started = time.monotonic()
+    errors = 0
+    while True:
+        time.sleep(POLL_INTERVAL_SECONDS)
+        try:
+            state = _api('GET', f'/dags/{TRANSFORM_DAG_ID}/dagRuns/{dag_run_id}')['state']
+            errors = 0
+        except requests.RequestException as e:
+            errors += 1
+            print(f'Could not get the state of {dag_run_id} ({errors}/{MAX_POLL_ERRORS}): {e}')
+            if errors >= MAX_POLL_ERRORS:
+                raise
+            continue
+
+        if state in ('success', 'failed'):
+            return str(state)
+        if time.monotonic() - started > RUN_TIMEOUT_SECONDS:
+            raise TimeoutError(f'{dag_run_id} did not finish within {RUN_TIMEOUT_SECONDS // 3600}h (state: {state})')
 
 
 @dag(
@@ -73,20 +134,32 @@ def reindex_provider() -> None:
             for run in runs
         ]
 
-    runs_to_index = plan_reindex()
+    # No retries: a retry would start again from the first run and trigger runs that may already exist.
+    @task(retries=0, execution_timeout=timedelta(days=14))
+    def index_runs(run_confs: list[dict[str, Any]]) -> None:
+        if not run_confs:
+            print('Nothing to index')
+            return
 
-    # The DAG transform_index (max_active_runs=1) indexes one run; wait for it, then continue with the next run.
-    TriggerDagRunOperator.partial(
-        task_id='index_run',
-        trigger_dag_id='warehouse_transform_index',
-        wait_for_completion=True,
-        poke_interval=60,
-        max_active_tis_per_dag=1,
-        allowed_states=['success'],
-        failed_states=['failed'],
-        retries=0,
-        execution_timeout=timedelta(days=1),
-    ).expand(conf=runs_to_index)
+        # DAGs are created paused (DAGS_ARE_PAUSED_AT_CREATION): a run of a paused DAG would stay queued forever
+        if _api('GET', f'/dags/{TRANSFORM_DAG_ID}')['is_paused']:
+            raise RuntimeError(f'The DAG {TRANSFORM_DAG_ID} is paused, unpause it first')
+
+        for position, conf in enumerate(run_confs, start=1):
+            run = _api('POST', f'/dags/{TRANSFORM_DAG_ID}/dagRuns', json={'logical_date': None, 'conf': conf})
+            dag_run_id = run['dag_run_id']
+            print(f'[{position}/{len(run_confs)}] harvest run {conf["harvest_run_id"]}: triggered {dag_run_id}')
+
+            # transform_index has max_active_runs=1: if another run is active, ours waits (queued) until it is done
+            state = _wait_for_run(dag_run_id)
+            if state != 'success':
+                raise RuntimeError(
+                    f'{dag_run_id} (harvest run {conf["harvest_run_id"]}) ended in state {state}. Stopping: '
+                    f'{len(run_confs) - position} later runs were not indexed.'
+                )
+            print(f'[{position}/{len(run_confs)}] harvest run {conf["harvest_run_id"]}: success')
+
+    index_runs(plan_reindex())
 
 
 reindex_provider()

@@ -71,6 +71,9 @@ x-airflow-common: &airflow-common
 
 # Credentials/addresses of PostgreSQL, OpenSearch and the warehouse API; only needed by the workers that run the DAG tasks.
 x-airflow-warehouse-env: &airflow-warehouse-env
+    AIRFLOW_API_URL: "http://airflow-api-server:8080"
+    AIRFLOW_ADMIN_USER: "${AIRFLOW_ADMIN_USER:-airflow}"
+    AIRFLOW_ADMIN_PASSWORD: "${AIRFLOW_ADMIN_PASSWORD}"
     POSTGRES_USER: "${POSTGRES_ADMIN}"
     POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
     POSTGRES_DB: "${POSTGRES_DB}"
