@@ -161,7 +161,7 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
                     files.extend(resources.collect_files(harvest_event, ds_dasch))
 
                 elif harvest_event.code == ProviderCode.MDDB:
-                    ds_mddb = resolve(f'{harvest_event.record_identifier.replace('browse', 'id')}/overview')
+                    ds_mddb = resolve(f'{harvest_event.record_identifier.replace("browse", "id")}/overview')
 
                     files.extend(resources.collect_files(harvest_event, ds_mddb))
 
