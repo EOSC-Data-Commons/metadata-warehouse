@@ -161,15 +161,23 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
 
                 elif harvest_event.code == ProviderCode.FINBIF:
                     # just add download url
-                    download_id = json.loads(harvest_event.additional_metadata)['id']
-                    download_url = f'https://gbif.laji.fi/archives/{download_id}'
+                    add_metadata = json.loads(harvest_event.additional_metadata)
+                    dwa = list(filter(lambda e: e.get('type') == 'DWC_ARCHIVE', add_metadata['dataset']['endpoints']))[
+                        0
+                    ]
+
+                    archive_id = add_metadata['id']
+                    download_url = dwa['url']
+                    created = dwa['created']
+                    modified = dwa['modified']
+                    key = dwa['key']
 
                     files.append(
                         (
                             harvest_event.harvest_url,
                             harvest_event.record_identifier,
-                            download_id,
-                            download_id,
+                            key,
+                            archive_id,
                             'datahugger',
                             harvest_event.identifier_type,
                             'Dataset',
@@ -179,8 +187,8 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
                             None,
                             None,
                             download_url,
-                            None,
-                            None,
+                            created,
+                            modified,
                         )
                     )
 
