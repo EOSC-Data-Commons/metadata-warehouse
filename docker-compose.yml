@@ -165,22 +165,22 @@ services:
         networks:
             - warehouse-backend
 
-    tool-registry:
-        image: ghcr.io/eosc-data-commons/tool-registry:latest
-        container_name: tool-registry
-        restart: unless-stopped
-        depends_on:
-            postgres:
-                condition: service_healthy
-        environment:
-            TOOL_REGISTRY_DATABASE__HOST: ${POSTGRES_ADDRESS_DOCKER}
-            TOOL_REGISTRY_DATABASE__PORT: ${POSTGRES_PORT_DOCKER}
-            TOOL_REGISTRY_DATABASE__NAME: ${TOOL_DB}
-            TOOL_REGISTRY_DATABASE__USER: ${TOOL_DB_USER}
-            TOOL_REGISTRY_DATABASE__PASSWORD: ${TOOL_DB_PASSWORD}
-            TOOL_REGISTRY_SERVICE__EGI_ENV: ${EGI_CHECKIN_ENV}
-        networks:
-            - warehouse-backend
+    # tool-registry:
+    #     image: ghcr.io/eosc-data-commons/tool-registry:latest
+    #     container_name: tool-registry
+    #     restart: unless-stopped
+    #     depends_on:
+    #         postgres:
+    #             condition: service_healthy
+    #     environment:
+    #         TOOL_REGISTRY_DATABASE__HOST: ${POSTGRES_ADDRESS_DOCKER}
+    #         TOOL_REGISTRY_DATABASE__PORT: ${POSTGRES_PORT_DOCKER}
+    #         TOOL_REGISTRY_DATABASE__NAME: ${TOOL_DB}
+    #         TOOL_REGISTRY_DATABASE__USER: ${TOOL_DB_USER}
+    #         TOOL_REGISTRY_DATABASE__PASSWORD: ${TOOL_DB_PASSWORD}
+    #         TOOL_REGISTRY_SERVICE__EGI_ENV: ${EGI_CHECKIN_ENV}
+    #     networks:
+    #         - warehouse-backend
 
     opensearch:
         restart: unless-stopped
@@ -206,71 +206,71 @@ services:
         healthcheck:
             test: [ "CMD-SHELL", "curl --silent --fail http://localhost:9200/_cluster/health || exit 1" ]
 
-    opensearch-dashboards:
-        restart: unless-stopped
-        image: opensearchproject/opensearch-dashboards:3.2.0
-        environment:
-            - OPENSEARCH_HOSTS=["http://opensearch:9200"]
-            - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
-        volumes:
-            - opensearch-dashboards-data:/usr/share/opensearch-dashboards/data
-        depends_on:
-            opensearch:
-                condition: service_healthy
-        networks:
-            - warehouse-backend
-
-    #https://github.com/EOSC-Data-Commons/matchmaker/pkgs/container/matchmaker-frontend
-    frontend:
-        image: ghcr.io/eosc-data-commons/matchmaker-frontend:latest
-        restart: unless-stopped
-        depends_on:
-            opensearch:
-                condition: service_healthy
-        command: npm run prod
-        environment:
-            - NODE_ENV=production
-            - SEARCH_API_URL=http://search-api:8000
-            - GRPC_TARGET=coordinator:50051
-        networks:
-            - warehouse-backend
-
-    #https://github.com/EOSC-Data-Commons/req-packager/pkgs/container/coordinator
-    coordinator:
-        image: ghcr.io/eosc-data-commons/coordinator:latest
-        restart: unless-stopped
-        depends_on:
-            postgres:
-                condition: service_healthy
-        command:
-            ["rp"]
-        environment:
-            POSTGRES_USER: "${POSTGRES_ADMIN}"
-            POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-            POSTGRES_DB: "${POSTGRES_DB}"
-            POSTGRES_ADDRESS_DOCKER: "${POSTGRES_ADDRESS_DOCKER}"
-            POSTGRES_PORT_DOCKER: "${POSTGRES_PORT_DOCKER}"
-            FILE_DB: "${FILE_DB}"
-            TOOL_REGISTRY_API: "https://dev.tools-registry.eosc-data-commons.eu/api/v1"
-        networks:
-            - warehouse-backend
-        ports:
-          - "50051:50051"
-
-    # https://github.com/EOSC-Data-Commons/data-commons-search/pkgs/container/data-commons-search
-    search-api:
-        restart: unless-stopped
-        image: ghcr.io/eosc-data-commons/data-commons-search:latest
-        depends_on:
-            opensearch:
-                condition: service_healthy
-        volumes:
-            - search-api-data:/app/data
-        env_file: [ keys.env ]
-        environment:
-            - OPENSEARCH_URL=http://opensearch:9200
-        networks:
-            - warehouse-backend
+    # opensearch-dashboards:
+    #     restart: unless-stopped
+    #     image: opensearchproject/opensearch-dashboards:3.2.0
+    #     environment:
+    #         - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+    #         - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    #     volumes:
+    #         - opensearch-dashboards-data:/usr/share/opensearch-dashboards/data
+    #     depends_on:
+    #         opensearch:
+    #             condition: service_healthy
+    #     networks:
+    #         - warehouse-backend
+    #
+    # #https://github.com/EOSC-Data-Commons/matchmaker/pkgs/container/matchmaker-frontend
+    # frontend:
+    #     image: ghcr.io/eosc-data-commons/matchmaker-frontend:latest
+    #     restart: unless-stopped
+    #     depends_on:
+    #         opensearch:
+    #             condition: service_healthy
+    #     command: npm run prod
+    #     environment:
+    #         - NODE_ENV=production
+    #         - SEARCH_API_URL=http://search-api:8000
+    #         - GRPC_TARGET=coordinator:50051
+    #     networks:
+    #         - warehouse-backend
+    #
+    # #https://github.com/EOSC-Data-Commons/req-packager/pkgs/container/coordinator
+    # coordinator:
+    #     image: ghcr.io/eosc-data-commons/coordinator:latest
+    #     restart: unless-stopped
+    #     depends_on:
+    #         postgres:
+    #             condition: service_healthy
+    #     command:
+    #         ["rp"]
+    #     environment:
+    #         POSTGRES_USER: "${POSTGRES_ADMIN}"
+    #         POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    #         POSTGRES_DB: "${POSTGRES_DB}"
+    #         POSTGRES_ADDRESS_DOCKER: "${POSTGRES_ADDRESS_DOCKER}"
+    #         POSTGRES_PORT_DOCKER: "${POSTGRES_PORT_DOCKER}"
+    #         FILE_DB: "${FILE_DB}"
+    #         TOOL_REGISTRY_API: "https://dev.tools-registry.eosc-data-commons.eu/api/v1"
+    #     networks:
+    #         - warehouse-backend
+    #     ports:
+    #       - "50051:50051"
+    #
+    # # https://github.com/EOSC-Data-Commons/data-commons-search/pkgs/container/data-commons-search
+    # search-api:
+    #     restart: unless-stopped
+    #     image: ghcr.io/eosc-data-commons/data-commons-search:latest
+    #     depends_on:
+    #         opensearch:
+    #             condition: service_healthy
+    #     volumes:
+    #         - search-api-data:/app/data
+    #     env_file: [ keys.env ]
+    #     environment:
+    #         - OPENSEARCH_URL=http://opensearch:9200
+    #     networks:
+    #         - warehouse-backend
 
     # ---------------------------------------------------------------- Airflow
     airflow-postgres:
