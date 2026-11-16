@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.11.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.10.0...v1.11.0) (2026-11-16)
+
+
+### Features
+
+* **airflow:** add new DAG to reindex a provider ([#201](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/201)) ([50e295e](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/50e295ec5e1cd6c34fead99d9c06abcf7cb3b57d))
+* **filemeta:** addFinBIF ([#203](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/203)) ([5433e5f](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/5433e5f776a05f6c9bb50fc1d54a0ffb9252095a))
+* **filemeta:** index DaSCH file metadata ([#199](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/199)) ([800b914](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/800b9143902761e96243e477d487b26b1459f2fc))
+
+
+### Bug Fixes
+
+* **filedb:** add index for record_identifier ([#167](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/167)) ([4939786](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/4939786547fec2e2d8f15a0306b484139342a2f1))
+
 ## [1.10.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.9.0...v1.10.0) (2026-11-02)
 
 
