@@ -5,7 +5,7 @@ from datetime import timedelta
 import pendulum
 from airflow.sdk import dag, task
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-
+from fair_offline_assessor import FairAssessor
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +22,15 @@ def process_record(record_id: str, datacite_json: dict) -> None:
     doi = datacite_json.get('doi')
     logger.info('Processing record %s, DOI: %s', record_id, doi)
 
-    # TODO: Process datacite_json
-    # e.g. enrich metadata, validate, index or transform
+    # TODO: Assess Fairness
+    # def _extract_fair_results(data: dict) -> dict:
+    #     return data.get('offline', {}).get('cells', {})
+    #
+    # assessor = FairAssessor()
+    # full_result = assessor.assess(metadata=datacite_json)
+    # summary = _extract_fair_results(full_result.model_dump())
+    # for criterion, status in summary.items():
+    #     logger.info(f'{criterion}: {status}')
 
 
 @dag(
