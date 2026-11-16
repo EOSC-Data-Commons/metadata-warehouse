@@ -1,14 +1,16 @@
 import logging
 import uuid
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from importlib.metadata import version
 
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.sdk import Param, dag, get_current_context, task
 from fair_offline_assessor import FairAssessor
-from sqlalchemy import DateTime, Enum as SQLEnum, String, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+from sqlalchemy import DateTime, String, func
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 logger = logging.getLogger(__name__)
@@ -23,8 +25,8 @@ class Base(DeclarativeBase):
     pass
 
 
-class FairOutcome(str, Enum):
-    PASS = 'pass'
+class FairOutcome(StrEnum):
+    PASS = 'pass'  # noqa: S105
     FAIL = 'fail'
     PARTIAL = 'partial'
     INDETERMINATE = 'indeterminate'
