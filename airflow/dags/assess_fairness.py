@@ -231,7 +231,7 @@ def process_record(record_id: str, pid: str, xml: str) -> None:
     tags=['fair'],
     params={
         'sample_size': Param(
-            default=100,
+            default=1000,
             type='integer',
             minimum=1,
             title='Number of random records',
