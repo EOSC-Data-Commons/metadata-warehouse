@@ -31,13 +31,25 @@ def db_now_iso() -> str:
         return row[0].isoformat()  # type: ignore[no-any-return]
 
 
+def endpoint_exists(harvest_url: str) -> bool:
+    """True if an endpoint with this harvest url is defined."""
+    with psycopg.connect(**PostgresConfig().connection_params) as conn:
+        row = conn.execute('SELECT 1 FROM endpoints WHERE harvest_url = %s', (harvest_url,)).fetchone()
+    return row is not None
+
+
 def find_closed_runs(harvest_urls: list[str] | None, completed_since: str | None) -> list[dict[str, str]]:
-    """Closed harvest runs, oldest first.
+    """Closed harvest runs that have at least one harvest event, oldest first.
+
+    Runs without harvest events are skipped: there is nothing to index for them.
 
     :param harvest_urls: only runs of these endpoints (None: all endpoints)
     :param completed_since: only runs completed at or after this time, ISO format (None: all runs)
     """
-    conditions = ["hr.status = 'closed'"]
+    conditions = [
+        "hr.status = 'closed'",
+        'EXISTS (SELECT 1 FROM harvest_events he WHERE he.harvest_run_id = hr.id)',
+    ]
     params: list[object] = []
     if harvest_urls is not None:
         conditions.append('e.harvest_url = ANY(%s)')
@@ -51,7 +63,7 @@ def find_closed_runs(harvest_urls: list[str] | None, completed_since: str | None
         FROM harvest_runs hr
         JOIN endpoints e ON e.id = hr.endpoint_id
         WHERE {' AND '.join(conditions)}
-        ORDER BY hr.completed_at
+        ORDER BY hr.completed_at, hr.id
     """  # noqa: S608 (only fixed conditions are formatted in, values are passed as parameters)
 
     with psycopg.connect(**PostgresConfig().connection_params, row_factory=dict_row) as conn:
