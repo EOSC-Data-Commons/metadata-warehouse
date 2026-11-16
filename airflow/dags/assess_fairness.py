@@ -320,7 +320,7 @@ def process_datacite_records():
 
     init_task >> batches
 
-    process_batch.expand(record_ids=select_random_batches())
+    process_batch.expand(record_ids=batches)
 
 
 process_datacite_records()
