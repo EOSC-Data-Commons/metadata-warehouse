@@ -37,7 +37,7 @@ def ensure_index_exists(index_name: str) -> None:
         client.close()
 
 
-def plan_transform_batches(harvest_run_id: str, batch_size: int) -> list[BatchRange]:
+def plan_batches(harvest_run_id: str, batch_size: int) -> list[BatchRange]:
     """Splits the harvest events of a closed harvest run into batches of `batch_size` events."""
     with psycopg.connect(**PostgresConfig().connection_params, row_factory=dict_row) as conn:
         run = conn.execute('SELECT status FROM harvest_runs WHERE id = %s::uuid', (harvest_run_id,)).fetchone()

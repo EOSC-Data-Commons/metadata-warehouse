@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from enum import Enum
@@ -6,6 +7,7 @@ from typing import Any
 import psycopg
 from datahugger import (
     DabarXmlSrcDataset,
+    DaschJsonSrcDataset,
     Dataset,
     DataverseJsonSrcDataset,
     FileEntry,
@@ -26,6 +28,8 @@ class ProviderCode(str, Enum):
     HAL = 'HAL'
     DABAR = 'DABAR'
     SWISSUBASE = 'SWISS'
+    DASCH = 'DASCH'
+    FINBIF = 'FINBIF'
 
 
 logger = logging.getLogger(__name__)
@@ -40,7 +44,7 @@ class TransformFilemetadata:
         if not file.checksum:
             return None, None
 
-        algo = file.checksum[0][0].replace('sha1', 'sha-1').upper()
+        algo = file.checksum[0][0].upper().replace('SHA1', 'SHA-1').replace('SHA256', 'SHA-256')
         value = file.checksum[0][1]
         return algo, value
 
@@ -97,55 +101,105 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
     with psycopg.connect(**resources.postgres_config.connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
 
-        for ele in batch:
+        for harvest_event in batch:
             files = []
-            harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
 
-            if (
-                harvest_event.additional_metadata_API
-                and harvest_event.additional_metadata
-                and harvest_event.additional_metadata_protocol == 'DATAVERSE_API'
-            ):
-                # this only covers dataverse for now
+            try:
+                if harvest_event.code == ProviderCode.SWISSUBASE:
+                    ds_swiss = resolve(
+                        f'https://www.swissubase.ch/en/catalogue/studies/1223/latest/datasets/114/{harvest_event.record_identifier}/overview'
+                    )
 
-                url = harvest_event.additional_metadata_API.replace(
-                    '/api/datasets/:persistentId/versions/:latest-published',
-                    f'/dataset.xhtml?persistentId=doi:{harvest_event.record_identifier}',
+                    for zip_file in ds_swiss.crawl():
+                        if isinstance(zip_file, ZipEntry):
+                            files.append(resources.make_zip_entry(harvest_event, zip_file))
+
+                elif not harvest_event.additional_metadata:
+                    logger.debug(f'no file metadata for {harvest_event.record_identifier} in {harvest_event.code}')
+                    continue
+
+                elif (
+                    harvest_event.additional_metadata_API
+                    and harvest_event.additional_metadata_protocol == 'DATAVERSE_API'
+                ):
+                    # this only covers dataverse for now
+
+                    url = harvest_event.additional_metadata_API.replace(
+                        '/api/datasets/:persistentId/versions/:latest-published',
+                        f'/dataset.xhtml?persistentId=doi:{harvest_event.record_identifier}',
+                    )
+
+                    ds_dv = DataverseJsonSrcDataset(url, harvest_event.additional_metadata)
+
+                    files.extend(resources.collect_files(harvest_event, ds_dv))
+
+                elif harvest_event.code == ProviderCode.ZENODO:
+                    # get id from DOI: 10.5281/zenodo.570959 -> 570959
+                    ds_z = ZenodoJsonSrcDataset(
+                        harvest_event.record_identifier.split('.')[-1], harvest_event.additional_metadata
+                    )
+
+                    files.extend(resources.collect_files(harvest_event, ds_z))
+
+                elif harvest_event.code == ProviderCode.HAL:
+                    # HAL IDs contain a version suffix, needs to be removed
+                    ds_hal = HalJsonSrcDataset(
+                        harvest_event.record_identifier.split('v')[0], harvest_event.additional_metadata
+                    )
+
+                    files.extend(resources.collect_files(harvest_event, ds_hal))
+
+                elif harvest_event.code == ProviderCode.DABAR:
+                    ds_dabar = DabarXmlSrcDataset('', harvest_event.additional_metadata)
+
+                    files.extend(resources.collect_files(harvest_event, ds_dabar))
+
+                elif harvest_event.code == ProviderCode.DASCH:
+                    ds_dasch = DaschJsonSrcDataset(harvest_event.record_identifier, harvest_event.additional_metadata)
+
+                    files.extend(resources.collect_files(harvest_event, ds_dasch))
+
+                elif harvest_event.code == ProviderCode.FINBIF:
+                    # just add download url
+                    add_metadata = json.loads(harvest_event.additional_metadata)
+                    dwa = list(filter(lambda e: e.get('type') == 'DWC_ARCHIVE', add_metadata['dataset']['endpoints']))[
+                        0
+                    ]
+
+                    archive_id = add_metadata['id']
+                    download_url = dwa['url']
+                    created = dwa['created']
+                    modified = dwa['modified']
+                    key = dwa['key']
+
+                    files.append(
+                        (
+                            harvest_event.harvest_url,
+                            harvest_event.record_identifier,
+                            key,
+                            archive_id,
+                            'datahugger',
+                            harvest_event.identifier_type,
+                            'Dataset',
+                            'application/zip',  # Darwin Core Archive
+                            None,
+                            None,
+                            None,
+                            None,
+                            download_url,
+                            created,
+                            modified,
+                        )
+                    )
+
+                else:
+                    logger.debug(f'Unsupported provider {harvest_event.code} for {harvest_event.record_identifier}')
+
+            except Exception:
+                logger.exception(
+                    f'failed to collect files for {harvest_event.record_identifier} in {harvest_event.code}'
                 )
-
-                ds_dv = DataverseJsonSrcDataset(url, harvest_event.additional_metadata)
-
-                files.extend(resources.collect_files(harvest_event, ds_dv))
-
-            elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.ZENODO:
-                # get id from DOI: 10.5281/zenodo.570959 -> 570959
-                ds_z = ZenodoJsonSrcDataset(
-                    harvest_event.record_identifier.split('.')[-1], harvest_event.additional_metadata
-                )
-
-                files.extend(resources.collect_files(harvest_event, ds_z))
-
-            elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.HAL:
-                # HAL IDs contain a version suffix, needs to be removed
-                ds_hal = HalJsonSrcDataset(
-                    harvest_event.record_identifier.split('v')[0], harvest_event.additional_metadata
-                )
-
-                files.extend(resources.collect_files(harvest_event, ds_hal))
-
-            elif harvest_event.additional_metadata and harvest_event.code == ProviderCode.DABAR:
-                ds_dabar = DabarXmlSrcDataset('', harvest_event.additional_metadata)
-
-                files.extend(resources.collect_files(harvest_event, ds_dabar))
-
-            elif harvest_event.code == ProviderCode.SWISSUBASE:
-                ds_swiss = resolve(
-                    f'https://www.swissubase.ch/en/catalogue/studies/1223/latest/datasets/114/{harvest_event.record_identifier}/overview'
-                )
-
-                for zip_file in ds_swiss.crawl():
-                    if isinstance(zip_file, ZipEntry):
-                        files.append(resources.make_zip_entry(harvest_event, zip_file))
+                continue
 
             if len(files) == 0:
                 logger.debug(f'no files for {harvest_event.record_identifier} in {harvest_event.code}')
