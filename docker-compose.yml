@@ -3,9 +3,6 @@ x-airflow-common: &airflow-common
     build:
         dockerfile: ./docker/airflow/Dockerfile
         context: .
-        args:
-            # branch/tag/commit of metadata-crawlers that is installed in the image
-            HARVESTER_REF: "${HARVESTER_REF:-master}"
     image: metadata-warehouse-airflow:3.3.2
     user: "${AIRFLOW_UID:-50000}:0"
     networks:
