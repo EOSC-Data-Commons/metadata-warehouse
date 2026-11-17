@@ -1,27 +1,39 @@
 import json
+import logging
 import os
 import time
 
 import httpx
 import psycopg
 import pytest
+from alembic.config import Config
 from dotenv import load_dotenv
 from opensearchpy import OpenSearch
+
+from alembic import command
 
 load_dotenv('.env')
 
 USER = os.environ.get('POSTGRES_ADMIN')
 PW = os.environ.get('POSTGRES_PASSWORD')
-ADDRESS = os.environ.get('POSTGRES_ADDRESS')
-PORT = os.environ.get('POSTGRES_PORT')
+POSTGRES_ADDRESS_HOST = os.environ.get('POSTGRES_ADDRESS_HOST') or '127.0.0.1'
+POSTGRES_PORT_HOST = int(os.environ.get('POSTGRES_PORT_HOST') or 5432)
+OPENSEARCH_ADDRESS_HOST = os.environ.get('OPENSEARCH_ADDRESS_HOST') or '127.0.0.1'
+OPENSEARCH_PORT_HOST = int(os.environ.get('OPENSEARCH_PORT_HOST') or 9200)
 TEST_DATASET_DB = 'testdatasetdb'
 TEST_FILE_DB = 'testfiledb'
 TEST_INDEX = 'test_index'
 EMBEDDING_DIMS = os.environ.get('EMBEDDING_DIMS')
 
 API_BASE_URL = 'http://localhost:8080'
-FLOWER_BASE_URL = 'http://localhost:5555'
+AIRFLOW_BASE_URL = os.environ.get('AIRFLOW_BASE_URL') or 'http://localhost:8081'
+AIRFLOW_USER = os.environ.get('AIRFLOW_ADMIN_USER') or 'airflow'
+AIRFLOW_PASSWORD = os.environ.get('AIRFLOW_ADMIN_PASSWORD') or 'airflow'
 TIMEOUT = 120
+# a DAG run may have to wait for the embedding model to be downloaded and loaded
+DAG_RUN_TIMEOUT = 900
+# right after startup the DAG files may not be parsed yet
+DAG_PARSE_TIMEOUT = 180
 
 
 @pytest.fixture
@@ -32,8 +44,26 @@ def api_client():
 
 
 @pytest.fixture
-def flower_client():
-    with httpx.Client(base_url=FLOWER_BASE_URL, timeout=TIMEOUT) as client:
+def postgres_client():
+    """Direct Postgres connection to the test dataset db, for asserting on table state."""
+    with psycopg.connect(
+        dbname=TEST_DATASET_DB,
+        user=USER,
+        host=POSTGRES_ADDRESS_HOST,
+        password=PW,
+        port=POSTGRES_PORT_HOST,
+        row_factory=psycopg.rows.dict_row,
+    ) as conn:
+        yield conn
+
+
+@pytest.fixture
+def airflow_client():
+    """HTTP client for the Airflow REST API, authenticated with a JWT token."""
+    with httpx.Client(base_url=AIRFLOW_BASE_URL, timeout=TIMEOUT) as client:
+        res_token = client.post('/auth/token', json={'username': AIRFLOW_USER, 'password': AIRFLOW_PASSWORD})
+        assert res_token.status_code in (200, 201), f'Airflow login failed: {res_token.status_code} {res_token.text}'
+        client.headers['Authorization'] = f'Bearer {res_token.json()["access_token"]}'
         yield client
 
 
@@ -53,9 +83,9 @@ def reset_db(name: str, path: str):
     with psycopg.connect(
         dbname='postgres',
         user=USER,
-        host='127.0.0.1',
+        host=POSTGRES_ADDRESS_HOST,
         password=PW,
-        port=5432,
+        port=POSTGRES_PORT_HOST,
         autocommit=True,
     ) as conn:
         with conn.cursor() as cursor:
@@ -63,7 +93,13 @@ def reset_db(name: str, path: str):
             if not cursor.fetchone():
                 cursor.execute(f'CREATE DATABASE {name}')
 
-    with psycopg.connect(dbname=name, user=USER, host='127.0.0.1', password=PW, port=5432) as conn:
+    with psycopg.connect(
+        dbname=name,
+        user=USER,
+        host=POSTGRES_ADDRESS_HOST,
+        password=PW,
+        port=POSTGRES_PORT_HOST,
+    ) as conn:
         with conn.cursor() as cursor:
             # Drop and recreate schema
             cursor.execute('DROP SCHEMA IF EXISTS public CASCADE')
@@ -78,6 +114,24 @@ def reset_db(name: str, path: str):
                 with open(filepath) as f:
                     sql_statements = f.read()
                 cursor.execute(sql_statements)
+
+    # Use Alembic to upgrade database to latest version
+    # TODO: Hardcoded to only apply to (test)datasetdb. If needed, work out how
+    # to use separate versioning for filedb
+
+    if path == 'datasetdb':
+        # Don't show alembic INFO messages
+        logging.getLogger('alembic').setLevel(logging.WARNING)
+
+        alembic_cfg = Config('alembic.ini')
+        alembic_cfg.set_main_option(
+            'sqlalchemy.url',
+            f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS_HOST}:{POSTGRES_PORT_HOST}/{TEST_DATASET_DB}',
+        )
+        alembic_cfg.config_file_name = None  # prevent env.py overwritting logger settings
+
+        command.stamp(alembic_cfg, '0001_baseline')
+        command.upgrade(alembic_cfg, 'head')
 
 
 @pytest.fixture
@@ -95,8 +149,8 @@ def reset_index():
     client = OpenSearch(
         hosts=[
             {
-                'host': ADDRESS if ADDRESS else '127.0.0.1',
-                'port': int(PORT) if PORT else 9200,
+                'host': OPENSEARCH_ADDRESS_HOST,
+                'port': OPENSEARCH_PORT_HOST,
             }
         ],
         http_auth=None,
@@ -118,29 +172,54 @@ def reset_index():
     yield client
 
 
+def _unpause_dag(airflow_client, dag_id):
+    """DAGs are created paused, and a run of a paused DAG stays queued. The DAG may not be parsed yet after startup."""
+    start_time = time.time()
+    while True:
+        res = airflow_client.patch(f'/api/v2/dags/{dag_id}', json={'is_paused': False})
+        if res.status_code == 200:
+            return
+        if res.status_code != 404 or time.time() - start_time > DAG_PARSE_TIMEOUT:
+            pytest.fail(f'Could not unpause DAG {dag_id}: {res.status_code} {res.text}')
+        time.sleep(2)
+
+
+def _tasks_not_successful(airflow_client, dag_id, dag_run_id):
+    """Summary of the task instances of a DAG run that did not succeed, for the failure message."""
+    res = airflow_client.get(f'/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances', params={'limit': 1000})
+    if res.status_code != 200:
+        return f'(task instances not available: {res.status_code})'
+    return ', '.join(
+        f'{ti["task_id"]}[{ti.get("map_index", -1)}]={ti["state"]}'
+        for ti in res.json().get('task_instances', [])
+        if ti['state'] != 'success'
+    )
+
+
 @pytest.fixture
-def wait_for_task():
-    def _wait_for_task(flower_client, task_name, timeout=TIMEOUT):
-        """Wait for a task to complete successfully."""
+def run_dag():
+    def _run_dag(airflow_client, dag_id, conf=None, timeout=DAG_RUN_TIMEOUT):
+        """Trigger a DAG and wait until its run has finished successfully. Returns the dag_run_id."""
+        _unpause_dag(airflow_client, dag_id)
+
+        res = airflow_client.post(f'/api/v2/dags/{dag_id}/dagRuns', json={'logical_date': None, 'conf': conf or {}})
+        assert res.status_code == 200, f'Could not trigger DAG {dag_id}: {res.status_code} {res.text}'
+        dag_run_id = res.json()['dag_run_id']
+
+        state = res.json()['state']
         start_time = time.time()
+        while state not in ('success', 'failed') and time.time() - start_time < timeout:
+            time.sleep(2)
+            state = airflow_client.get(f'/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}').json()['state']
 
-        while time.time() - start_time < timeout:
-            try:
-                response = flower_client.get('/api/tasks', params={'taskname': task_name})
-                tasks = response.json()
+        if state != 'success':
+            pytest.fail(
+                f'DAG run {dag_id}/{dag_run_id} ended in state {state!r}, '
+                f'tasks not successful: {_tasks_not_successful(airflow_client, dag_id, dag_run_id)}'
+            )
+        return dag_run_id
 
-                if tasks:
-                    first_task = next(iter(tasks.values()))
-                    if first_task.get('state') == 'SUCCESS':
-                        return first_task
-            except Exception:
-                pass
-
-            time.sleep(1)
-
-        return None
-
-    return _wait_for_task
+    return _run_dag
 
 
 def test_health(api_client, reset_dataset_db, reset_file_db):
@@ -153,10 +232,10 @@ def test_get_config(api_client, reset_dataset_db, reset_file_db):
     response = api_client.get('/config')
 
     assert response.status_code == 200
-    assert len(response.json()['endpoints_configs']) == 28
+    assert len(response.json()['endpoints_configs']) == 32
 
 
-def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, reset_dataset_db, reset_index):
+def test_get_latest_harvest_run_with_harvest_url(api_client, reset_dataset_db, reset_index):
     res_get = api_client.get('/harvest_run', params={'harvest_url': 'https://demo.onedata.org/oai_pmh'})
 
     assert res_get.status_code == 200
@@ -198,7 +277,7 @@ def test_get_latest_harvest_run_with_harvest_url(api_client, flower_client, rese
     assert res_get3_response['harvest_runs'][0]['status'] == 'closed'
 
 
-def test_get_latest_harvest_run_without_harvest_url(api_client, flower_client, reset_dataset_db, reset_index):
+def test_get_latest_harvest_run_without_harvest_url(api_client, reset_dataset_db, reset_index):
     res_get = api_client.get('/harvest_run')
 
     assert res_get.status_code == 200
@@ -274,12 +353,13 @@ def test_should_be_harvested_flag(api_client, reset_dataset_db, reset_index):
 
 
 def test_create_and_close_harvest_run(
-    api_client, flower_client, reset_dataset_db, reset_file_db, reset_index, wait_for_task
+    api_client, airflow_client, run_dag, reset_dataset_db, reset_file_db, reset_index, postgres_client
 ):
     # create a new harvest run
     res_create = api_client.post('/harvest_run', json={'harvest_url': 'https://demo.onedata.org/oai_pmh'})
 
     assert res_create.status_code == 200
+    assert res_create.json()['master_set_identifiers'] is None
 
     create_response = res_create.json()
 
@@ -319,28 +399,338 @@ def test_create_and_close_harvest_run(
 
     assert res_close.status_code == 200
 
-    # run a transformation
-    res_index = api_client.get(
-        '/index',
-        params={
-            'harvest_run_id': create_response['id'],
-            'index_name': TEST_INDEX,
-        },
+    # run the transformation (DAG warehouse_transform_index) and wait for it (indexing + file metadata)
+    run_dag(
+        airflow_client, 'warehouse_transform_index', {'harvest_run_id': create_response['id'], 'index_name': TEST_INDEX}
     )
 
-    # note this does not check for a successful transformation
-    assert res_index.status_code == 200
-
-    transform_task = wait_for_task(flower_client, 'transform.tasks.transform_batch')
-    filemeta_task = wait_for_task(flower_client, 'transform.tasks.add_file_metadata')
-
-    assert transform_task and transform_task['state'] == 'SUCCESS'
-    assert '10.17026/AR/0AKDPK' in transform_task['args']
-
-    assert filemeta_task and filemeta_task['state'] == 'SUCCESS'
-    assert '10.17026/AR/0AKDPK' in filemeta_task['args']
+    # the record of the harvest event is in the database
+    cur = postgres_client.cursor()
+    cur.execute('SELECT id FROM records WHERE url = %s', ('https://doi.org/10.17026/AR/0AKDPK',))
+    assert len(cur.fetchall()) == 1
 
     response_config = api_client.get('/config')
 
     assert response_config.status_code == 200
-    assert len(response_config.json()['endpoints_configs']) == 28
+    assert len(response_config.json()['endpoints_configs']) == 32
+
+
+HAL_HARVEST_URL = 'https://api.archives-ouvertes.fr/oai/hal'
+ZENODO_HARVEST_URL = 'https://zenodo.org/oai2d'
+
+HAL_RECORD_XML_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
+<oai:record xmlns:oai="http://www.openarchives.org/OAI/2.0/"
+            xmlns:datacite="http://datacite.org/schema/kernel-4">
+  <oai:metadata>
+    <datacite:resource>
+      <datacite:relatedIdentifiers>
+        <datacite:relatedIdentifier relatedIdentifierType="DOI">{doi}</datacite:relatedIdentifier>
+      </datacite:relatedIdentifiers>
+    </datacite:resource>
+  </oai:metadata>
+</oai:record>"""
+
+ZENODO_RECORD_XML_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
+<oai:record xmlns:oai="http://www.openarchives.org/OAI/2.0/"
+            xmlns:datacite="http://datacite.org/schema/kernel-4">
+  <oai:metadata>
+    <datacite:resource>
+      <datacite:identifier identifierType="DOI">{doi}</datacite:identifier>
+    </datacite:resource>
+  </oai:metadata>
+</oai:record>"""
+
+
+def _close_harvest_run(api_client, run_id):
+    res_close = api_client.put(
+        '/harvest_run',
+        json={
+            'id': run_id,
+            'success': True,
+            'started_at': '2026-02-17T15:36:05.544Z',
+            'completed_at': '2026-02-17T15:36:05.544Z',
+        },
+    )
+    assert res_close.status_code == 200
+    return res_close
+
+
+def _post_harvest_event(
+    api_client, *, harvest_run_id, harvest_url, repo_code, record_identifier, raw_metadata, additional_metadata=None
+):
+    res = api_client.post(
+        '/harvest_event',
+        json={
+            'record_identifier': record_identifier,
+            'datestamp': '2026-02-17T15:43:03.326Z',
+            'raw_metadata': raw_metadata,
+            'additional_metadata': additional_metadata,
+            'harvest_url': harvest_url,
+            'repo_code': repo_code,
+            'harvest_run_id': harvest_run_id,
+            'is_deleted': False,
+        },
+    )
+    assert res.status_code == 200
+    return res
+
+
+def _create_and_close_harvest_run(
+    api_client,
+    airflow_client,
+    run_dag,
+    *,
+    harvest_run_url,
+    repo_code,
+    record_identifier,
+    raw_metadata,
+    additional_metadata=None,
+    index_name=TEST_INDEX,
+):
+    res_create = api_client.post('/harvest_run', json={'harvest_url': harvest_run_url})
+    assert res_create.status_code == 200
+    create_response = res_create.json()
+
+    post_he = _post_harvest_event(
+        api_client,
+        harvest_run_id=create_response['id'],
+        harvest_url=harvest_run_url,
+        repo_code=repo_code,
+        record_identifier=record_identifier,
+        raw_metadata=raw_metadata,
+        additional_metadata=additional_metadata,
+    )
+
+    assert post_he.status_code == 200
+
+    _close_harvest_run(api_client, create_response['id'])
+
+    run_dag(
+        airflow_client, 'warehouse_transform_index', {'harvest_run_id': create_response['id'], 'index_name': index_name}
+    )
+
+    return {'run_id': create_response['id']}
+
+
+def test_zenodo_dependency_without_hal(api_client, reset_dataset_db, reset_file_db, reset_index):
+    """
+    Try to harvest Zenodo with having harvested HAL first.
+    This should fail since Zenodo depends on HAL.
+    """
+
+    res_create_zenodo_1 = api_client.post('/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL})
+    assert res_create_zenodo_1.status_code == 400
+    assert (
+        res_create_zenodo_1.json()['detail']
+        == 'This is a dependent repository and requires the endpoint HAL to be harvested first'
+    )
+
+
+def test_zenodo_dependency_master_set_identifiers(api_client, reset_dataset_db, reset_file_db, reset_index):
+    """
+    Zenodo's endpoint config depends on HAL as a master set. When opening a
+    Zenodo harvest run, the response should list Zenodo-referenced DOIs found
+    in HAL's harvested records, minus any DOIs Zenodo has already harvested
+    itself in a previous closed run.
+    """
+    hal_zenodo_dois = [
+        '10.5281/zenodo.111',
+        '10.5281/zenodo.222',
+        '10.5281/zenodo.333',
+    ]
+
+    ZENODO_STATIC_DOIS = {
+        '10.5281/zenodo.7350485',
+        '10.5281/zenodo.13692761',
+        '10.5281/zenodo.15324029',
+        '10.5281/zenodo.7702229',
+        '10.5281/zenodo.11278072',
+        '10.5281/zenodo.3382874',
+        '10.5281/zenodo.6645396',
+        '10.5281/zenodo.8260741',
+        '10.5281/zenodo.4559324',
+        '10.5281/zenodo.20509715',
+    }
+
+    # --- 1. Get in some HAL records ---
+    res_create_hal = api_client.post('/harvest_run', json={'harvest_url': HAL_HARVEST_URL})
+    assert res_create_hal.status_code == 200
+    hal_run_id = res_create_hal.json()['id']
+
+    for i, doi in enumerate(hal_zenodo_dois):
+        _post_harvest_event(
+            api_client,
+            harvest_run_id=hal_run_id,
+            harvest_url=HAL_HARVEST_URL,
+            repo_code='HAL',
+            record_identifier=f'hal-rec-{i}',
+            raw_metadata=HAL_RECORD_XML_TEMPLATE.format(doi=doi),
+        )
+
+    _close_harvest_run(api_client, hal_run_id)
+
+    # --- 2. Get the Zenodo DOIs (first Zenodo run — nothing harvested yet) ---
+    res_create_zenodo_1 = api_client.post('/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL})
+    assert res_create_zenodo_1.status_code == 200
+    zenodo_run_1 = res_create_zenodo_1.json()
+
+    identifiers_1 = set(zenodo_run_1['master_set_identifiers'])
+    assert identifiers_1 == {'10.5281/zenodo.111', '10.5281/zenodo.222', '10.5281/zenodo.333'} | ZENODO_STATIC_DOIS
+
+    zenodo_run_1_id = zenodo_run_1['id']
+
+    # --- 3. Register some Zenodo (simulate harvester having fetched DOI 111) ---
+    _post_harvest_event(
+        api_client,
+        harvest_run_id=zenodo_run_1_id,
+        harvest_url=ZENODO_HARVEST_URL,
+        repo_code='ZENODO',
+        record_identifier='oai:zenodo.org:111',
+        raw_metadata=ZENODO_RECORD_XML_TEMPLATE.format(doi='10.5281/zenodo.111'),
+    )
+
+    _close_harvest_run(api_client, zenodo_run_1_id)
+
+    # --- 4. Get the IDs again (second Zenodo run — 111 should now be excluded) ---
+    res_create_zenodo_2 = api_client.post('/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL})
+    assert res_create_zenodo_2.status_code == 200
+    zenodo_run_2 = res_create_zenodo_2.json()
+
+    identifiers_2 = set(zenodo_run_2['master_set_identifiers'])
+    assert identifiers_2 == {'10.5281/zenodo.222', '10.5281/zenodo.333'} | ZENODO_STATIC_DOIS
+    assert '10.5281/zenodo.111' not in identifiers_2
+
+
+def test_deduplication(api_client, airflow_client, run_dag, reset_dataset_db, reset_file_db, postgres_client):
+    with open('e2e/test_data/dans.xml') as f:
+        xml = f.read()
+    with open('e2e/test_data/dans_additional.json') as f:
+        additional_meta = f.read()
+
+    _create_and_close_harvest_run(
+        api_client,
+        airflow_client,
+        run_dag,
+        harvest_run_url='https://archaeology.datastations.nl/oai',
+        repo_code='DANS',
+        record_identifier='10.34894/G8PZKV',
+        raw_metadata=xml,
+        additional_metadata=additional_meta,
+    )
+
+    with open('e2e/test_data/dans.xml') as f:
+        xml = f.read()
+    with open('e2e/test_data/dans_additional.json') as f:
+        additional_meta = f.read()
+
+    _create_and_close_harvest_run(
+        api_client,
+        airflow_client,
+        run_dag,
+        harvest_run_url='https://phys-techsciences.datastations.nl/oai',
+        repo_code='DANS',
+        record_identifier='10.34894/G8PZKV',
+        raw_metadata=xml,
+        additional_metadata=additional_meta,
+    )
+
+    # --- verify the duplicate exists (run_dag waits for every run, so both records are in the database) ---
+    expected_url = 'https://doi.org/10.17026/AR/0AKDPK'
+
+    cur = postgres_client.cursor()
+    cur.execute('SELECT id, endpoint_id FROM records WHERE url = %s', (expected_url,))
+    rows_before = cur.fetchall()
+    assert len(rows_before) == 2
+
+    # --- run deduplication (DAG deduplicate) ---
+    run_dag(airflow_client, 'warehouse_deduplicate')
+
+    # --- verify only one record remains ---
+    cur.execute('SELECT id, endpoint_id FROM records WHERE url = %s', (expected_url,))
+    rows_after = cur.fetchall()
+    assert len(rows_after) == 1
+
+
+# --- Alembic migrations
+def _table_exists(conn, table_name, schema='public'):
+    """
+    Check if a given table exists in the database.
+    Returns True/False
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = %s AND table_name = %s
+            )
+            """,
+            (schema, table_name),
+        )
+        return cur.fetchone()[0]
+
+
+def _column_exists(conn, table_name, column_name, schema='public'):
+    """
+    Check if a given column exists in the specified database table.
+    Returns True/False
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = %s AND table_name = %s AND column_name = %s
+            )
+            """,
+            (schema, table_name, column_name),
+        )
+        return cur.fetchone()[0]
+
+
+def test_alembic_upgrade_downgrade_one_version(reset_dataset_db):
+    """
+    Test for alembic integration in datasetdb,
+    as well that migrating from version 0001_baseline
+    to 0002_record_subjects cretes the expected subjects columns.
+    """
+
+    # Don't show alembic INFO messages
+    logging.getLogger('alembic').setLevel(logging.WARNING)
+
+    alembic_cfg = Config('alembic.ini')
+    alembic_cfg.set_main_option(
+        'sqlalchemy.url',
+        f'postgresql+psycopg://{USER}:{PW}@{POSTGRES_ADDRESS_HOST}:{POSTGRES_PORT_HOST}/{TEST_DATASET_DB}',
+    )
+    alembic_cfg.config_file_name = None  # prevent env.py overwritting logger settings
+
+    with psycopg.connect(
+        dbname=TEST_DATASET_DB,
+        user=USER,
+        host=POSTGRES_ADDRESS_HOST if POSTGRES_ADDRESS_HOST else '127.0.0.1',
+        password=PW,
+        port=int(POSTGRES_PORT_HOST) if POSTGRES_PORT_HOST else 5432,
+    ) as conn:
+        # The database should have been initialized with alembic and have the alembic_version table
+        assert _table_exists(conn, 'alembic_version')
+
+        # We'll test the baseline schema and the first alembic version upgrade
+
+        # The first revision adds two columns.
+        # We check that the "raw_subjects" and "enriched_subjects" don't exist initially,
+        # And after upgrading one version they should be there
+
+        command.downgrade(alembic_cfg, '0001_baseline')
+
+        raw_exist = _column_exists(conn, 'records', 'raw_subjects')
+        enriched_exist = _column_exists(conn, 'records', 'enriched_subjects')
+
+        assert not (raw_exist or enriched_exist)
+
+        command.upgrade(alembic_cfg, '0002_record_subjects')
+
+        raw_exist = _column_exists(conn, 'records', 'raw_subjects')
+        enriched_exist = _column_exists(conn, 'records', 'enriched_subjects')
+
+        assert raw_exist and enriched_exist

@@ -8,9 +8,11 @@ To run the containers:
   ```sh
   cp env.template .env
   ```
-  Optionally add the following env variables for postgres and/or OpenSearch (not needed for local dev):
-    - `POSTGRES_ADDRESS` (default "postgres") and `POSTGRES_PORT` (default 5432)
-    - `OPENSEARCH_ADDRESS` (default "opensearch") and `OPENSEARCH_PORT` (default 9200)
+  Optionally, add the following env variables for postgres and/or OpenSearch (not needed for local dev):
+    - `POSTGRES_ADDRESS_DOCKER` (default "postgres", docker network internal) and `POSTGRES_PORT_DOCKER` (default 5432)
+    - `POSTGRES_ADDRESS_HOST` (default "127.0.0.1", host) and `POSTGRES_PORT_HOST` (default 5432)
+    - `OPENSEARCH_ADDRESS_DOCKER` (default "opensearch", docker network internal) and `OPENSEARCH_PORT_DOCKER` (default 9200)
+    - `OPENSEARCH_ADDRESS_HOST` (default "127.0.0.1", host) and `OPENSEARCH_PORT_HOST` (default 9200)
     - `FASTAPI_ADDRESS` (default "127.0.0.1") and `FASTAPI_PORT` (default 8080)
 - API keys for search API server:
   ```sh
@@ -115,6 +117,20 @@ In development, it may be more convenient to load pre-harvested static data:
   If it already exists and should be **dropped and reinitialized**, 
   additionally provide the flag --reset. 
 
+- the script defines the initial state of the database and should be stamped as the migration baseline.  
+  **All further changes** to the database should be done as Alembic migrations.  
+  To stamp the initial state as the baseline and then upgrade to the latest version:  
+  ```sh
+  # Alembic migrations are executed at project root
+  cd ../..
+
+  alembic stamp 0001_baseline  
+  alembic upgrade head
+
+  # Return to scripts
+  cd scripts/postgres_data
+  ```
+
 - load XML data from `scripts/postgres_data/data` (populates table `harvest_events`):
   ```sh
    uv run import_data.py
@@ -162,35 +178,57 @@ and the harvest run is then closed. Note that a transformation can only be perfo
   http://127.0.0.1:8080/health
   ```
 
-- To obtain a harvest run id and status for a given endpoint (https://dabar.srce.hr/oai):
-  ```sh
-  http://127.0.0.1:8080/harvest_run?harvest_url=https%3A%2F%2Fdabar.srce.hr%2Foai
+## Airflow
+
+Airflow orchestrates the harvesting/transformation workflow (it replaces the custom scheduler step by step).
+It runs with the CeleryExecutor: RabbitMQ (`broker`) is the Celery broker, and a dedicated Postgres
+container (`airflow-postgres`) holds both Airflow's metadata and the Celery result backend.
+
+Services: `airflow-api-server` (UI/API), `airflow-scheduler`, `airflow-dag-processor`, `airflow-worker`
+(one-shot `airflow-init` migrates the DB and creates the admin user).
+
+Setup (after `cp env.template .env`, see the `# Airflow` block there):
+- set `AIRFLOW_FERNET_KEY`, `AIRFLOW_JWT_SECRET`, `AIRFLOW_API_SECRET_KEY` and change the default passwords
+- on Linux set `AIRFLOW_UID` to the output of `id -u`
+- ```sh
+  docker compose build airflow-init   # builds the shared Airflow image once
+  docker compose up -d
   ```
+- UI: http://127.0.0.1:8081 (port from `docker-compose.override.yml`), login as `AIRFLOW_ADMIN_USER`
+- DAG files live in `airflow/dags`. Unpause and trigger `hello_world` to smoke-test the setup
+  (scheduler -> RabbitMQ -> worker -> warehouse API).
 
-- start transformation process:
-  ```sh
-  http://127.0.0.1:8080/index?harvest_run_id=xyz
-  ```
-- see transformation task results in flower:
-  ```sh
-  http://127.0.0.1:5555/tasks
-  ```
+### DAG `transform_index`
 
-After starting the stack with `docker compose up`, you can run the harvester for a given repository URL, e.g.:
+Plans and runs the transformation of the harvest events of one closed harvest run (replaces `GET /index`).
+Trigger it from the UI ("Trigger DAG w/ config") with:
+- `harvest_run_id` (required), `index_name` (default `INDEX_NAME`), `reuse_embeddings`, `batch_size` (default `CELERY_BATCH_SIZE`)
 
-```sh
-docker compose run harvester https://lifesciences.datastations.nl/oai
-```
-## Scheduler
+`plan_batches` splits the run into batches; one mapped `run_batch` task per batch runs on `airflow-worker-transform`
+(queue `transform`, one task at a time) in the transform venv of the Airflow image (`/opt/airflow/transform-venv`,
+built from the repo's `uv.lock`). It loads the batch and runs `transform.transform_core.transform_batch_impl`,
+the same logic as the legacy Celery task. `summarize` prints the totals. The log of each batch shows how long
+loading the embedding model and the transformation took.
 
-The scheduler automates the full ingestion workflow: harvesting → transformation → indexing.
-It is designed to be executed periodically via CRON.
+The embedding model cache `./cache/fastembed` is mounted into `airflow-worker-transform`, which runs as `AIRFLOW_UID`
+(not root). If the model is not cached yet, make the directory writable first: `mkdir -p cache/fastembed && chmod -R a+rwX cache/fastembed`.
 
-### Run scheduler
+### DAG `harvest_and_index`
 
-```sh
-uv run python -m scheduler.run
-```
+Replaces the custom scheduler: harvests the endpoints that are due and indexes the harvested runs.
+
+1. `plan_endpoints` asks the API (`GET /harvest_run`) which endpoints are due (independent ones first, endpoints
+   that depend on another endpoint, e.g. Zenodo after HAL, last)
+2. `harvest_independent`, `harvest_dependent`: one mapped task per endpoint, one at a time. The crawler runs as a
+   Python module (`harvester.run_harvest`) inside the Airflow worker, its logs are part of the task log.
+   A failed endpoint fails only its own task, the others continue.
+3. `plan_indexing` collects the runs closed since the DAG run started, `index_run` triggers `transform_index` for
+   each of them (one after the other).
+
+Params: `harvest_urls` (harvest only these endpoints), `all_runs` (index all closed runs), `index_name`,
+`reuse_embeddings`, `batch_size`. Schedule: set `HARVEST_SCHEDULE` (cron) in `.env`, otherwise the DAG only runs
+when triggered manually. The crawler version is set with `HARVESTER_REF` (branch/tag/commit, built into the image).
+
 #### Environment variables
 
 Optionally add the following env variables (not needed for local dev):
@@ -229,4 +267,3 @@ Set up pre-commit hooks to check your messages before commiting them to the repo
 - `uv run pre-commit install --hook-type commit-msg`
 
 See `.pre-commit-config.yaml` for further details.
-

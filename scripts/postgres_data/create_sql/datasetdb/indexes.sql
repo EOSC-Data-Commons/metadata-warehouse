@@ -14,6 +14,7 @@ CREATE INDEX IF NOT EXISTS idx_endpoints_is_active ON endpoints(is_active) WHERE
 -- Harvest Events Indexes
 CREATE INDEX IF NOT EXISTS idx_harvest_events_repository_id ON harvest_events(repository_id);
 CREATE INDEX IF NOT EXISTS idx_harvest_events_endpoint_id ON harvest_events(endpoint_id);
+CREATE INDEX IF NOT EXISTS idx_harvest_events_harvest_run_id_id ON harvest_events(harvest_run_id, id);
 CREATE INDEX IF NOT EXISTS idx_harvest_events_record_identifier ON harvest_events(record_identifier);
 
 -- Records Indexes

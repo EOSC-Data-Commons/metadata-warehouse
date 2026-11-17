@@ -87,7 +87,9 @@ class TestEmbeddingsUtils(unittest.TestCase):
                 ),
             ),
         ]
-        res: list[OpenSearchSourceWithEmbedding] = embedding_utils.add_embeddings_to_source(data, embedding_model)
+        res: list[OpenSearchSourceWithEmbedding] = embedding_utils.add_embeddings_to_source(
+            data, embedding_model, 'my_model'
+        )
 
         self.assertEqual(len(res), 3)
 
@@ -104,11 +106,11 @@ class TestEmbeddingsUtils(unittest.TestCase):
         self.assertEqual(res[2].harvest_event.id, '3')
 
     def test_preprocess_batch(self):
-        source = [{'id': '1', 'titles': [{'title': 'Its4land - Publish and Share platform'}]}]
+        source = [{'url': 'https://www.example.com', 'titles': [{'title': 'Its4land - Publish and Share platform'}]}]
 
         res = embedding_utils.preprocess_batch(source, 'myindex')
 
         self.assertEqual(len(res), 1)
-        self.assertEqual(res[0]['_id'], '1')
+        self.assertEqual(res[0]['_id'], 'https://www.example.com')
         self.assertEqual(res[0]['_source'], source[0])
         self.assertEqual(res[0]['_index'], 'myindex')
