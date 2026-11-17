@@ -224,11 +224,11 @@ def process_record(record_id: str, pid: str, xml: str) -> None:
 
 
 @dag(
-    dag_id='process_datacite_records',
+    dag_id='warehouse_assess_offline_fair',
     schedule=None,
     catchup=False,
     max_active_runs=1,
-    tags=['fair'],
+    tags=['warehouse', 'fair'],
     params={
         'sample_size': Param(
             default=1000,
