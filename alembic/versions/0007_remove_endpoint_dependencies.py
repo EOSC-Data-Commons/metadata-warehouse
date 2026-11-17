@@ -1,4 +1,4 @@
-"""remove dependent endpoints (every endpoint is self-contained)
+"""remove dependent endpoints (every endpoint is self-contained) and activate Zenodo
 
 Revision ID: 0007_remove_dependencies
 Revises: 0006_add_cern
@@ -31,9 +31,16 @@ def upgrade() -> None:
     op.drop_column('endpoints', 'dependency_xpath')
     op.drop_column('endpoints', 'depends_on_endpoint_id')
 
+    # Zenodo is self-contained now, so it can be harvested like every other endpoint.
+    # Idempotent: a no-op if Zenodo is already active (or does not exist), and updated_at is only touched on change.
+    op.execute("UPDATE endpoints SET is_active = true WHERE name = 'Zenodo' AND is_active = false")
+
 
 def downgrade() -> None:
     """Restore the dependency configuration of endpoints (the data of the dropped columns is not restored)."""
+
+    # Without its dependency configuration Zenodo can no longer be harvested, so it is deactivated again (as in the seed)
+    op.execute("UPDATE endpoints SET is_active = false WHERE name = 'Zenodo' AND is_active = true")
 
     op.execute('ALTER TABLE endpoints ADD COLUMN depends_on_endpoint_id UUID')
     op.execute('ALTER TABLE endpoints ADD COLUMN dependency_xpath TEXT')
