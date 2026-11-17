@@ -3,10 +3,9 @@
 Replaces the custom scheduler (`python -m scheduler.run`):
 
     plan_endpoints
-      -> harvest_independent (one mapped task per endpoint, one at a time)
-      -> harvest_dependent   (endpoints that depend on another endpoint, e.g. Zenodo after HAL)
-      -> plan_indexing       (closed runs created by this DAG run)
-      -> index_run           (triggers the DAG `transform_index` for each run, one at a time)
+      -> harvest        (one mapped task per endpoint, one at a time)
+      -> plan_indexing  (closed runs created by this DAG run)
+      -> index_run      (triggers the DAG `transform_index` for each run, one at a time)
 
 * The harvester runs as a Python module (`harvester.run_harvest`) inside the Airflow worker, so its logs are part of
   the Airflow task log. A failed harvest fails only its own task; the other endpoints are still harvested and indexed.
@@ -57,15 +56,15 @@ def harvest_and_index() -> None:
         since = db_now_iso()
 
         if params['harvest_urls']:
-            independent, dependent = list(params['harvest_urls']), []
+            urls = list(params['harvest_urls'])
         else:
-            independent, dependent = get_endpoints_to_harvest(os.environ['WAREHOUSE_API_URL'])
+            urls = get_endpoints_to_harvest(os.environ['WAREHOUSE_API_URL'])
 
-        print(f'{len(independent)} independent and {len(dependent)} dependent endpoints to harvest')
-        return {'independent': independent, 'dependent': dependent, 'all_urls': independent + dependent, 'since': since}
+        print(f'{len(urls)} endpoints to harvest')
+        return {'urls': urls, 'since': since}
 
     # `.expand()` needs the whole return value of a task, not one key of a multiple_outputs dict,
-    # so these tiny tasks extract the two lists.
+    # so this tiny task extracts the list of urls.
     @task
     def pick(plan: dict[str, Any], key: str) -> list[str]:
         return list(plan[key])
@@ -121,18 +120,13 @@ def harvest_and_index() -> None:
         ]
 
     plan = plan_endpoints()
-    independent_urls = pick.override(task_id='independent_urls')(plan, 'independent')
-    dependent_urls = pick.override(task_id='dependent_urls')(plan, 'dependent')
+    endpoint_urls = pick.override(task_id='endpoint_urls')(plan, 'urls')
 
-    harvest_independent = harvest.override(task_id='harvest_independent').expand(url=independent_urls)
-    # all_done: also runs if there was nothing to harvest before, or if an endpoint failed
-    harvest_dependent = harvest.override(task_id='harvest_dependent', trigger_rule='all_done').expand(
-        url=dependent_urls
-    )
-    harvest_independent >> harvest_dependent
+    harvest_endpoints = harvest.expand(url=endpoint_urls)
 
-    runs_to_index = plan_indexing(urls=plan['all_urls'], since=plan['since'])
-    harvest_dependent >> runs_to_index
+    # plan_indexing has trigger_rule all_done: it also runs if there was nothing to harvest, or if an endpoint failed
+    runs_to_index = plan_indexing(urls=plan['urls'], since=plan['since'])
+    harvest_endpoints >> runs_to_index
 
     # The DAG transform_index (max_active_runs=1) indexes one run; wait for it, then continue with the next run.
     TriggerDagRunOperator.partial(

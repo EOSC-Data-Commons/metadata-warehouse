@@ -9,18 +9,18 @@ import requests
 from psycopg.rows import dict_row
 
 from config.postgres_config import PostgresConfig
-from planning.ordering import split_by_dependency
 
 
-def get_endpoints_to_harvest(warehouse_api_url: str) -> tuple[list[str], list[str]]:
-    """Harvest urls of the endpoints that are due, as (independent, dependent)."""
+def get_endpoints_to_harvest(warehouse_api_url: str) -> list[str]:
+    """Harvest urls of the endpoints that are due (in the order returned by the API)."""
     response = requests.get(
         f'{warehouse_api_url}/harvest_run',
         params={'only_active': True, 'respect_schedule': True},
         timeout=30,
     )
     response.raise_for_status()
-    return split_by_dependency(response.json().get('harvest_runs') or [])
+    runs = response.json().get('harvest_runs') or []
+    return [run['harvest_url'] for run in runs if run.get('should_be_harvested') and run.get('harvest_url') is not None]
 
 
 def db_now_iso() -> str:

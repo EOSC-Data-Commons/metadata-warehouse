@@ -217,9 +217,8 @@ The embedding model cache `./cache/fastembed` is mounted into `airflow-worker-tr
 
 Replaces the custom scheduler: harvests the endpoints that are due and indexes the harvested runs.
 
-1. `plan_endpoints` asks the API (`GET /harvest_run`) which endpoints are due (independent ones first, endpoints
-   that depend on another endpoint, e.g. Zenodo after HAL, last)
-2. `harvest_independent`, `harvest_dependent`: one mapped task per endpoint, one at a time. The crawler runs as a
+1. `plan_endpoints` asks the API (`GET /harvest_run`) which endpoints are due
+2. `harvest`: one mapped task per endpoint, one at a time. The crawler runs as a
    Python module (`harvester.run_harvest`) inside the Airflow worker, its logs are part of the task log.
    A failed endpoint fails only its own task, the others continue.
 3. `plan_indexing` collects the runs closed since the DAG run started, `index_run` triggers `transform_index` for
