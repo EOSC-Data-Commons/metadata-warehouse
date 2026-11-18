@@ -14,6 +14,7 @@ from app.api_classes import (
     HarvestRunCreateResponse,
     HarvestRunGetResponse,
     HealthGetResponse,
+    InvalidUntilDateError,
 )
 from app.db_methods import (
     close_harvest_run_in_db,
@@ -128,7 +129,10 @@ def create_harvest_run(
 ) -> HarvestRunCreateResponse:
     try:
         logger.debug(harvest_run)
-        return create_harvest_run_in_db(harvest_run.harvest_url)
+        return create_harvest_run_in_db(harvest_run.harvest_url, harvest_run.until_date)
+    except InvalidUntilDateError as e:
+        logger.warning(f'Invalid until_date when creating harvest run: {e}')
+        raise HTTPException(status_code=400, detail=str(e))
     except psycopg_errors.UniqueViolation as e:
         logger.exception(f'An open harvest run already exists for the given endpoint.')
         raise HTTPException(

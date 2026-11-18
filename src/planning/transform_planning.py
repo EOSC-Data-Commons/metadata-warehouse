@@ -71,6 +71,7 @@ def load_batch(harvest_run_id: str, first_id: str, last_id: str) -> list[Harvest
             (
                 xpath('/oai:record', he.raw_metadata, '{{oai, http://www.openarchives.org/OAI/2.0/},{datacite, http://datacite.org/schema/kernel-4}}')
             )[1] AS record,
+            he.raw_metadata_json AS record_json,
             he.additional_metadata,
             he.is_deleted,
             he.datestamp,
@@ -94,7 +95,8 @@ def load_batch(harvest_run_id: str, first_id: str, last_id: str) -> list[Harvest
             batch.append(
                 HarvestEventQueue(
                     id=str(doc['id']),
-                    xml=doc['record'],
+                    xml=doc['record'],  # None for JSON events (xpath of NULL)
+                    json=doc['record_json'],  # None for XML events
                     repository_id=str(doc['repository_id']),
                     endpoint_id=str(doc['endpoint_id']),
                     record_identifier=doc['record_identifier'],

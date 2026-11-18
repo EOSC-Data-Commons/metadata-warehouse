@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 from json import JSONDecodeError
 from typing import Any, Optional
 
@@ -16,6 +17,7 @@ from app.api_classes import (
     HarvestRunCloseResponse,
     HarvestRunCreateResponse,
     HarvestRunGetResponse,
+    InvalidUntilDateError,
 )
 from config.postgres_config import PostgresConfig
 from logger.setup_logger import logger
@@ -24,7 +26,8 @@ postgres_config: PostgresConfig = PostgresConfig()
 connection_params = postgres_config.connection_params
 
 DEFAULT_PROTOCOL = 'OAI-PMH'
-DEFAULT_FORMAT = 'XML'
+FORMAT_XML = 'XML'
+FORMAT_JSON = 'JSON'
 
 
 BATCH_SIZE_DEFAULT = 125
@@ -147,15 +150,41 @@ def get_latest_harvest_run_in_db(
         return HarvestRunGetResponse(harvest_runs=harvest_runs)
 
 
-def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
+def create_harvest_run_in_db(harvest_url: str, until_date: datetime | None = None) -> HarvestRunCreateResponse:
     """
     Creates a new entry in harvest_runs and returns its id.
 
     :param harvest_url: The new entry to be created.
+    :param until_date: Optional until date of the run (default: now). Allows to register an initial harvest from a dump
+        taken at a given date, so that the next run harvests from that date.
+    :raises InvalidUntilDateError: if until_date is in the future or earlier than the until date of the latest
+        closed run.
     """
 
     with psycopg.connect(**connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
+
+        if until_date is not None:
+            if until_date > datetime.now(timezone.utc):
+                raise InvalidUntilDateError('until_date must not be in the future')
+
+            cur.execute(
+                """
+                SELECT max(hr.until_date) AS latest_until_date
+                FROM harvest_runs hr
+                JOIN endpoints e ON hr.endpoint_id = e.id
+                WHERE e.harvest_url = %s AND hr.status = 'closed'
+                """,
+                [harvest_url],
+            )
+            latest = cur.fetchone()
+            latest_until_date = latest['latest_until_date'] if latest else None
+            if latest_until_date is not None and until_date < latest_until_date:
+                raise InvalidUntilDateError(
+                    'until_date must not be earlier than the until date of the latest closed harvest run '
+                    f'({latest_until_date.isoformat()})'
+                )
+
         # TODO: only allow one open harvest run per endpoint
         # TODO check (in one transaction):
         # - an open harvest run exists for the given endpoint
@@ -165,7 +194,7 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
         res = cur.execute(
             """
             INSERT INTO harvest_runs
-                (endpoint_id, status, from_date)
+                (endpoint_id, status, from_date, until_date)
                 select 
                 (SELECT id FROM endpoints WHERE harvest_url = %s),
                 'open',
@@ -175,9 +204,10 @@ def create_harvest_run_in_db(harvest_url: str) -> HarvestRunCreateResponse:
      WHERE e.harvest_url = %s 
        AND hr.status = 'closed' 
      ORDER BY hr.until_date DESC 
-     LIMIT 1)
+     LIMIT 1),
+                COALESCE(%s::timestamptz, CURRENT_TIMESTAMP)
             """,
-            (harvest_url, harvest_url),
+            (harvest_url, harvest_url, until_date),
         )
 
         logger.debug(f'insert operation state: {res}')
@@ -266,6 +296,7 @@ def create_harvest_events_bulk_in_db(
                 (record_identifier,
                 datestamp, 
                 raw_metadata,
+                raw_metadata_json,
                 additional_metadata,
                 repository_id, 
                 endpoint_id,  
@@ -278,6 +309,7 @@ def create_harvest_events_bulk_in_db(
                 %s,
                 %s, 
                 XMLPARSE(DOCUMENT %s), 
+                %s::jsonb,
                 %s,
                 (SELECT id from repositories WHERE code=%s),
                 (SELECT id from endpoints WHERE harvest_url=%s), 
@@ -292,12 +324,14 @@ def create_harvest_events_bulk_in_db(
                 (
                     he.record_identifier,
                     he.datestamp,
-                    he.raw_metadata,
+                    # exactly one of raw_metadata (XML) and raw_metadata_json (JSON) is set, the DB checks the syntax
+                    None if he.is_json else he.raw_metadata,
+                    he.raw_metadata if he.is_json else None,
                     he.additional_metadata,
                     he.repo_code,
                     he.harvest_url,
                     DEFAULT_PROTOCOL,
-                    DEFAULT_FORMAT,
+                    FORMAT_JSON if he.is_json else FORMAT_XML,
                     he.harvest_run_id,
                     he.is_deleted,
                 )

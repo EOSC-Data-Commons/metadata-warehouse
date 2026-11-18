@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class HealthGetResponse(BaseModel):
@@ -36,12 +36,17 @@ class Config(BaseModel):
 class HarvestEventCreateRequest(BaseModel):
     record_identifier: str
     datestamp: datetime
-    raw_metadata: str  # XML
+    raw_metadata: str  # XML, or JSON (stringified) if is_json is set
     additional_metadata: Optional[str] = None  # XML or JSON (stringified)
     harvest_url: str
     repo_code: str
     harvest_run_id: str
     is_deleted: bool
+    is_json: bool = Field(
+        default=False,
+        description='Set if raw_metadata is JSON (already normalized DataCite JSON, validated against the schema '
+        'when transformed) instead of XML',
+    )
 
 
 class HarvestEventCreateResponse(BaseModel):
@@ -50,6 +55,19 @@ class HarvestEventCreateResponse(BaseModel):
 
 class HarvestRunCreateRequest(BaseModel):
     harvest_url: str
+    until_date: Optional[datetime] = Field(
+        default=None,
+        description='Until date of the harvest run (default: now). Allows to register an initial harvest from a dump, '
+        'so that the next run harvests from the date of the dump. Must include a timezone, must not be in the future '
+        'and must not be earlier than the until date of the latest closed run of the endpoint.',
+    )
+
+    @field_validator('until_date')
+    @classmethod
+    def until_date_must_have_timezone(cls, value: Optional[datetime]) -> Optional[datetime]:
+        if value is not None and value.tzinfo is None:
+            raise ValueError('until_date must include a timezone')
+        return value
 
 
 class HarvestRun(BaseModel):
@@ -86,3 +104,7 @@ class HarvestRunCloseRequest(BaseModel):
 
 class HarvestRunCloseResponse(BaseModel):
     id: str = Field(description='ID of the closed harvest run')
+
+
+class InvalidUntilDateError(Exception):
+    """Raised when the until date given for a new harvest run is in the future or earlier than the latest closed run."""

@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import time
+from datetime import datetime, timezone
 
 import httpx
 import psycopg
@@ -429,22 +430,33 @@ def _close_harvest_run(api_client, run_id):
 
 
 def _post_harvest_event(
-    api_client, *, harvest_run_id, harvest_url, repo_code, record_identifier, raw_metadata, additional_metadata=None
+    api_client,
+    *,
+    harvest_run_id,
+    harvest_url,
+    repo_code,
+    record_identifier,
+    raw_metadata,
+    additional_metadata=None,
+    is_json=False,
+    datestamp='2026-02-17T15:43:03.326Z',
+    expected_status=200,
 ):
     res = api_client.post(
         '/harvest_event',
         json={
             'record_identifier': record_identifier,
-            'datestamp': '2026-02-17T15:43:03.326Z',
+            'datestamp': datestamp,
             'raw_metadata': raw_metadata,
             'additional_metadata': additional_metadata,
             'harvest_url': harvest_url,
             'repo_code': repo_code,
             'harvest_run_id': harvest_run_id,
             'is_deleted': False,
+            'is_json': is_json,
         },
     )
-    assert res.status_code == 200
+    assert res.status_code == expected_status, res.text
     return res
 
 
@@ -533,6 +545,231 @@ def test_deduplication(api_client, airflow_client, run_dag, reset_dataset_db, re
     cur.execute('SELECT id, endpoint_id FROM records WHERE url = %s', (expected_url,))
     rows_after = cur.fetchall()
     assert len(rows_after) == 1
+
+
+# --- JSON harvest events: initial harvest of Zenodo from a dump, then incremental (OAI-PMH, XML) harvests
+ZENODO_HARVEST_URL = 'https://zenodo.org/oai2d'
+# the date of the dump, the next (incremental) harvest run has to start from here
+ZENODO_DUMP_DATE = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+
+def _load_zenodo_sample():
+    """Record of the Zenodo dump: normalized DataCite JSON, additional metadata (files) and, in raw_json, the pids."""
+    with open('e2e/test_data/zenodo_16929629.json') as f:
+        return json.load(f)
+
+
+def _ingest_zenodo_dump(api_client, airflow_client, run_dag):
+    """Registers the sample record as the (JSON) harvest event of an initial harvest run with the date of the dump."""
+    sample = _load_zenodo_sample()
+
+    res_create = api_client.post(
+        '/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL, 'until_date': ZENODO_DUMP_DATE.isoformat()}
+    )
+    assert res_create.status_code == 200, res_create.text
+    run = res_create.json()
+    assert run['from_date'] is None
+    assert datetime.fromisoformat(run['until_date']) == ZENODO_DUMP_DATE
+
+    _post_harvest_event(
+        api_client,
+        harvest_run_id=run['id'],
+        harvest_url=ZENODO_HARVEST_URL,
+        repo_code='ZENODO',
+        record_identifier=sample['id'],  # numeric id, as harvested via OAI-PMH (the part after the last colon)
+        raw_metadata=sample['datacite_json'],  # already a JSON string
+        additional_metadata=sample['additional_metadata_json'],
+        is_json=True,
+        datestamp=json.loads(sample['raw_json'])['updated'],
+    )
+
+    _close_harvest_run(api_client, run['id'])
+    run_dag(airflow_client, 'warehouse_transform_index', {'harvest_run_id': run['id'], 'index_name': TEST_INDEX})
+
+    return sample, run
+
+
+def test_zenodo_dump_as_initial_harvest(
+    api_client, airflow_client, run_dag, reset_dataset_db, reset_file_db, reset_index, postgres_client
+):
+    sample, run = _ingest_zenodo_dump(api_client, airflow_client, run_dag)
+    expected_datacite = json.loads(sample['datacite_json'])
+
+    cur = postgres_client.cursor()
+
+    # --- the event was stored as JSON and could be transformed ---
+    cur.execute(
+        """
+        SELECT metadata_format, raw_metadata IS NULL AS xml_is_null, raw_metadata_json, error_message
+        FROM harvest_events WHERE harvest_run_id = %s
+        """,
+        (run['id'],),
+    )
+    events = cur.fetchall()
+    assert len(events) == 1
+    assert events[0]['metadata_format'] == 'JSON'
+    assert events[0]['xml_is_null']
+    assert events[0]['raw_metadata_json'] == expected_datacite
+    assert events[0]['error_message'] is None
+
+    # --- the record was written (the JSON is validated, not normalized) ---
+    cur.execute(
+        """
+        SELECT metadata_format, raw_metadata IS NULL AS xml_is_null, raw_metadata_json, datacite_json, title, url
+        FROM records WHERE record_identifier = %s
+        """,
+        (sample['id'],),
+    )
+    records = cur.fetchall()
+    assert len(records) == 1
+    assert records[0]['metadata_format'] == 'JSON'
+    assert records[0]['xml_is_null']
+    assert records[0]['raw_metadata_json'] == expected_datacite
+    assert records[0]['title'] == expected_datacite['titles'][0]['title']
+    assert records[0]['url'] == expected_datacite['url']
+    # Values are kept as delivered: the dump has resourceTypeGeneral 'dataset', whereas the XML path keeps 'Dataset'
+    # as written in the DataCite XML. In OpenSearch the field is a case-sensitive keyword, so both are distinct values.
+    assert records[0]['datacite_json']['types']['resourceTypeGeneral'] == 'dataset'
+
+    # --- the file metadata was written (the record identifier is the numeric Zenodo id) ---
+    with psycopg.connect(
+        dbname=TEST_FILE_DB,
+        user=USER,
+        host=POSTGRES_ADDRESS_HOST,
+        password=PW,
+        port=POSTGRES_PORT_HOST,
+        row_factory=psycopg.rows.dict_row,
+    ) as file_conn:
+        file_cur = file_conn.cursor()
+        file_cur.execute(
+            'SELECT file_size FROM record_files WHERE harvest_url = %s AND record_identifier = %s',
+            (ZENODO_HARVEST_URL, sample['id']),
+        )
+        files = file_cur.fetchall()
+        assert [f['file_size'] for f in files] == [737203]
+
+    # --- the next harvest run starts from the date of the dump ---
+    res_next = api_client.post('/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL})
+    assert res_next.status_code == 200
+    assert datetime.fromisoformat(res_next.json()['from_date']) == ZENODO_DUMP_DATE
+
+
+def test_zenodo_incremental_xml_harvest_replaces_json_record(
+    api_client, airflow_client, run_dag, reset_dataset_db, reset_file_db, reset_index, postgres_client
+):
+    sample, _ = _ingest_zenodo_dump(api_client, airflow_client, run_dag)
+
+    # --- incremental harvest (XML, as via OAI-PMH) of the same record ---
+    res_create = api_client.post('/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL})
+    assert res_create.status_code == 200
+    incremental_run = res_create.json()
+    assert datetime.fromisoformat(incremental_run['from_date']) == ZENODO_DUMP_DATE
+
+    with open('e2e/test_data/zenodo_16929629.xml') as f:
+        xml = f.read()
+
+    _post_harvest_event(
+        api_client,
+        harvest_run_id=incremental_run['id'],
+        harvest_url=ZENODO_HARVEST_URL,
+        repo_code='ZENODO',
+        record_identifier=sample['id'],
+        raw_metadata=xml,
+        additional_metadata=sample['additional_metadata_json'],
+    )
+    _close_harvest_run(api_client, incremental_run['id'])
+    run_dag(
+        airflow_client,
+        'warehouse_transform_index',
+        {'harvest_run_id': incremental_run['id'], 'index_name': TEST_INDEX},
+    )
+
+    # --- the record was updated, its format switched from JSON to XML and the JSON column was cleared ---
+    cur = postgres_client.cursor()
+    cur.execute(
+        """
+        SELECT metadata_format, raw_metadata IS NOT NULL AS has_xml, raw_metadata_json IS NULL AS json_is_null, title
+        FROM records WHERE record_identifier = %s
+        """,
+        (sample['id'],),
+    )
+    records = cur.fetchall()
+    assert len(records) == 1
+    assert records[0]['metadata_format'] == 'XML'
+    assert records[0]['has_xml']
+    assert records[0]['json_is_null']
+    assert 'atualizada' in records[0]['title']
+
+
+def test_harvest_run_until_date_validation(api_client, reset_dataset_db):
+    # in the future
+    res = api_client.post(
+        '/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL, 'until_date': '2999-01-01T00:00:00+00:00'}
+    )
+    assert res.status_code == 400
+    assert 'future' in res.json()['detail']
+
+    # without timezone
+    res = api_client.post('/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL, 'until_date': '2026-01-01T00:00:00'})
+    assert res.status_code == 422
+
+    # earlier than the latest closed run
+    res_create = api_client.post('/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL})
+    assert res_create.status_code == 200
+    _close_harvest_run(api_client, res_create.json()['id'])
+
+    res = api_client.post(
+        '/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL, 'until_date': '2020-01-01T00:00:00+00:00'}
+    )
+    assert res.status_code == 400
+    assert 'earlier' in res.json()['detail']
+
+
+def test_invalid_json_harvest_event_is_rejected(api_client, reset_dataset_db, postgres_client):
+    res_create = api_client.post('/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL})
+    assert res_create.status_code == 200
+    run_id = res_create.json()['id']
+
+    res = api_client.post(
+        '/harvest_event',
+        json={
+            'record_identifier': '1',
+            'datestamp': '2026-02-17T15:43:03.326Z',
+            'raw_metadata': '{not json',
+            'harvest_url': ZENODO_HARVEST_URL,
+            'repo_code': 'ZENODO',
+            'harvest_run_id': run_id,
+            'is_deleted': False,
+            'is_json': True,
+        },
+    )
+    assert res.status_code >= 400
+
+    cur = postgres_client.cursor()
+    cur.execute('SELECT count(*) AS n FROM harvest_events WHERE harvest_run_id = %s', (run_id,))
+    assert cur.fetchone()['n'] == 0
+
+
+def test_harvest_event_metadata_format_check(api_client, reset_dataset_db, postgres_client):
+    """A JSON event without JSON payload (or an XML event without XML) is rejected by the database."""
+    res_create = api_client.post('/harvest_run', json={'harvest_url': ZENODO_HARVEST_URL})
+    assert res_create.status_code == 200
+    run_id = res_create.json()['id']
+
+    cur = postgres_client.cursor()
+    with pytest.raises(psycopg.errors.CheckViolation):
+        cur.execute(
+            """
+            INSERT INTO harvest_events
+                (record_identifier, datestamp, metadata_format, metadata_protocol,
+                 repository_id, endpoint_id, harvest_run_id, is_deleted)
+            SELECT '1', now(), 'JSON'::content_format, 'OAI-PMH'::harvest_protocol,
+                   e.repository_id, e.id, %s::uuid, false
+            FROM endpoints e WHERE e.harvest_url = %s
+            """,
+            (run_id, ZENODO_HARVEST_URL),
+        )
+    postgres_client.rollback()
 
 
 # --- Alembic migrations

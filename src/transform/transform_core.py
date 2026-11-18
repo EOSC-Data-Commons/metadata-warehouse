@@ -101,9 +101,7 @@ def transform_batch_impl(
         cur = conn.cursor()
 
         normalized: list[SourceWithEmbeddingText] = []
-        for ele in batch:
-            harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
-
+        for harvest_event in batch:
             if harvest_event.is_deleted:
                 # find record in DB
                 cur.execute(
@@ -148,34 +146,44 @@ def transform_batch_impl(
 
             # Catch and log errors
             try:
-                root = ET.fromstring(harvest_event.xml.encode('utf-8'))
-                metadata_ns = handle_xml.detect_metadata_namespace(root)
-                payload_ns = handle_xml.detect_payload_namespace(root)
-                contents = handle_xml.preprocess_xml(root)
+                normalized_record: Any
+                if harvest_event.xml is None:
+                    # JSON events are already normalized (DataCite JSON): nothing to convert, they are only validated.
+                    # Note: values are kept as delivered. A JSON event may e.g. have types.resourceTypeGeneral
+                    # 'dataset', whereas the XML path keeps what is written in the DataCite XML, usually 'Dataset'.
+                    # In OpenSearch this field is a keyword (case-sensitive), so both spellings are distinct values.
+                    normalized_record = harvest_event.json
+                else:
+                    root = ET.fromstring(harvest_event.xml.encode('utf-8'))
+                    metadata_ns = handle_xml.detect_metadata_namespace(root)
+                    payload_ns = handle_xml.detect_payload_namespace(root)
+                    contents = handle_xml.preprocess_xml(root)
 
-                converted = xmltodict.parse(contents, process_namespaces=True)
+                    converted = xmltodict.parse(contents, process_namespaces=True)
 
-                if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
-                    metadata = converted[OAI_RECORD][OAI_METADATA]
-                    result = handle_xml.get_resource(metadata, metadata_ns, payload_ns)
+                    if OAI_RECORD in converted and OAI_METADATA in converted[OAI_RECORD]:
+                        metadata = converted[OAI_RECORD][OAI_METADATA]
+                        result = handle_xml.get_resource(metadata, metadata_ns, payload_ns)
 
-                    if result is None:
+                        if result is None:
+                            # Converted JSON cannot be processed, log this
+                            logger.debug(
+                                f'Cannot access resource element in {metadata} {harvest_event.record_identifier}'
+                            )
+                            continue
+
+                        resource, metadata_namespace_for_access = result
+                    else:
                         # Converted JSON cannot be processed, log this
-                        logger.debug(f'Cannot access resource element in {metadata} {harvest_event.record_identifier}')
+                        logger.debug(f'Cannot access {OAI_METADATA} in: {converted}')
                         continue
 
-                    resource, metadata_namespace_for_access = result
-                else:
-                    # Converted JSON cannot be processed, log this
-                    logger.debug(f'Cannot access {OAI_METADATA} in: {converted}')
-                    continue
+                    logger.debug(contents)
+                    logger.debug(metadata_ns)
 
-                logger.debug(contents)
-                logger.debug(metadata_ns)
-
-                normalized_record = normalize_datacite_json.normalize_datacite_json(
-                    resource, metadata_namespace_for_access
-                )
+                    normalized_record = normalize_datacite_json.normalize_datacite_json(
+                        resource, metadata_namespace_for_access
+                    )
                 validate(instance=normalized_record, schema=resources.schema)
                 normalized.append(
                     SourceWithEmbeddingText(
@@ -266,6 +274,8 @@ def transform_batch_impl(
                 resource_type = 'Dataset'  # TODO: get this information from record
                 title = rec.src['titles'][0]['title']
                 xml = rec.harvest_event.xml
+                json_metadata = json.dumps(rec.harvest_event.json) if xml is None else None
+                metadata_format = 'XML' if xml is not None else 'JSON'
                 protocol = 'OAI-PMH'
                 url = rec.src.get('url')
                 embeddings = rec.src['emb']
@@ -284,6 +294,8 @@ def transform_batch_impl(
                         resource_type,
                         title,
                         raw_metadata,
+                        raw_metadata_json,
+                        metadata_format,
                         metadata_protocol,
                         url,
                         embeddings,
@@ -295,13 +307,15 @@ def transform_batch_impl(
                         datestamp
                     ) 
                     VALUES (
-                        %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, XMLPARSE(DOCUMENT %s), %s::jsonb, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     ON CONFLICT (endpoint_id, record_identifier)
                     DO UPDATE SET 
                         resource_type = EXCLUDED.resource_type,
                         title = EXCLUDED.title,
                         raw_metadata = EXCLUDED.raw_metadata,
+                        raw_metadata_json = EXCLUDED.raw_metadata_json,
+                        metadata_format = EXCLUDED.metadata_format,
                         url = EXCLUDED.url,
                         embeddings = EXCLUDED.embeddings,
                         embedding_model = EXCLUDED.embedding_model,
@@ -317,6 +331,8 @@ def transform_batch_impl(
                         resource_type,
                         title,
                         xml,
+                        json_metadata,
+                        metadata_format,
                         protocol,
                         url,
                         embeddings,
