@@ -772,6 +772,22 @@ def test_harvest_event_metadata_format_check(api_client, reset_dataset_db, postg
     postgres_client.rollback()
 
 
+def test_harvest_run_dates_check(api_client, reset_dataset_db, postgres_client):
+    """The database rejects a harvest run that ends before it starts (the API refuses such a run before)."""
+    cur = postgres_client.cursor()
+    with pytest.raises(psycopg.errors.CheckViolation):
+        cur.execute(
+            """
+            INSERT INTO harvest_runs (endpoint_id, status, from_date, until_date)
+            SELECT id, 'open'::harvest_run_state, '2026-02-01T00:00:00+00:00'::timestamptz,
+                   '2026-01-01T00:00:00+00:00'::timestamptz
+            FROM endpoints WHERE harvest_url = %s
+            """,
+            (ZENODO_HARVEST_URL,),
+        )
+    postgres_client.rollback()
+
+
 # --- Alembic migrations
 def _table_exists(conn, table_name, schema='public'):
     """

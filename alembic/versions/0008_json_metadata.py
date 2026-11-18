@@ -1,4 +1,4 @@
-"""support JSON metadata in harvest events and records
+"""support JSON metadata in harvest events and records, check the dates of harvest runs
 
 Revision ID: 0008_json_metadata
 Revises: 0007_remove_dependencies
@@ -40,9 +40,22 @@ def upgrade() -> None:
             f"COMMENT ON COLUMN {table}.raw_metadata_json IS 'Original harvested metadata, set if metadata_format is JSON (already normalized DataCite JSON)'"
         )
 
+    # A harvest run must not end before it starts. from_date is derived in the same INSERT from the until_date of the
+    # latest closed run, so this also guarantees that a new run is not older than the latest closed run.
+    # Fails if existing runs violate this, find them with: SELECT * FROM harvest_runs WHERE from_date > until_date
+    op.execute(
+        """
+        ALTER TABLE harvest_runs
+        ADD CONSTRAINT harvest_runs_from_until_date_check
+            CHECK (from_date IS NULL OR from_date <= until_date)
+        """
+    )
+
 
 def downgrade() -> None:
     """Remove raw_metadata_json again. Fails if there are rows with JSON metadata, since they cannot be represented anymore."""
+
+    op.execute('ALTER TABLE harvest_runs DROP CONSTRAINT harvest_runs_from_until_date_check')
 
     for table in TABLES:
         op.execute(
