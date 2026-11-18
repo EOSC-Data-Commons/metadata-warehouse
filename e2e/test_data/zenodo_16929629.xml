@@ -1,0 +1,33 @@
+<record xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <header>
+    <identifier>oai:zenodo.org:16929629</identifier>
+    <datestamp>2026-02-01T10:00:00Z</datestamp>
+  </header>
+  <metadata>
+    <resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://datacite.org/schema/kernel-4" xsi:schemaLocation="http://datacite.org/schema/kernel-4 http://schema.datacite.org/meta/kernel-4.3/metadata.xsd">
+      <identifier identifierType="DOI">10.51473/rcmos.v2i2.2022.1288</identifier>
+      <creators>
+        <creator>
+          <creatorName nameType="Personal">Silva dos Santos, Ezequias</creatorName>
+          <givenName>Ezequias</givenName>
+          <familyName>Silva dos Santos</familyName>
+        </creator>
+      </creators>
+      <titles>
+        <title>Análise Preditiva de Incidentes em Ambientes Multicloud com Big Data Analytics e Machine Learning (versão atualizada)</title>
+      </titles>
+      <publisher>Zenodo</publisher>
+      <publicationYear>2025</publicationYear>
+      <dates>
+        <date dateType="Issued">2025-08-22</date>
+      </dates>
+      <resourceType resourceTypeGeneral="Dataset"/>
+      <formats>
+        <format>application/pdf</format>
+      </formats>
+      <rightsList>
+        <rights rightsURI="https://creativecommons.org/licenses/by/4.0/legalcode">Creative Commons Attribution 4.0 International</rights>
+      </rightsList>
+    </resource>
+  </metadata>
+</record>

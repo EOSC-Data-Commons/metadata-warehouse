@@ -35,6 +35,7 @@ class TestEmbeddingsUtils(unittest.TestCase):
                 event=HarvestEventQueue(
                     id='1',
                     xml='<root></root>',
+                    json=None,
                     repository_id='1',
                     endpoint_id='2',
                     record_identifier='xyz',
@@ -54,6 +55,7 @@ class TestEmbeddingsUtils(unittest.TestCase):
                 event=HarvestEventQueue(
                     id='2',
                     xml='<root></root>',
+                    json=None,
                     repository_id='1',
                     endpoint_id='2',
                     record_identifier='xyz',
@@ -73,6 +75,7 @@ class TestEmbeddingsUtils(unittest.TestCase):
                 event=HarvestEventQueue(
                     id='3',
                     xml='<root></root>',
+                    json=None,
                     repository_id='1',
                     endpoint_id='2',
                     record_identifier='xyz',
