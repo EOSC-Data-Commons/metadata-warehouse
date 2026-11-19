@@ -220,7 +220,6 @@ def transform_batch_impl(
                             src={
                                 **normalized_ele.src,
                                 'emb': row['embeddings'],
-                                '_additional_metadata': normalized_ele.event.additional_metadata,
                                 '_repo': normalized_ele.event.code,
                                 '_harvest_url': normalized_ele.event.harvest_url,
                                 '_record_identifier': normalized_ele.event.record_identifier,
