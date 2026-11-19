@@ -102,7 +102,6 @@ def transform_batch_impl(
 
         normalized: list[SourceWithEmbeddingText] = []
         for harvest_event in batch:
-
             if harvest_event.is_deleted:
                 # find record in DB
                 cur.execute(
