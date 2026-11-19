@@ -101,8 +101,7 @@ def transform_batch_impl(
         cur = conn.cursor()
 
         normalized: list[SourceWithEmbeddingText] = []
-        for ele in batch:
-            harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
+        for harvest_event in batch:
 
             if harvest_event.is_deleted:
                 # find record in DB
@@ -225,6 +224,7 @@ def transform_batch_impl(
                                 '_additional_metadata': normalized_ele.event.additional_metadata,
                                 '_repo': normalized_ele.event.code,
                                 '_harvest_url': normalized_ele.event.harvest_url,
+                                '_record_identifier': normalized_ele.event.record_identifier,
                             },
                             harvest_event=normalized_ele.event,
                         )
