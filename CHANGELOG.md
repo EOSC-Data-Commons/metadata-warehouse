@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.1](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.11.0...v1.11.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **transform:** handle _record_identifier consistently ([#211](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/211)) ([c91704b](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/c91704b43d8984a031b65f95b97a565ddc7d26e7))
+
 ## [1.11.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.10.0...v1.11.0) (2026-11-16)
 
 
