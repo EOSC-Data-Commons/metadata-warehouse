@@ -24,6 +24,7 @@ from utils.embedding_utils import (
     get_embedding_text_from_fields,
     preprocess_batch,
 )
+from utils.opensearch_utils import make_opensearch_document
 from utils.queue_utils import HarvestEventQueue
 
 # OAI-PMH XML namespaces
@@ -218,11 +219,13 @@ def transform_batch_impl(
                     src_with_emb.append(
                         OpenSearchSourceWithEmbedding(
                             src={
-                                **normalized_ele.src,
+                                **make_opensearch_document(
+                                    src=normalized_ele.src,
+                                    repository=normalized_ele.event.code,
+                                    harvest_url=normalized_ele.event.harvest_url,
+                                    record_identifier=normalized_ele.event.record_identifier,
+                                ),
                                 'emb': row['embeddings'],
-                                '_repo': normalized_ele.event.code,
-                                '_harvest_url': normalized_ele.event.harvest_url,
-                                '_record_identifier': normalized_ele.event.record_identifier,
                             },
                             harvest_event=normalized_ele.event,
                         )

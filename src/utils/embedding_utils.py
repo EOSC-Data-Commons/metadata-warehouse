@@ -2,13 +2,12 @@ import logging
 import time
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from pathlib import Path
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 import requests
 from fastembed import TextEmbedding
-from numpy import ndarray
 
+from .opensearch_utils import make_opensearch_document
 from .queue_utils import HarvestEventQueue
 
 
@@ -67,11 +66,13 @@ def create_opensearch_source(
 
     return OpenSearchSourceWithEmbedding(
         src={
-            **src,
+            **make_opensearch_document(
+                src=src,
+                repository=batch_ele.event.code,
+                harvest_url=batch_ele.event.harvest_url,
+                record_identifier=batch_ele.event.record_identifier,
+            ),
             embedding_field_name: embedding,
-            '_repo': batch_ele.event.code,
-            '_harvest_url': batch_ele.event.harvest_url,
-            '_record_identifier': batch_ele.event.record_identifier,
         },
         harvest_event=batch_ele.event,
     )
