@@ -76,14 +76,18 @@ def row_to_source(row: dict[str, Any]) -> dict[str, Any] | None:
     if row['datacite_json'] is None:
         return None
 
-    return {
+    source = {
         **row['datacite_json'],
         'emb': row['embeddings'],
-        '_additional_metadata': None,
         '_repo': row['code'],
         '_harvest_url': row['harvest_url'],
         '_record_identifier': row['record_identifier'],
     }
+
+    # remove _additional_metadata if present
+    source.pop('_additional_metadata', None)
+
+    return source
 
 
 def to_bulk_actions(sources: list[dict[str, Any]], index_name: str) -> list[dict[str, Any]]:
@@ -114,7 +118,7 @@ def sync_records(index_name: str, batch_size: int) -> int:
         # autocommit: no transaction stays open during the whole (long) sync
         with psycopg.connect(**PostgresConfig().connection_params, row_factory=dict_row, autocommit=True) as conn:
             while True:
-                rows = conn.execute(_SELECT_BATCH, (last_id, batch_size)).fetchall()  # type: ignore[arg-type]
+                rows = conn.execute(_SELECT_BATCH, (last_id, batch_size)).fetchall()
                 if not rows:
                     break
                 last_id = rows[-1]['id']
