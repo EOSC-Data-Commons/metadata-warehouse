@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.12.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.11.0...v1.12.0) (2026-11-23)
+
+
+### Features
+
+* **sync opensearch:** sync new OpenSearch index directly from datasetdb ([#215](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/215)) ([7b21527](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/7b21527c0d8efd7a47240d2b9cad8a9816b94f86))
+
+
+### Bug Fixes
+
+* **transform:** handle _record_identifier consistently ([#211](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/211)) ([c91704b](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/c91704b43d8984a031b65f95b97a565ddc7d26e7))
+
 ## [1.11.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.10.0...v1.11.0) (2026-11-16)
 
 
