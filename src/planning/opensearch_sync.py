@@ -17,6 +17,7 @@ from psycopg.rows import dict_row
 
 from config.opensearch_config import OpenSearchConfig
 from config.postgres_config import PostgresConfig
+from utils.opensearch_utils import make_opensearch_document
 
 logger = logging.getLogger(__name__)
 
@@ -77,11 +78,13 @@ def row_to_source(row: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
     source = {
-        **row['datacite_json'],
+        **make_opensearch_document(
+            src=row['datacite_json'],
+            repository=row['code'],
+            harvest_url=row['harvest_url'],
+            record_identifier=row['record_identifier'],
+        ),
         'emb': row['embeddings'],
-        '_repo': row['code'],
-        '_harvest_url': row['harvest_url'],
-        '_record_identifier': row['record_identifier'],
     }
 
     # remove _additional_metadata if present
