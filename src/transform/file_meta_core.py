@@ -13,6 +13,7 @@ from datahugger import (
     FileEntry,
     HalJsonSrcDataset,
     ZenodoJsonSrcDataset,
+    MdpositJsonSrcDataset,
     ZipEntry,
     resolve,
 )
@@ -161,9 +162,27 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
                     files.extend(resources.collect_files(harvest_event, ds_dasch))
 
                 elif harvest_event.code == ProviderCode.MDDB:
-                    ds_mddb = resolve(f'{harvest_event.record_identifier.replace("browse", "id")}/overview')
+                    ds_mddb = MdpositJsonSrcDataset(harvest_event.record_identifier, harvest_event.additional_metadata)
 
-                    files.extend(resources.collect_files(harvest_event, ds_mddb))
+                    mddr_files = [file for file in ds_mddb.crawl_file()]
+
+                    # remove duplicates
+                    # TODO: use datahugger release with https://github.com/EOSC-Data-Commons/datahugger-ng/pull/153
+                    deduplicated_files: list[FileEntry] = []
+                    for file in mddr_files:
+                        found = False
+                        for ele in deduplicated_files:
+                            if ele.filename == file.filename:
+                                found = True
+                                break
+
+                        if not found:
+                            deduplicated_files.append(file)
+
+                    file_meta = [resources.make_file_entry(harvest_event, entry) for entry in deduplicated_files]
+
+                    files.extend(file_meta)
+
 
                 elif harvest_event.code == ProviderCode.FINBIF:
                     # just add download url
