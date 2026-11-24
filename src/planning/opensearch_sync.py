@@ -3,6 +3,9 @@
 Nothing is calculated here: `records.datacite_json` already holds the normalized document and `records.embeddings` the
 embedding, which is exactly what the transform wrote to OpenSearch. The repository code and the harvest url are
 read from the repository and the endpoint of the record. The table is only read, never written.
+
+Old records (written before the doi column was removed) are normalized to the structure of the current transform:
+`url` is the `records.url` column (which is also the document `_id`) and the legacy fields are removed.
 """
 
 import json
@@ -29,6 +32,7 @@ MAPPING_PATH = Path(__file__).resolve().parents[2] / 'config' / 'opensearch_mapp
 _SELECT_BATCH = """
     SELECT r.id,
            r.record_identifier,
+           r.url,
            r.datacite_json,
            r.embeddings,
            rep.code,
@@ -40,6 +44,9 @@ _SELECT_BATCH = """
     ORDER BY r.id
     LIMIT %s
 """
+
+# Fields of old `datacite_json` values (old schema: id/doi) or old transforms that are not part of the documents anymore
+LEGACY_FIELDS = ('id', 'doi', '_additional_metadata')
 
 
 def _client() -> OpenSearch:
@@ -72,6 +79,9 @@ def create_index(index_name: str, embedding_dims: int) -> None:
 def row_to_source(row: dict[str, Any]) -> dict[str, Any] | None:
     """OpenSearch document of a records row, same structure as in `transform_batch_impl` (reuse_embeddings).
 
+    `url` is always taken from the records column: old `datacite_json` values may lack it (they have `id` and `doi`
+    instead) and the column is what the transform uses for the `_id` of the document (and for deleting it).
+
     :return: the document, or None if the record has no `datacite_json` (nothing to index).
     """
     if row['datacite_json'] is None:
@@ -85,16 +95,20 @@ def row_to_source(row: dict[str, Any]) -> dict[str, Any] | None:
             record_identifier=row['record_identifier'],
         ),
         'emb': row['embeddings'],
+        'url': row['url'],
     }
 
-    # remove _additional_metadata if present
-    source.pop('_additional_metadata', None)
+    # old rows may still contain fields that the transform does not write anymore
+    for field in LEGACY_FIELDS:
+        source.pop(field, None)
 
     return source
 
 
 def to_bulk_actions(sources: list[dict[str, Any]], index_name: str) -> list[dict[str, Any]]:
     """Bulk actions for OpenSearch, the same as `utils.embedding_utils.preprocess_batch` (the _id is the url).
+
+    `row_to_source` always sets `url` from the records column, so it is present here.
 
     Not imported from there: that module imports fastembed, which only exists in the transform venv, not in the
     environment of this task.

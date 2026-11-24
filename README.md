@@ -235,6 +235,8 @@ Fills a NEW OpenSearch index from the `records` table (DAG id `warehouse_opensea
 OpenSearch is out of sync with the database, e.g. after records were deleted manually in the DB.
 Unlike `reindex_provider` nothing is harvested, transformed or embedded: the stored `datacite_json` and `embeddings`
 of every record are indexed, together with the repository code and harvest url of its endpoint.
+Old records (from before the `doi` column was removed) are normalized like new ones: `url` is the `records.url` column,
+which is also the document `_id`, and the legacy fields `id`, `doi` and `_additional_metadata` are not indexed.
 The `records` table is only read.
 
 Trigger it from the UI ("Trigger DAG w/ config") with:
