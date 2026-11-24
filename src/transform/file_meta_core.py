@@ -12,8 +12,8 @@ from datahugger import (
     DataverseJsonSrcDataset,
     FileEntry,
     HalJsonSrcDataset,
-    ZenodoJsonSrcDataset,
     MdpositJsonSrcDataset,
+    ZenodoJsonSrcDataset,
     ZipEntry,
     resolve,
 )
