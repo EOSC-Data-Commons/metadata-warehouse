@@ -1,3 +1,4 @@
+import copy
 import unittest
 from unittest.mock import patch
 
@@ -10,6 +11,7 @@ def make_row(n, datacite_json='default'):
     return {
         'id': f'id-{n}',
         'record_identifier': f'oai:example:{n}',
+        'url': f'https://example.org/{n}',
         'datacite_json': datacite_json,
         'embeddings': [0.1 * n, 0.2 * n],
         'code': 'REPO',
@@ -37,6 +39,42 @@ class TestRowToSource(unittest.TestCase):
 
     def test_without_datacite_json(self):
         self.assertIsNone(opensearch_sync.row_to_source(make_row(1, datacite_json=None)))
+
+    def test_old_record_is_normalized(self):
+        # old schema: no url, but id and doi (and the field of an old transform)
+        old_json = {
+            'id': 'https://doi.org/10.1234/abc',
+            'doi': '10.1234/abc',
+            '_additional_metadata': {'a': 1},
+            'emb': None,
+            'titles': [{'title': 'A title'}],
+        }
+
+        source = opensearch_sync.row_to_source(make_row(1, datacite_json=old_json))
+
+        self.assertEqual(
+            source,
+            {
+                'url': 'https://example.org/1',
+                'titles': [{'title': 'A title'}],
+                'emb': [0.1, 0.2],
+                '_repo': 'REPO',
+                '_harvest_url': 'https://example.org/oai',
+                '_record_identifier': 'oai:example:1',
+            },
+        )
+
+    def test_url_column_wins(self):
+        row = make_row(1, datacite_json={'url': 'https://other.example.org/x', 'emb': None})
+        self.assertEqual(opensearch_sync.row_to_source(row)['url'], 'https://example.org/1')
+
+    def test_row_is_not_modified(self):
+        row = make_row(1, datacite_json={'id': 'x', 'doi': 'y', 'emb': None})
+        expected = copy.deepcopy(row)
+
+        opensearch_sync.row_to_source(row)
+
+        self.assertEqual(row, expected)
 
 
 class TestToBulkActions(unittest.TestCase):
@@ -83,7 +121,10 @@ class TestSyncRecords(unittest.TestCase):
         # 5 rows, one without datacite_json, batch size 2 -> 3 batches, then an empty page ends the loop
         pages = [
             [make_row(1), make_row(2)],
-            [make_row(3), make_row(4, datacite_json=None)],
+            [
+                make_row(3, datacite_json={'id': 'https://doi.org/10.1/x', 'doi': '10.1/x'}),
+                make_row(4, datacite_json=None),
+            ],
             [make_row(5)],
             [],
         ]
@@ -104,6 +145,12 @@ class TestSyncRecords(unittest.TestCase):
         self.assertEqual(first_actions[0]['_id'], 'https://example.org/1')
         self.assertEqual(first_actions[0]['_index'], 'idx')
         self.assertEqual(first_actions[0]['_source']['_repo'], 'REPO')
+        # an old record without url in datacite_json is indexed with the url of the column as _id
+        old_record_action = bulk.call_args_list[1].args[1][0]
+        self.assertEqual(old_record_action['_id'], 'https://example.org/3')
+        self.assertEqual(old_record_action['_source']['url'], 'https://example.org/3')
+        self.assertNotIn('doi', old_record_action['_source'])
+        self.assertNotIn('id', old_record_action['_source'])
         _client.return_value.close.assert_called_once()
 
     def test_invalid_batch_size(self):
