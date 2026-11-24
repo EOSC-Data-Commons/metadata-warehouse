@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.1](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.12.0...v1.12.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **transform:** remove doi leftover in SQL query ([#219](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/219)) ([27b7316](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/27b7316cb130d0a1fd29f7ab50ab79d9e9b1daae))
+
 ## [1.12.0](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.11.0...v1.12.0) (2026-11-23)
 
 
