@@ -229,6 +229,24 @@ Params: `harvest_urls` (harvest only these endpoints), `all_runs` (index all clo
 `reuse_embeddings`, `batch_size`. Schedule: set `HARVEST_SCHEDULE` (cron) in `.env`, otherwise the DAG only runs
 when triggered manually. The crawler version is set with `HARVESTER_REF` (branch/tag/commit, built into the image).
 
+### DAG `opensearch_sync_index`
+
+Fills a NEW OpenSearch index from the `records` table (DAG id `warehouse_opensearch_sync_index`). Use it when
+OpenSearch is out of sync with the database, e.g. after records were deleted manually in the DB.
+Unlike `reindex_provider` nothing is harvested, transformed or embedded: the stored `datacite_json` and `embeddings`
+of every record are indexed, together with the repository code and harvest url of its endpoint.
+Old records (from before the `doi` column was removed) are normalized like new ones: `url` is the `records.url` column,
+which is also the document `_id`, and the legacy fields `id`, `doi` and `_additional_metadata` are not indexed.
+The `records` table is only read.
+
+Trigger it from the UI ("Trigger DAG w/ config") with:
+- `index_name` (required, must NOT exist yet: if it exists the DAG run fails), `batch_size` (default `CELERY_BATCH_SIZE`),
+  `embedding_dims` (default `EMBEDDING_DIMS`)
+
+`create_index` creates the index with `config/opensearch_mapping.json`, `sync_records` reads the table with keyset
+pagination (batches of `batch_size`, ordered by `records.id`) and bulk-indexes it. There is no resume: if the sync
+fails, delete the partial index and trigger the DAG again.
+
 #### Environment variables
 
 Optionally add the following env variables (not needed for local dev):

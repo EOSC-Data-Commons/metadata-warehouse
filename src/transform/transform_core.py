@@ -24,6 +24,7 @@ from utils.embedding_utils import (
     get_embedding_text_from_fields,
     preprocess_batch,
 )
+from utils.opensearch_utils import make_opensearch_document
 from utils.queue_utils import HarvestEventQueue
 
 # OAI-PMH XML namespaces
@@ -101,14 +102,12 @@ def transform_batch_impl(
         cur = conn.cursor()
 
         normalized: list[SourceWithEmbeddingText] = []
-        for ele in batch:
-            harvest_event = HarvestEventQueue(*ele)  # reconstruct HarvestEvent from serialized list
-
+        for harvest_event in batch:
             if harvest_event.is_deleted:
                 # find record in DB
                 cur.execute(
                     """
-                SELECT id, doi, url FROM records
+                SELECT id, url FROM records
                 WHERE endpoint_id = %s and record_identifier = %s
                 """,
                     (harvest_event.endpoint_id, harvest_event.record_identifier),
@@ -117,10 +116,9 @@ def transform_batch_impl(
                 record_to_delete = cur.fetchone()
 
                 if record_to_delete is not None:
-                    id = record_to_delete['id']
-                    doi = record_to_delete.get('doi')
-
-                    opensearch_id = doi if doi is not None else record_to_delete['url']
+                    rec_id = record_to_delete['id']
+                    # the OpenSearch _id is the url (see preprocess_batch), the doi column no longer exists
+                    opensearch_id = record_to_delete['url']
 
                     try:
                         # delete document from OpenSearch
@@ -139,7 +137,7 @@ def transform_batch_impl(
                         """
                     DELETE FROM records WHERE id = %s;
                     """,
-                        [id],
+                        [rec_id],
                     )
 
                 continue
@@ -220,11 +218,13 @@ def transform_batch_impl(
                     src_with_emb.append(
                         OpenSearchSourceWithEmbedding(
                             src={
-                                **normalized_ele.src,
+                                **make_opensearch_document(
+                                    src=normalized_ele.src,
+                                    repository=normalized_ele.event.code,
+                                    harvest_url=normalized_ele.event.harvest_url,
+                                    record_identifier=normalized_ele.event.record_identifier,
+                                ),
                                 'emb': row['embeddings'],
-                                '_additional_metadata': normalized_ele.event.additional_metadata,
-                                '_repo': normalized_ele.event.code,
-                                '_harvest_url': normalized_ele.event.harvest_url,
                             },
                             harvest_event=normalized_ele.event,
                         )
