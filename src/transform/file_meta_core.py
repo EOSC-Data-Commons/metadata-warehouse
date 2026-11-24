@@ -183,7 +183,6 @@ def transform_filemetadata_batch_impl(resources: TransformFilemetadata, batch: l
 
                     files.extend(file_meta)
 
-
                 elif harvest_event.code == ProviderCode.FINBIF:
                     # just add download url
                     add_metadata = json.loads(harvest_event.additional_metadata)
