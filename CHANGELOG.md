@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.3](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.12.2...v1.12.3) (2026-11-25)
+
+
+### Bug Fixes
+
+* adjust ENV variables for new tool-regitry service in warehouse ([#214](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/214)) ([61a5520](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/61a55201099e5894a6f2bbf14f567a6ccad84302))
+
 ## [1.12.2](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.12.1...v1.12.2) (2026-11-25)
 
 
