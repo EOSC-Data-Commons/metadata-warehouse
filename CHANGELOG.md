@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.2](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.12.1...v1.12.2) (2026-11-25)
+
+
+### Bug Fixes
+
+* add latest tag to the images ([#221](https://github.com/EOSC-Data-Commons/metadata-warehouse/issues/221)) ([c60ceec](https://github.com/EOSC-Data-Commons/metadata-warehouse/commit/c60ceecf31951d7e311cd247655e649808769f58))
+
 ## [1.12.1](https://github.com/EOSC-Data-Commons/metadata-warehouse/compare/v1.12.0...v1.12.1) (2026-11-24)
 
 
