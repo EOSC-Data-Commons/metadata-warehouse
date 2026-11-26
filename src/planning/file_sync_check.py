@@ -113,7 +113,7 @@ def file_db_config() -> PostgresConfig:
 
 def list_endpoints(harvest_urls: list[str]) -> list[dict[str, Any]]:
     """The endpoints to check (all if `harvest_urls` is empty). An unknown harvest url raises a ValueError."""
-    with psycopg.connect(**PostgresConfig().connection_params, row_factory=dict_row) as conn:
+    with psycopg.connect(**PostgresConfig().read_only_connection_params, row_factory=dict_row) as conn:
         rows = conn.execute(_SELECT_ENDPOINTS, (harvest_urls, harvest_urls)).fetchall()
 
     unknown = sorted(set(harvest_urls) - {row['harvest_url'] for row in rows})
@@ -181,13 +181,13 @@ def check_endpoint(endpoint: dict[str, Any], batch_size: int, sample_size: int) 
     """Counts the records of one endpoint and the matching file rows, in batches of `batch_size` records."""
     stats = new_stats(endpoint)
 
-    with (
-        psycopg.connect(**PostgresConfig().connection_params, row_factory=dict_row, autocommit=True) as datasets,
-        psycopg.connect(**file_db_config().connection_params, row_factory=dict_row, autocommit=True) as files,
-    ):
-        datasets.read_only = True
-        files.read_only = True
+    dataset_params = PostgresConfig().read_only_connection_params
+    file_params = file_db_config().read_only_connection_params
 
+    with (
+        psycopg.connect(**dataset_params, row_factory=dict_row, autocommit=True) as datasets,
+        psycopg.connect(**file_params, row_factory=dict_row, autocommit=True) as files,
+    ):
         last_identifier = ''
         while True:
             query = (endpoint['endpoint_id'], last_identifier, batch_size)

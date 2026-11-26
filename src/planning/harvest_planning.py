@@ -25,7 +25,7 @@ def get_endpoints_to_harvest(warehouse_api_url: str) -> tuple[list[str], list[st
 
 def db_now_iso() -> str:
     """Current time of the database server (used as reference to find the runs harvested afterwards)."""
-    with psycopg.connect(**PostgresConfig().connection_params) as conn:
+    with psycopg.connect(**PostgresConfig().read_only_connection_params) as conn:
         row = conn.execute('SELECT now()').fetchone()
         assert row is not None
         return row[0].isoformat()  # type: ignore[no-any-return]
@@ -33,7 +33,7 @@ def db_now_iso() -> str:
 
 def endpoint_exists(harvest_url: str) -> bool:
     """True if an endpoint with this harvest url is defined."""
-    with psycopg.connect(**PostgresConfig().connection_params) as conn:
+    with psycopg.connect(**PostgresConfig().read_only_connection_params) as conn:
         row = conn.execute('SELECT 1 FROM endpoints WHERE harvest_url = %s', (harvest_url,)).fetchone()
     return row is not None
 
@@ -66,6 +66,6 @@ def find_closed_runs(harvest_urls: list[str] | None, completed_since: str | None
         ORDER BY hr.completed_at, hr.id
     """  # noqa: S608 (only fixed conditions are formatted in, values are passed as parameters)
 
-    with psycopg.connect(**PostgresConfig().connection_params, row_factory=dict_row) as conn:
+    with psycopg.connect(**PostgresConfig().read_only_connection_params, row_factory=dict_row) as conn:
         rows = conn.execute(query, params).fetchall()
     return [{'harvest_run_id': str(row['id']), 'harvest_url': row['harvest_url']} for row in rows]

@@ -111,7 +111,6 @@ class FakeConnection:
     def __init__(self, records=None, files=None):
         self.records = records or []  # (record_identifier, has_additional_metadata), sorted
         self.files = files or {}  # record_identifier -> number of file rows
-        self.read_only = False
         self.record_queries = []
 
     def __enter__(self):
@@ -156,7 +155,6 @@ class TestCheckEndpoint(unittest.TestCase):
 
         # 5 records in batches of 2: three queries with data and a fourth that ends the loop
         self.assertEqual(datasets.record_queries, ['', 'id-1', 'id-3', 'id-4'])
-        self.assertTrue(datasets.read_only and files.read_only)
         self.assertEqual(stats['records'], 5)
         self.assertEqual(stats['records_with_files'], 2)
         self.assertEqual(stats['file_rows'], 4)

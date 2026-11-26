@@ -37,3 +37,11 @@ class PostgresConfig:
             'password': self.password,
             'port': self.port,
         }
+
+    @property
+    def read_only_connection_params(self) -> dict[str, Any]:
+        """Like `connection_params`, but every transaction of the session is read-only (a write fails with an error).
+
+        A guard against accidental writes, not a security boundary: the session itself can still switch it off.
+        """
+        return {**self.connection_params, 'options': '-c default_transaction_read_only=on'}
