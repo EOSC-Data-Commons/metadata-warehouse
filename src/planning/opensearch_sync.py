@@ -133,7 +133,9 @@ def sync_records(index_name: str, batch_size: int) -> int:
 
     try:
         # autocommit: no transaction stays open during the whole (long) sync
-        with psycopg.connect(**PostgresConfig().connection_params, row_factory=dict_row, autocommit=True) as conn:
+        with psycopg.connect(
+            **PostgresConfig().read_only_connection_params, row_factory=dict_row, autocommit=True
+        ) as conn:
             while True:
                 rows = conn.execute(_SELECT_BATCH, (last_id, batch_size)).fetchall()
                 if not rows:

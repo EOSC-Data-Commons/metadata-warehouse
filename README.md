@@ -229,6 +229,29 @@ Params: `harvest_urls` (harvest only these endpoints), `all_runs` (index all clo
 `reuse_embeddings`, `batch_size`. Schedule: set `HARVEST_SCHEDULE` (cron) in `.env`, otherwise the DAG only runs
 when triggered manually. The crawler version is set with `HARVESTER_REF` (branch/tag/commit, built into the image).
 
+### DAG `check_file_sync`
+
+Read-only check if the file DB can be looked up for the records of the dataset DB (DAG id `warehouse_check_file_sync`,
+manual trigger only). The file metadata of a record is found in `record_files` by (`harvest_url`, `record_identifier`),
+while `records` only has the `endpoint_id`. For every endpoint the DAG translates the endpoint to its harvest url and
+counts the matching rows in the file DB. Nothing is written.
+
+Trigger it from the UI ("Trigger DAG w/ config") with (all optional):
+- `harvest_urls` (default: all endpoints), `only_gaps` (default `false`), `sample_size` (default 10, examples per
+  endpoint), `batch_size` (default 1000, records per lookup), `fail_on_gaps` (default `false`)
+
+The report in the log of the task `report` has per endpoint the number of records, the records with
+`additional_metadata`, the records with files, the file rows and the records per bucket:
+- `in_sync`: input for the file extractor (`additional_metadata`) and file rows
+- `possible_sync_issue`: input and a supported provider, but no file rows (a signal, not a proof)
+- `expected_gap`: no `additional_metadata` and no file rows
+- `unexpected_files`: file rows without `additional_metadata`
+- `unsupported_provider`: `additional_metadata`, but the file extractor does not support the provider
+
+SWISS is crawled from the web and does not use `additional_metadata`, so its records always count as having input.
+The supported providers are a constant in `src/planning/file_sync_check.py`, keep it in sync with
+`src/transform/file_meta_core.py`.
+
 ### DAG `opensearch_sync_index`
 
 Fills a NEW OpenSearch index from the `records` table (DAG id `warehouse_opensearch_sync_index`). Use it when

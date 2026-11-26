@@ -39,7 +39,7 @@ def ensure_index_exists(index_name: str) -> None:
 
 def plan_batches(harvest_run_id: str, batch_size: int) -> list[BatchRange]:
     """Splits the harvest events of a closed harvest run into batches of `batch_size` events."""
-    with psycopg.connect(**PostgresConfig().connection_params, row_factory=dict_row) as conn:
+    with psycopg.connect(**PostgresConfig().read_only_connection_params, row_factory=dict_row) as conn:
         run = conn.execute('SELECT status FROM harvest_runs WHERE id = %s::uuid', (harvest_run_id,)).fetchone()
         if run is None:
             raise ValueError(f'Harvest run {harvest_run_id} does not exist')
@@ -58,7 +58,7 @@ def plan_batches(harvest_run_id: str, batch_size: int) -> list[BatchRange]:
 
 def load_batch(harvest_run_id: str, first_id: str, last_id: str) -> list[HarvestEventQueue]:
     """Loads the harvest events of one planned batch (all events of the run with id in [first_id, last_id])."""
-    with psycopg.connect(**PostgresConfig().connection_params, row_factory=dict_row) as conn:
+    with psycopg.connect(**PostgresConfig().read_only_connection_params, row_factory=dict_row) as conn:
         cur = conn.cursor()
         cur.execute(
             """
