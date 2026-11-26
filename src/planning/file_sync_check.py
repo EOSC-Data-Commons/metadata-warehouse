@@ -206,7 +206,7 @@ def check_endpoint(endpoint: dict[str, Any], batch_size: int, sample_size: int) 
 
 
 def has_gaps(stats: dict[str, Any]) -> bool:
-    return stats[POSSIBLE_SYNC_ISSUE] > 0
+    return int(stats[POSSIBLE_SYNC_ISSUE]) > 0
 
 
 def _percent(part: int, total: int) -> str:
